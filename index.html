@@ -58,24 +58,44 @@
             </div>
             <p class="filter-hint">
               <span id="favoritesCountHint">Favoritos guardados neste navegador.</span>
-              Combina com a pesquisa e, em Spells, com o nível.
+              Em Spells: nível, escola, classe e subclasse (combináveis com a pesquisa).
             </p>
             <div id="resourceExtraFilters" class="resource-extra-filters" hidden>
-              <div class="spell-level-row">
-                <label for="spellLevelSelect" class="spell-level-label">Nível do feitiço</label>
-                <select id="spellLevelSelect" class="spell-level-select" aria-label="Filtrar feitiços por nível">
-                  <option value="">Todos os níveis</option>
-                  <option value="0">Truques (0)</option>
-                  <option value="1">1º nível</option>
-                  <option value="2">2º nível</option>
-                  <option value="3">3º nível</option>
-                  <option value="4">4º nível</option>
-                  <option value="5">5º nível</option>
-                  <option value="6">6º nível</option>
-                  <option value="7">7º nível</option>
-                  <option value="8">8º nível</option>
-                  <option value="9">9º nível</option>
-                </select>
+              <div class="spell-filters-grid">
+                <div class="spell-filter-field">
+                  <label for="spellLevelSelect" class="spell-level-label">Nível</label>
+                  <select id="spellLevelSelect" class="spell-level-select" aria-label="Filtrar feitiços por nível">
+                    <option value="">Todos</option>
+                    <option value="0">Truques (0)</option>
+                    <option value="1">1º</option>
+                    <option value="2">2º</option>
+                    <option value="3">3º</option>
+                    <option value="4">4º</option>
+                    <option value="5">5º</option>
+                    <option value="6">6º</option>
+                    <option value="7">7º</option>
+                    <option value="8">8º</option>
+                    <option value="9">9º</option>
+                  </select>
+                </div>
+                <div class="spell-filter-field">
+                  <label for="spellSchoolSelect" class="spell-level-label">Escola</label>
+                  <select id="spellSchoolSelect" class="spell-level-select" aria-label="Filtrar por escola de magia">
+                    <option value="">Todas</option>
+                  </select>
+                </div>
+                <div class="spell-filter-field">
+                  <label for="spellClassSelect" class="spell-level-label">Classe</label>
+                  <select id="spellClassSelect" class="spell-level-select" aria-label="Filtrar por classe">
+                    <option value="">Todas</option>
+                  </select>
+                </div>
+                <div class="spell-filter-field">
+                  <label for="spellSubclassSelect" class="spell-level-label">Subclasse</label>
+                  <select id="spellSubclassSelect" class="spell-level-select" aria-label="Filtrar por subclasse">
+                    <option value="">Todas</option>
+                  </select>
+                </div>
               </div>
             </div>
             <div id="paginationTop" class="pagination" aria-label="Paginação"></div>

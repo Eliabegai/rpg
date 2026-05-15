@@ -245,25 +245,33 @@ body {
   display: none !important;
 }
 
-.spell-level-row {
+.spell-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 0.65rem 0.85rem;
+}
+
+.spell-filter-field {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
 }
 
 .spell-level-label {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: bold;
   color: #333;
 }
 
 .spell-level-select {
-  min-width: 12rem;
+  width: 100%;
+  min-width: 0;
   padding: 0.45rem 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
   font: inherit;
+  font-size: 0.85rem;
   background: #fff;
 }
 

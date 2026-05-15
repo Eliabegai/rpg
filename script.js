@@ -11,9 +11,14 @@ const DEFAULT_SESSION = {
   itemPath: "",
   filter: "",
   spellLevel: "",
+  spellSchool: "",
+  spellClass: "",
+  spellSubclass: "",
   page: 1,
   listScope: "all",
 };
+
+const SPELL_META_CONCURRENCY = 12;
 /** BCP 47 — @see https://5e-bits.github.io/docs/reference/multilingual */
 let currentLocale = "pt-BR";
 let listScopeFilter = "all";
@@ -30,6 +35,9 @@ const paginationBottom = document.getElementById("paginationBottom");
 const detailPanel = document.getElementById("detailPanel");
 const resourceExtraFilters = document.getElementById("resourceExtraFilters");
 const spellLevelSelect = document.getElementById("spellLevelSelect");
+const spellSchoolSelect = document.getElementById("spellSchoolSelect");
+const spellClassSelect = document.getElementById("spellClassSelect");
+const spellSubclassSelect = document.getElementById("spellSubclassSelect");
 const localeSelect = document.getElementById("localeSelect");
 const listScopeSelect = document.getElementById("listScopeSelect");
 const apiRootDocLink = document.getElementById("apiRootDocLink");
@@ -39,6 +47,10 @@ let activeSidebarBtn = null;
 
 let currentResourceLabel = "";
 let spellLevelFilterValue = "";
+let spellSchoolFilterValue = "";
+let spellClassFilterValue = "";
+let spellSubclassFilterValue = "";
+let spellFilterOptionsLoaded = false;
 let allResults = [];
 let currentFilter = "";
 let currentPage = 1;
@@ -116,9 +128,149 @@ function persistUiSession() {
     itemPath: selectedItemPath,
     filter: currentFilter,
     spellLevel: spellLevelFilterValue,
+    spellSchool: spellSchoolFilterValue,
+    spellClass: spellClassFilterValue,
+    spellSubclass: spellSubclassFilterValue,
     page: currentPage,
     listScope: listScopeFilter,
   });
+}
+
+function spellMetaCacheKey() {
+  return `dnd5eapi.spellMeta.${currentLocale}`;
+}
+
+function resetSpellExtraFilters() {
+  spellLevelFilterValue = "";
+  spellSchoolFilterValue = "";
+  spellClassFilterValue = "";
+  spellSubclassFilterValue = "";
+  if (spellLevelSelect) spellLevelSelect.value = "";
+  if (spellSchoolSelect) spellSchoolSelect.value = "";
+  if (spellClassSelect) spellClassSelect.value = "";
+  if (spellSubclassSelect) spellSubclassSelect.value = "";
+}
+
+function fillSelectFromApiResults(selectEl, results, emptyLabel) {
+  if (!selectEl) return;
+  const current = selectEl.value;
+  selectEl.replaceChildren();
+  const empty = document.createElement("option");
+  empty.value = "";
+  empty.textContent = emptyLabel;
+  selectEl.appendChild(empty);
+  const sorted = [...(results || [])].sort((a, b) =>
+    String(a.name ?? a.index).localeCompare(String(b.name ?? b.index), undefined, { sensitivity: "base" })
+  );
+  for (const row of sorted) {
+    const o = document.createElement("option");
+    o.value = row.index;
+    o.textContent = row.name ?? formatResourceLabel(row.index);
+    selectEl.appendChild(o);
+  }
+  if ([...selectEl.options].some((o) => o.value === current)) selectEl.value = current;
+}
+
+async function populateSpellFilterDropdowns() {
+  if (spellFilterOptionsLoaded) return;
+  try {
+    const [schoolsRes, classesRes, subclassesRes] = await Promise.all([
+      apiFetch("/api/2014/magic-schools"),
+      apiFetch("/api/2014/classes"),
+      apiFetch("/api/2014/subclasses"),
+    ]);
+    if (schoolsRes.ok) {
+      const data = await schoolsRes.json();
+      fillSelectFromApiResults(spellSchoolSelect, data.results, "Todas");
+    }
+    if (classesRes.ok) {
+      const data = await classesRes.json();
+      fillSelectFromApiResults(spellClassSelect, data.results, "Todas");
+    }
+    if (subclassesRes.ok) {
+      const data = await subclassesRes.json();
+      fillSelectFromApiResults(spellSubclassSelect, data.results, "Todas");
+    }
+    spellFilterOptionsLoaded = true;
+  } catch {
+    /* dropdowns ficam só com "Todas" */
+  }
+}
+
+function loadSpellMetaCache() {
+  try {
+    const raw = sessionStorage.getItem(spellMetaCacheKey());
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveSpellMetaCache(metaByIndex) {
+  try {
+    sessionStorage.setItem(spellMetaCacheKey(), JSON.stringify(metaByIndex));
+  } catch {
+    /* quota */
+  }
+}
+
+async function enrichSpellsWithMeta(spellRefs) {
+  const metaByIndex = loadSpellMetaCache();
+  const missing = spellRefs.filter((ref) => ref.index && !metaByIndex[ref.index]);
+
+  if (missing.length > 0) {
+    mainSubtitle.textContent = `A carregar escolas e classes (${missing.length} feitiços)…`;
+    for (let i = 0; i < missing.length; i += SPELL_META_CONCURRENCY) {
+      const chunk = missing.slice(i, i + SPELL_META_CONCURRENCY);
+      await Promise.all(
+        chunk.map(async (ref) => {
+          try {
+            const res = await apiFetch(ref.url);
+            if (!res.ok) return;
+            const d = await res.json();
+            metaByIndex[ref.index] = {
+              school: d.school?.index ?? "",
+              classes: (d.classes || []).map((c) => c.index).filter(Boolean),
+              subclasses: (d.subclasses || []).map((c) => c.index).filter(Boolean),
+            };
+          } catch {
+            metaByIndex[ref.index] = { school: "", classes: [], subclasses: [] };
+          }
+        })
+      );
+    }
+    saveSpellMetaCache(metaByIndex);
+  }
+
+  return spellRefs.map((ref) => ({
+    ...ref,
+    spellMeta: metaByIndex[ref.index] || { school: "", classes: [], subclasses: [] },
+  }));
+}
+
+function spellMatchesExtraFilters(item) {
+  if (currentResourceLabel !== "spells") return true;
+  const meta = item.spellMeta;
+  if (!meta) return true;
+
+  if (spellLevelFilterValue !== "") {
+    if (Number(item.level) !== Number(spellLevelFilterValue)) return false;
+  }
+  if (spellSchoolFilterValue !== "" && meta.school !== spellSchoolFilterValue) return false;
+  if (spellClassFilterValue !== "" && !meta.classes.includes(spellClassFilterValue)) return false;
+  if (spellSubclassFilterValue !== "" && !meta.subclasses.includes(spellSubclassFilterValue)) return false;
+  return true;
+}
+
+function hasActiveSpellFilters() {
+  return (
+    spellLevelFilterValue !== "" ||
+    spellSchoolFilterValue !== "" ||
+    spellClassFilterValue !== "" ||
+    spellSubclassFilterValue !== ""
+  );
 }
 
 function loadFavorites() {
@@ -276,11 +428,22 @@ function onLocaleChange() {
   if (!localeSelect) return;
   currentLocale = localeSelect.value;
   localStorage.setItem(STORAGE_LOCALE, currentLocale);
+  spellFilterOptionsLoaded = false;
   syncApiRootDocLinkHref();
   const btn = activeSidebarBtn;
   if (btn?.dataset.resourceKey && btn.dataset.resourcePath) {
     selectResource(btn.dataset.resourceKey, btn.dataset.resourcePath, btn);
   }
+}
+
+function onSpellFilterChange() {
+  if (spellLevelSelect) spellLevelFilterValue = spellLevelSelect.value;
+  if (spellSchoolSelect) spellSchoolFilterValue = spellSchoolSelect.value;
+  if (spellClassSelect) spellClassFilterValue = spellClassSelect.value;
+  if (spellSubclassSelect) spellSubclassFilterValue = spellSubclassSelect.value;
+  currentPage = 1;
+  renderResultsPage();
+  persistUiSession();
 }
 
 function onDetailPanelClick(e) {
@@ -328,9 +491,8 @@ function getFilteredResults() {
     list = list.filter((item) => isFavorite(currentResourceLabel, itemStableIndex(item)));
   }
 
-  if (currentResourceLabel === "spells" && spellLevelFilterValue !== "") {
-    const lv = Number(spellLevelFilterValue);
-    list = list.filter((item) => Number(item.level) === lv);
+  if (currentResourceLabel === "spells") {
+    list = list.filter((item) => spellMatchesExtraFilters(item));
   }
 
   const q = currentFilter.trim().toLowerCase();
@@ -415,9 +577,9 @@ function renderResultsPage() {
       allResults.length === 0
         ? "Lista vazia."
         : listScopeFilter === "favorites"
-          ? "Nenhum favorito neste recurso (ou nada coincide com pesquisa / nível)."
-          : currentResourceLabel === "spells" && spellLevelFilterValue !== ""
-            ? "Nenhum feitiço com este nível (ou combinação com a pesquisa)."
+          ? "Nenhum favorito neste recurso (ou nada coincide com os filtros)."
+          : currentResourceLabel === "spells" && hasActiveSpellFilters()
+            ? "Nenhum feitiço com estes filtros (ou combinação com a pesquisa)."
             : "Nenhum resultado com este filtro.";
     li.appendChild(empty);
     itemResultsList.appendChild(li);
@@ -469,6 +631,7 @@ function renderResultsPage() {
       const metaParts = [];
       if (item.index != null) metaParts.push(String(item.index));
       if (item.level !== undefined && item.level !== null) metaParts.push(`nível ${item.level}`);
+      if (item.spellMeta?.school) metaParts.push(formatResourceLabel(item.spellMeta.school));
 
       if (metaParts.length) {
         const meta = document.createElement("span");
@@ -505,12 +668,9 @@ function resultsFromPayload(data) {
   return null;
 }
 
-function setResourceExtraFiltersVisible(show, resetSpellLevel = true) {
+function setResourceExtraFiltersVisible(show, resetSpellFilters = true) {
   if (resourceExtraFilters) resourceExtraFilters.hidden = !show;
-  if (spellLevelSelect && resetSpellLevel) {
-    spellLevelSelect.value = "";
-    spellLevelFilterValue = "";
-  }
+  if (resetSpellFilters) resetSpellExtraFilters();
 }
 
 function applySessionToUi(session) {
@@ -518,7 +678,13 @@ function applySessionToUi(session) {
   if (itemFilterInput) itemFilterInput.value = currentFilter;
   currentPage = Math.max(1, Number(session.page) || 1);
   spellLevelFilterValue = session.spellLevel ?? "";
+  spellSchoolFilterValue = session.spellSchool ?? "";
+  spellClassFilterValue = session.spellClass ?? "";
+  spellSubclassFilterValue = session.spellSubclass ?? "";
   if (spellLevelSelect) spellLevelSelect.value = spellLevelFilterValue;
+  if (spellSchoolSelect) spellSchoolSelect.value = spellSchoolFilterValue;
+  if (spellClassSelect) spellClassSelect.value = spellClassFilterValue;
+  if (spellSubclassSelect) spellSubclassSelect.value = spellSubclassFilterValue;
   listScopeFilter = session.listScope === "favorites" ? "favorites" : "all";
   if (listScopeSelect) listScopeSelect.value = listScopeFilter;
 }
@@ -554,14 +720,17 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
   currentResourceLabel = label;
   setResourceExtraFiltersVisible(label === "spells", !sessionRestore);
 
+  if (label === "spells") {
+    await populateSpellFilterDropdowns();
+  }
+
   if (sessionRestore) {
     applySessionToUi(sessionRestore);
   } else {
     itemFilterInput.value = "";
     currentFilter = "";
     currentPage = 1;
-    spellLevelFilterValue = "";
-    if (spellLevelSelect) spellLevelSelect.value = "";
+    resetSpellExtraFilters();
     selectedItemUrl = null;
     selectedItemIndex = "";
     selectedItemPath = "";
@@ -572,6 +741,9 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
       itemPath: "",
       filter: "",
       spellLevel: "",
+      spellSchool: "",
+      spellClass: "",
+      spellSubclass: "",
       page: 1,
       listScope: listScopeFilter,
     });
@@ -602,11 +774,13 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
       return;
     }
 
-    allResults = results;
-    const total = data.count ?? results.length;
     if (label === "spells") {
-      mainSubtitle.textContent = `${total} feitiços — filtra por nível e/ou pesquisa; paginação (${PAGE_SIZE} por página).`;
+      allResults = await enrichSpellsWithMeta(results);
+      const total = allResults.length;
+      mainSubtitle.textContent = `${total} feitiços — filtra por nível, escola, classe, subclasse e pesquisa (${PAGE_SIZE} por página).`;
     } else {
+      allResults = results;
+      const total = data.count ?? results.length;
       mainSubtitle.textContent = `${total} itens — filtra com a pesquisa; usa a paginação para percorrer (${PAGE_SIZE} por página).`;
     }
     renderResultsPage();
@@ -838,14 +1012,10 @@ itemFilterInput.addEventListener("input", () => {
   }, 250);
 });
 
-if (spellLevelSelect) {
-  spellLevelSelect.addEventListener("change", () => {
-    spellLevelFilterValue = spellLevelSelect.value;
-    currentPage = 1;
-    renderResultsPage();
-    persistUiSession();
-  });
-}
+if (spellLevelSelect) spellLevelSelect.addEventListener("change", onSpellFilterChange);
+if (spellSchoolSelect) spellSchoolSelect.addEventListener("change", onSpellFilterChange);
+if (spellClassSelect) spellClassSelect.addEventListener("change", onSpellFilterChange);
+if (spellSubclassSelect) spellSubclassSelect.addEventListener("change", onSpellFilterChange);
 
 if (listScopeSelect) {
   const session = loadSession();
