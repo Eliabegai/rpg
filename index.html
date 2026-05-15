@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>D&D 5e API (2014)</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="api-sidebar" aria-label="Atalhos D&D 5e API 2014">
+        <h2 class="sidebar-title">D&D 5e API (2014)</h2>
+        <p class="sidebar-sub">
+          <a
+            id="apiRootDocLink"
+            href="https://www.dnd5eapi.co/api/2014/?lang=pt-BR"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Índice raiz (JSON)</a
+          >
+        </p>
+        <nav id="apiRootNav" class="api-root-nav" aria-label="Recursos da API"></nav>
+      </aside>
+      <main class="main-content">
+        <div class="container">
+          <div class="locale-bar" aria-label="Idioma da API">
+            <label for="localeSelect" class="locale-bar-label">Idioma</label>
+            <select id="localeSelect" class="locale-bar-select" aria-label="Idioma das traduções (BCP 47)">
+              <option value="pt-BR">pt-BR</option>
+            </select>
+          </div>
+          <header class="main-header">
+            <h1 id="mainTitle">D&D 5e — API 2014</h1>
+            <p id="mainSubtitle" class="main-subtitle">
+              Escolhe um recurso na barra lateral para carregar a lista. Clica num item para ver os detalhes em baixo.
+            </p>
+          </header>
+
+          <section id="browsePanel" class="browse-panel" hidden>
+            <div class="browse-toolbar browse-toolbar-split">
+              <div class="browse-toolbar-grow">
+                <label class="visually-hidden" for="itemFilterInput">Pesquisar na lista</label>
+                <input
+                  type="search"
+                  id="itemFilterInput"
+                  class="filter-input"
+                  placeholder="Pesquisar por nome ou índice…"
+                  autocomplete="off"
+                />
+              </div>
+              <div class="filter-group">
+                <label for="listScopeSelect" class="control-label">Lista</label>
+                <select id="listScopeSelect" class="control-select" aria-label="Mostrar todos ou só favoritos">
+                  <option value="all">Todos os itens</option>
+                  <option value="favorites">Só favoritos</option>
+                </select>
+              </div>
+            </div>
+            <p class="filter-hint">
+              <span id="favoritesCountHint">Favoritos guardados neste navegador.</span>
+              Combina com a pesquisa e, em Spells, com o nível.
+            </p>
+            <div id="resourceExtraFilters" class="resource-extra-filters" hidden>
+              <div class="spell-level-row">
+                <label for="spellLevelSelect" class="spell-level-label">Nível do feitiço</label>
+                <select id="spellLevelSelect" class="spell-level-select" aria-label="Filtrar feitiços por nível">
+                  <option value="">Todos os níveis</option>
+                  <option value="0">Truques (0)</option>
+                  <option value="1">1º nível</option>
+                  <option value="2">2º nível</option>
+                  <option value="3">3º nível</option>
+                  <option value="4">4º nível</option>
+                  <option value="5">5º nível</option>
+                  <option value="6">6º nível</option>
+                  <option value="7">7º nível</option>
+                  <option value="8">8º nível</option>
+                  <option value="9">9º nível</option>
+                </select>
+              </div>
+            </div>
+            <div id="paginationTop" class="pagination" aria-label="Paginação"></div>
+            <ul id="itemResultsList" class="item-results-list"></ul>
+            <div id="paginationBottom" class="pagination" aria-label="Paginação"></div>
+          </section>
+
+          <section class="detail-wrap" aria-live="polite">
+            <h2 class="detail-heading">Detalhe</h2>
+            <div id="detailPanel" class="detail-panel">
+              <p class="detail-placeholder">Ainda não há nenhum item selecionado.</p>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>
