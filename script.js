@@ -446,6 +446,30 @@ function onSpellFilterChange() {
   persistUiSession();
 }
 
+function updatePickListHint(fieldset) {
+  const hint = fieldset.querySelector(".detail-pick-hint");
+  if (!hint) return;
+  const max = Number(fieldset.dataset.maxChoose);
+  if (!max || max <= 0) return;
+  const selected = fieldset.querySelectorAll(".detail-pick-input:checked").length;
+  hint.textContent = formatPickHint(selected, max);
+}
+
+function onDetailPanelPickChange(e) {
+  const input = e.target;
+  if (!input.classList?.contains("detail-pick-input") || !detailPanel.contains(input)) return;
+  const fieldset = input.closest(".detail-pick-list");
+  if (!fieldset) return;
+  const max = Number(fieldset.dataset.maxChoose);
+  if (input.checked && max > 0) {
+    const count = fieldset.querySelectorAll(".detail-pick-input:checked").length;
+    if (count > max) {
+      input.checked = false;
+    }
+  }
+  updatePickListHint(fieldset);
+}
+
 function onDetailPanelClick(e) {
   const btn = e.target.closest('[data-action="toggle-fav"]');
   if (!btn || !detailPanel.contains(btn)) return;
@@ -806,8 +830,12 @@ function formatPrimitive(v) {
 
 function formatDescField(desc) {
   if (desc == null) return "";
-  if (Array.isArray(desc)) return desc.map((d) => `<p>${escapeHtml(String(d))}</p>`).join("");
-  return `<p>${escapeHtml(String(desc))}</p>`;
+  if (Array.isArray(desc)) return desc.map((d) => `<p class="detail-text">${escapeHtml(String(d))}</p>`).join("");
+  return `<p class="detail-text">${escapeHtml(String(desc))}</p>`;
+}
+
+function formatFieldLabel(key) {
+  return formatResourceLabel(String(key));
 }
 
 function isNamedApiRef(v) {
@@ -821,48 +849,324 @@ function isNamedApiRef(v) {
   );
 }
 
-function renderComplexValue(v) {
-  if (v === null || v === undefined) return '<p class="detail-muted">—</p>';
-  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
-    return `<p>${formatPrimitive(v)}</p>`;
+function isOptionReference(v) {
+  return v && typeof v === "object" && v.option_type && v.item && typeof v.item === "object";
+}
+
+function isAbilityBonusRow(v) {
+  return v && typeof v === "object" && "bonus" in v && v.ability_score && typeof v.ability_score === "object";
+}
+
+function isStringChoiceOption(v) {
+  return v && typeof v === "object" && v.option_type === "string" && typeof v.string === "string";
+}
+
+function isIdealChoiceOption(v) {
+  return v && typeof v === "object" && v.option_type === "ideal" && v.desc != null;
+}
+
+function formatPickHint(selected, max) {
+  if (max == null || max <= 0) return "";
+  return max === 1 ? `${selected} / 1 selecionado` : `${selected} / ${max} selecionados`;
+}
+
+function renderPickableStringList(options, maxChoose) {
+  const maxAttr = maxChoose != null && maxChoose > 0 ? ` data-max-choose="${maxChoose}"` : "";
+  const hint =
+    maxChoose != null && maxChoose > 0
+      ? `<p class="detail-pick-hint">${escapeHtml(formatPickHint(0, maxChoose))}</p>`
+      : "";
+  const items = options
+    .map(
+      (opt) =>
+        `<li><label class="detail-pick-item"><input type="checkbox" class="detail-pick-input" /><span class="detail-pick-text">${escapeHtml(opt.string)}</span></label></li>`
+    )
+    .join("");
+  return `<fieldset class="detail-pick-list"${maxAttr}><ul class="detail-pick-ul">${items}</ul>${hint}</fieldset>`;
+}
+
+function renderPickableIdealList(options, maxChoose) {
+  const maxAttr = maxChoose != null && maxChoose > 0 ? ` data-max-choose="${maxChoose}"` : "";
+  const hint =
+    maxChoose != null && maxChoose > 0
+      ? `<p class="detail-pick-hint">${escapeHtml(formatPickHint(0, maxChoose))}</p>`
+      : "";
+  const items = options
+    .map((opt) => {
+      const align =
+        Array.isArray(opt.alignments) && opt.alignments.length
+          ? `<span class="detail-pick-meta">${opt.alignments.map((a) => escapeHtml(a.name ?? a.index)).join(" · ")}</span>`
+          : "";
+      const desc = Array.isArray(opt.desc) ? opt.desc.join(" ") : String(opt.desc);
+      return `<li><label class="detail-pick-item detail-pick-item--ideal"><input type="checkbox" class="detail-pick-input" /><span class="detail-pick-text">${escapeHtml(desc)}</span>${align}</label></li>`;
+    })
+    .join("");
+  return `<fieldset class="detail-pick-list"${maxAttr}><ul class="detail-pick-ul">${items}</ul>${hint}</fieldset>`;
+}
+
+function renderOptionsArrayOptions(options, maxChoose) {
+  if (!Array.isArray(options) || options.length === 0) {
+    return '<span class="detail-muted">vazio</span>';
   }
-  if (Array.isArray(v)) {
-    if (v.length === 0) return '<p class="detail-muted">vazio</p>';
-    if (v.every((x) => typeof x === "string")) {
-      return v.map((s) => `<p>${escapeHtml(s)}</p>`).join("");
-    }
-    if (v.every((x) => x && typeof x === "object" && "name" in x && "desc" in x)) {
-      return (
-        '<ul class="detail-list">' +
-        v
-          .map((item) => {
-            const desc = formatDescField(item.desc);
-            return `<li><strong>${escapeHtml(item.name)}</strong>${desc}</li>`;
-          })
-          .join("") +
-        "</ul>"
-      );
-    }
-    return (
-      "<ul class=\"detail-list\">" +
-      v.map((item) => `<li>${renderComplexValue(item)}</li>`).join("") +
-      "</ul>"
-    );
+  if (options.every(isStringChoiceOption)) {
+    return renderPickableStringList(options, maxChoose);
   }
-  if (typeof v === "object") {
-    if (isNamedApiRef(v)) {
-      const idx = v.index != null ? ` <span class="detail-muted">(${escapeHtml(String(v.index))})</span>` : "";
-      return `<p>${escapeHtml(v.name)}${idx}</p>`;
-    }
-    const rows = Object.entries(v)
-      .map(([k2, v2]) => `<dt>${escapeHtml(k2)}</dt><dd>${renderComplexValue(v2)}</dd>`)
-      .join("");
-    return `<dl class="detail-dl">${rows}</dl>`;
+  if (options.every(isIdealChoiceOption)) {
+    return renderPickableIdealList(options, maxChoose);
   }
+  return renderDetailValue(options, 0);
+}
+
+let detailNodeId = 0;
+
+function nextDetailId() {
+  detailNodeId += 1;
+  return `dnode-${detailNodeId}`;
+}
+
+function renderPrimitiveInline(v) {
+  if (v === null || v === undefined) return '<span class="detail-muted">—</span>';
+  if (typeof v === "boolean") return formatPrimitive(v);
   return formatPrimitive(v);
 }
 
+function renderNamedRef(v) {
+  const idx = v.index != null ? ` <span class="detail-muted">(${escapeHtml(String(v.index))})</span>` : "";
+  return `<span class="detail-ref">${escapeHtml(v.name)}${idx}</span>`;
+}
+
+/** Opção da API: option_type "reference" = liga a outro recurso (idioma, proficiência, etc.). */
+function renderOptionReference(v) {
+  const item = v.item;
+  if (item && typeof item === "object" && item.name) return renderNamedRef(item);
+  if (item && typeof item === "object" && item.index) {
+    return `<span class="detail-ref">${escapeHtml(formatResourceLabel(item.index))}</span>`;
+  }
+  return renderPrimitiveInline(v.option_type ?? "—");
+}
+
+/** Desembrulha option_set_type (ex.: options_array) e mostra só o conteúdo útil. */
+function renderChoiceFrom(from, depth, maxChoose) {
+  if (!from || typeof from !== "object") return renderDetailValue(from, depth);
+
+  if (from.option_set_type === "options_array" && Array.isArray(from.options)) {
+    return renderOptionsArrayOptions(from.options, maxChoose);
+  }
+
+  if (from.option_set_type === "resource_list" && from.resource_list_url) {
+    const path = String(from.resource_list_url);
+    return `<p class="detail-text detail-muted-block">Podes escolher qualquer item da lista <span class="detail-ref">${escapeHtml(formatResourceLabel(path.split("/").filter(Boolean).pop() || path))}</span> (lista completa na API).</p>`;
+  }
+
+  return renderDetailValue(from, depth);
+}
+
+function renderCollapse(summary, body, { open = false } = {}) {
+  const openAttr = open ? " open" : "";
+  return `<details class="detail-collapse"${openAttr}><summary>${escapeHtml(summary)}</summary><div class="detail-collapse-body">${body}</div></details>`;
+}
+
+function formatChoiceHeader(choose, type) {
+  const kind = type ? formatFieldLabel(String(type)).toLowerCase() : "opções";
+  return `Escolhe ${choose} ${kind}`;
+}
+
+/** Corpo de um bloco choose + options_array (referências, textos, ideais, etc.). */
+function renderChoiceOptionsBody(v) {
+  if (
+    v &&
+    typeof v === "object" &&
+    v.choose != null &&
+    v.from?.option_set_type === "options_array" &&
+    Array.isArray(v.from.options)
+  ) {
+    return renderOptionsArrayOptions(v.from.options, v.choose);
+  }
+  return renderDetailValue(v, 0);
+}
+
+/** Secção “escolhe N …” dentro de ability_bonuses / languages. */
+function renderChoiceOptionsInline(v) {
+  if (!v || typeof v !== "object" || v.choose == null) return "";
+  const title = formatChoiceHeader(v.choose, v.type);
+  return `<section class="detail-inline-choice"><h4 class="detail-inline-choice-title">${escapeHtml(title)}</h4>${renderChoiceOptionsBody(v)}</section>`;
+}
+
+function findParentKeyForOptions(optionsKey, keySet) {
+  if (!optionsKey.endsWith("_options")) return null;
+  if (optionsKey === "ability_bonus_options" && keySet.has("ability_bonuses")) return "ability_bonuses";
+  if (optionsKey === "language_options" && keySet.has("languages")) return "languages";
+  const stem = optionsKey.slice(0, -"_options".length);
+  if (keySet.has(`${stem}s`)) return `${stem}s`;
+  if (keySet.has(`${stem}es`)) return `${stem}es`;
+  return null;
+}
+
+function findOptionsKeyForParent(parentKey, keySet) {
+  if (parentKey === "ability_bonuses" && keySet.has("ability_bonus_options")) return "ability_bonus_options";
+  if (parentKey === "languages" && keySet.has("language_options")) return "language_options";
+  const candidates = [
+    `${parentKey.replace(/s$/, "")}_options`,
+    `${parentKey.replace(/_bonuses$/, "_bonus")}_options`,
+  ];
+  return candidates.find((k) => keySet.has(k)) ?? null;
+}
+
+/** choose + from.options_array sozinho no topo (sem par *_options). */
+function renderTopLevelChoiceBlock(key, v, { open = false } = {}) {
+  const label = formatFieldLabel(key);
+  if (v && typeof v === "object" && v.choose != null && v.from?.option_set_type === "options_array") {
+    const header = `${label} — ${formatChoiceHeader(v.choose, v.type)}`;
+    return renderCollapse(header, renderChoiceOptionsBody(v), { open });
+  }
+  return renderCollapse(label, renderDetailValue(v, 0, label), { open });
+}
+
+function renderTopLevelBlock(key, v, pairedOptions, { open = false } = {}) {
+  if (pairedOptions != null) {
+    const label = formatFieldLabel(key);
+    const base =
+      v != null && !(Array.isArray(v) && v.length === 0)
+        ? renderDetailValue(v, 0, label)
+        : "";
+    const body = base + renderChoiceOptionsInline(pairedOptions);
+    return renderCollapse(label, body || '<span class="detail-muted">—</span>', { open });
+  }
+  return renderTopLevelChoiceBlock(key, v, { open });
+}
+
+function renderObjectRows(entries, depth) {
+  const rows = entries
+    .filter(([k]) => k !== "updated_at")
+    .map(([k, val]) => {
+      const label = formatFieldLabel(k);
+      return `<dt>${escapeHtml(label)}</dt><dd>${renderDetailValue(val, depth + 1, label)}</dd>`;
+    })
+    .join("");
+  return `<dl class="detail-kv">${rows}</dl>`;
+}
+
+function renderDetailValue(v, depth = 0, fieldLabel = "") {
+  if (v === null || v === undefined) return '<span class="detail-muted">—</span>';
+
+  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+    if (typeof v === "string" && v.length > 100) {
+      return `<p class="detail-text">${escapeHtml(v)}</p>`;
+    }
+    return renderPrimitiveInline(v);
+  }
+
+  if (Array.isArray(v)) {
+    if (v.length === 0) return '<span class="detail-muted">vazio</span>';
+
+    if (v.every((x) => typeof x === "string")) {
+      return `<ul class="detail-tags">${v.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`;
+    }
+
+    if (v.every((x) => isNamedApiRef(x))) {
+      return `<ul class="detail-chip-list">${v.map((x) => `<li>${renderNamedRef(x)}</li>`).join("")}</ul>`;
+    }
+
+    if (v.every((x) => isAbilityBonusRow(x))) {
+      return `<ul class="detail-chip-list">${v
+        .map(
+          (x) =>
+            `<li><span class="detail-ref">${escapeHtml(x.ability_score.name ?? x.ability_score.index)}</span> <strong>+${escapeHtml(String(x.bonus))}</strong></li>`
+        )
+        .join("")}</ul>`;
+    }
+
+    if (v.every((x) => isOptionReference(x))) {
+      return `<ul class="detail-option-list">${v.map((x) => `<li>${renderOptionReference(x)}</li>`).join("")}</ul>`;
+    }
+
+    if (v.every((x) => isStringChoiceOption(x))) {
+      return renderPickableStringList(v, null);
+    }
+
+    if (v.every((x) => isIdealChoiceOption(x))) {
+      return renderPickableIdealList(v, null);
+    }
+
+    if (v.every((x) => x && typeof x === "object" && "name" in x && "desc" in x)) {
+      return v
+        .map((item, i) =>
+          renderCollapse(item.name || `Item ${i + 1}`, formatDescField(item.desc), { open: false })
+        )
+        .join("");
+    }
+
+    const summary = fieldLabel ? `${fieldLabel} (${v.length})` : `Lista (${v.length})`;
+    const body = v
+      .map((item, i) => {
+        if (item === null || typeof item !== "object") {
+          return `<div class="detail-array-item">${renderDetailValue(item, depth + 1)}</div>`;
+        }
+        const itemLabel = item.name || item.option_type || item.index || `#${i + 1}`;
+        return renderCollapse(String(itemLabel), renderDetailValue(item, depth + 1), { open: false });
+      })
+      .join("");
+    return renderCollapse(summary, body, { open: depth === 0 && v.length <= 3 });
+  }
+
+  if (typeof v === "object") {
+    if (isNamedApiRef(v)) return renderNamedRef(v);
+    if (isStringChoiceOption(v)) {
+      return `<p class="detail-text">${escapeHtml(v.string)}</p>`;
+    }
+    if (isIdealChoiceOption(v)) {
+      const desc = Array.isArray(v.desc) ? v.desc.join(" ") : String(v.desc);
+      const align =
+        Array.isArray(v.alignments) && v.alignments.length
+          ? ` <span class="detail-muted">(${v.alignments.map((a) => a.name ?? a.index).join(", ")})</span>`
+          : "";
+      return `<p class="detail-text">${escapeHtml(desc)}${align}</p>`;
+    }
+    if (isOptionReference(v)) return renderOptionReference(v);
+    if (isAbilityBonusRow(v)) {
+      return `<span class="detail-ref">${escapeHtml(v.ability_score.name ?? v.ability_score.index)}</span> <strong>+${escapeHtml(String(v.bonus))}</strong>`;
+    }
+
+    if ("choose" in v && v.from != null) {
+      const header = `Escolher ${v.choose} · ${formatFieldLabel(String(v.type || "opções"))}`;
+      return renderCollapse(header, renderChoiceFrom(v.from, depth + 1, v.choose), { open: depth <= 1 });
+    }
+
+    if ("option_set_type" in v && "options" in v) {
+      if (v.option_set_type === "options_array") {
+        return renderOptionsArrayOptions(v.options, null);
+      }
+      const header = formatFieldLabel(String(v.option_set_type));
+      return renderCollapse(header, renderDetailValue(v.options, depth + 1), { open: false });
+    }
+
+    const entries = Object.entries(v).filter(([k]) => !["url", "updated_at"].includes(k));
+    if (entries.length === 0) return '<span class="detail-muted">—</span>';
+
+    if (depth >= 1 || entries.length > 5) {
+      const summary =
+        fieldLabel ||
+        entries
+          .slice(0, 3)
+          .map(([k]) => formatFieldLabel(k))
+          .join(" · ") ||
+        "Detalhes";
+      return renderCollapse(summary, renderObjectRows(entries, depth), { open: false });
+    }
+
+    return renderObjectRows(entries, depth);
+  }
+
+  return renderPrimitiveInline(v);
+}
+
+/** @deprecated use renderDetailValue */
+function renderComplexValue(v) {
+  return renderDetailValue(v, 0);
+}
+
 function renderDetail(data) {
+  detailNodeId = 0;
   const title = data.name ?? data.index ?? "Detalhe";
   const skip = new Set(["url", "updated_at", "image", "name", "index"]);
   const idx = data.index != null ? String(data.index) : "";
@@ -905,21 +1209,38 @@ function renderDetail(data) {
 
   if (simpleRows.length) {
     html +=
-      '<dl class="detail-dl">' +
-      simpleRows.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${formatPrimitive(v)}</dd>`).join("") +
+      '<dl class="detail-kv detail-kv--top">' +
+      simpleRows
+        .map(([k, v]) => {
+          const label = formatFieldLabel(k);
+          const valHtml =
+            typeof v === "string" && v.length > 100
+              ? `<p class="detail-text">${escapeHtml(v)}</p>`
+              : formatPrimitive(v);
+          return `<dt>${escapeHtml(label)}</dt><dd>${valHtml}</dd>`;
+        })
+        .join("") +
       "</dl>";
   }
 
-  for (const [k, v] of blocks) {
-    html += `<h4 class="detail-section-title">${escapeHtml(k)}</h4>`;
-    html += renderComplexValue(v);
-  }
+  const keySet = new Set(blocks.map(([k]) => k));
+  const blockMap = new Map(blocks);
+  const openFirstBlocks = blocks.length <= 4;
+  let blockIndex = 0;
+  blocks.forEach(([k, v]) => {
+    if (k.endsWith("_options") && findParentKeyForOptions(k, keySet)) return;
+    const optionsKey = findOptionsKeyForParent(k, keySet);
+    const pairedOptions = optionsKey ? blockMap.get(optionsKey) : null;
+    html += renderTopLevelBlock(k, v, pairedOptions, { open: openFirstBlocks && blockIndex < 2 });
+    blockIndex += 1;
+  });
 
   detailPanel.innerHTML = html;
 }
 
 function renderDetailFallback(data) {
-  detailPanel.innerHTML = `<h3 class="detail-title">Resposta</h3>${renderComplexValue(data)}`;
+  detailNodeId = 0;
+  detailPanel.innerHTML = `<h3 class="detail-title">Resposta</h3>${renderDetailValue(data, 0)}`;
 }
 
 async function loadItemDetail(url, rowBtn) {
@@ -1031,6 +1352,7 @@ if (listScopeSelect) {
 }
 
 detailPanel.addEventListener("click", onDetailPanelClick);
+detailPanel.addEventListener("change", onDetailPanelPickChange);
 
 async function boot() {
   await initLocalesDropdown();
