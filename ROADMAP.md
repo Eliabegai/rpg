@@ -8,8 +8,8 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 |------|----------------|
 | **Explorador** | Lista + painel de detalhe genérico (`renderDetail` / `renderDetailValue`) — muito JSON em `<details>` aninhados |
 | **Monstros (DM)** | PV, dano, iniciativa, XP por criatura, divisão de XP na sessão |
-| **Ficha** | Atributos, PV, morte, favoritos, dados — sem nível, sem slots de magia, sem descanso |
-| **Personagens na mesa** | Nome + iniciativa (+ eliminado fora do XP) — sem nível de personagem |
+| **Ficha** | Atributos, PV, nível, XP, slots de magia (v1), descanso, favoritos |
+| **Personagens na mesa** | Nome, nível, XP, iniciativa; sync com ficha por nome |
 
 ---
 
@@ -98,9 +98,9 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 - [x] XP acumulado + barra de progressão
 
 ### Fase C — Ficha completa
-- [ ] Slots de magia (v1)
-- [ ] Descanso curto/longo + ambientes
-- [ ] Sync ficha ↔ mesa
+- [x] Slots de magia (v1)
+- [x] Descanso curto/longo + ambientes
+- [x] Sync ficha ↔ mesa
 
 ### Fase D — Polimento
 - [ ] PWA, modo mesa, histórico de sessão

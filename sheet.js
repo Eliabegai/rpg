@@ -6,6 +6,15 @@ const characterNameInput = document.getElementById("characterName");
 const characterLevelInput = document.getElementById("characterLevelInput");
 const characterXpInput = document.getElementById("characterXpInput");
 const characterXpProgressEl = document.getElementById("characterXpProgress");
+const sheetSyncStatus = document.getElementById("sheetSyncStatus");
+const gameToolsSyncStatus = document.getElementById("gameToolsSyncStatus");
+const casterTypeSelect = document.getElementById("casterTypeSelect");
+const spellSlotsGrid = document.getElementById("spellSlotsGrid");
+const restEnvironmentSelect = document.getElementById("restEnvironmentSelect");
+const restEnvironmentHint = document.getElementById("restEnvironmentHint");
+const hitDiceRemainingInput = document.getElementById("hitDiceRemainingInput");
+const hitDiceMaxHint = document.getElementById("hitDiceMaxHint");
+const restResultMessage = document.getElementById("restResultMessage");
 const localeSelect = document.getElementById("localeSelect");
 const abilityScoresGrid = document.getElementById("abilityScoresGrid");
 const armorClassInput = document.getElementById("armorClassInput");
@@ -1507,6 +1516,27 @@ function onSheetClick(e) {
   }
   if (action === "death-save-reset") {
     onDeathSaveReset();
+    return;
+  }
+  if (action === "sync-sheet-to-dm") {
+    onSyncSheetToDm();
+    return;
+  }
+  if (action === "spell-slots-reset") {
+    onSpellSlotsReset();
+    return;
+  }
+  if (action === "toggle-spell-slot") {
+    onSpellSlotToggle(btn.dataset.slotLevel, btn.dataset.slotIndex);
+    return;
+  }
+  if (action === "short-rest") {
+    onShortRest();
+    return;
+  }
+  if (action === "long-rest") {
+    onLongRest();
+    return;
   }
 }
 
@@ -1535,17 +1565,210 @@ function renderCharacterXpProgress() {
 function onCharacterLevelInput() {
   patchSheet((sheet) => {
     sheet.characterLevel = clampCharacterLevel(characterLevelInput?.value);
+    const maxHd = hitDiceMaxForSheet(sheet);
+    if (hitDiceRemainingForSheet(sheet) > maxHd) sheet.hitDiceRemaining = maxHd;
   });
   renderCharacterXpProgress();
+  renderSpellSlotsGrid();
+  syncHitDiceUi();
 }
 
 function onCharacterXpInput() {
   patchSheet((sheet) => {
     sheet.xpTotal = normalizeXpTotal(characterXpInput?.value);
     sheet.characterLevel = levelFromXpTotal(sheet.xpTotal);
+    const maxHd = hitDiceMaxForSheet(sheet);
+    if (hitDiceRemainingForSheet(sheet) > maxHd) sheet.hitDiceRemaining = maxHd;
   });
   syncCharacterCoreFromSheet();
   renderCharacterXpProgress();
+}
+
+function setSheetSyncStatus(message, isError = false) {
+  for (const el of [sheetSyncStatus, gameToolsSyncStatus]) {
+    if (!el) continue;
+    el.textContent = message;
+    el.classList.toggle("is-error", isError);
+  }
+}
+
+function onSyncSheetToDm() {
+  const result = syncSheetToDmBattle(loadSheet());
+  if (!result.ok) {
+    setSheetSyncStatus(result.error || "Sincronização falhou.", true);
+    return;
+  }
+  setSheetSyncStatus(
+    result.created ? "Personagem adicionado à mesa do mestre." : "Dados atualizados na mesa (nível e XP)."
+  );
+}
+
+function populateRestEnvironmentSelect() {
+  if (!restEnvironmentSelect || typeof REST_ENVIRONMENTS !== "object") return;
+  restEnvironmentSelect.innerHTML = Object.entries(REST_ENVIRONMENTS)
+    .map(([key, env]) => `<option value="${escapeHtml(key)}">${escapeHtml(env.label)}</option>`)
+    .join("");
+}
+
+function updateRestEnvironmentHint() {
+  if (!restEnvironmentHint || !restEnvironmentSelect) return;
+  const env = REST_ENVIRONMENTS?.[restEnvironmentSelect.value];
+  restEnvironmentHint.textContent = env?.hint || "";
+}
+
+function syncHitDiceUi() {
+  const sheet = loadSheet();
+  const max = hitDiceMaxForSheet(sheet);
+  const remaining = hitDiceRemainingForSheet(sheet);
+  if (hitDiceRemainingInput && document.activeElement !== hitDiceRemainingInput) {
+    hitDiceRemainingInput.value = String(remaining);
+    hitDiceRemainingInput.max = String(max);
+  }
+  if (hitDiceMaxHint) hitDiceMaxHint.textContent = max ? ` / ${max}` : "";
+}
+
+function renderSpellSlotsGrid() {
+  if (!spellSlotsGrid) return;
+  const sheet = loadSheet();
+  const casterType = sheet.spellcasting?.casterType || "none";
+  if (casterTypeSelect && document.activeElement !== casterTypeSelect) {
+    casterTypeSelect.value = casterType;
+  }
+
+  const maxMap = getSheetMaxSpellSlots(sheet);
+  const keys = Object.keys(maxMap);
+  if (casterType === "none" || !keys.length) {
+    spellSlotsGrid.innerHTML = '<p class="sheet-spell-slots-empty">Sem slots neste nível para o tipo escolhido.</p>';
+    return;
+  }
+
+  const usedMap = clampSpellSlotsUsed(sheet.spellcasting.slotsUsed, maxMap);
+
+  spellSlotsGrid.innerHTML = keys
+    .map((lv) => {
+      const max = maxMap[lv];
+      const used = usedMap[lv] || 0;
+      const dots = Array.from({ length: max }, (_, i) => {
+        const isUsed = i < used;
+        return `<button type="button" class="spell-slot-dot${isUsed ? " is-used" : ""}"
+          data-action="toggle-spell-slot" data-slot-level="${lv}" data-slot-index="${i}"
+          aria-label="${isUsed ? "Recuperar" : "Gastar"} slot ${lv}º nível ${i + 1}"
+          aria-pressed="${isUsed}"></button>`;
+      }).join("");
+      return `<div class="spell-slot-row">
+        <span class="spell-slot-level">${lv}º</span>
+        <div class="spell-slot-dots">${dots}</div>
+        <span class="spell-slot-count">${used}/${max}</span>
+      </div>`;
+    })
+    .join("");
+}
+
+function onCasterTypeChange() {
+  patchSheet((sheet) => {
+    sheet.spellcasting.casterType = normalizeCasterType(casterTypeSelect?.value);
+    sheet.spellcasting.slotsUsed = {};
+  });
+  renderSpellSlotsGrid();
+}
+
+function onSpellSlotToggle(level, index) {
+  patchSheet((sheet) => {
+    const maxMap = getSheetMaxSpellSlots(sheet);
+    const lv = String(level);
+    const max = maxMap[lv] || 0;
+    if (!max) return;
+    const idx = Number(index);
+    let used = sheet.spellcasting.slotsUsed[lv] || 0;
+    if (idx < used) used = idx;
+    else used = Math.min(max, idx + 1);
+    sheet.spellcasting.slotsUsed[lv] = used;
+    sheet.spellcasting.slotsUsed = clampSpellSlotsUsed(sheet.spellcasting.slotsUsed, maxMap);
+  });
+  renderSpellSlotsGrid();
+}
+
+function onSpellSlotsReset() {
+  patchSheet((sheet) => {
+    sheet.spellcasting.slotsUsed = {};
+  });
+  renderSpellSlotsGrid();
+}
+
+function hitDieSidesFromSheet(sheet) {
+  const m = String(sheet.hitDie || "d10").match(/d(\d+)/i);
+  return m ? Number(m[1]) : 10;
+}
+
+function onHitDiceRemainingInput() {
+  patchSheet((sheet) => {
+    const max = hitDiceMaxForSheet(sheet);
+    const n = Number(hitDiceRemainingInput?.value);
+    sheet.hitDiceRemaining = Number.isFinite(n) ? Math.min(max, Math.max(0, Math.floor(n))) : max;
+  });
+  syncHitDiceUi();
+}
+
+function onRestEnvironmentChange() {
+  patchSheet((sheet) => {
+    sheet.restEnvironment = normalizeRestEnvironment(restEnvironmentSelect?.value);
+  });
+  updateRestEnvironmentHint();
+}
+
+function setRestMessage(text, isError = false) {
+  if (!restResultMessage) return;
+  restResultMessage.textContent = text;
+  restResultMessage.classList.toggle("is-error", isError);
+}
+
+function onShortRest() {
+  const sheet = loadSheet();
+  const remaining = hitDiceRemainingForSheet(sheet);
+  if (remaining <= 0) {
+    setRestMessage("Sem dados de vida para gastar.", true);
+    return;
+  }
+  const sides = hitDieSidesFromSheet(sheet);
+  const roll = rollDie(sides);
+  const con = Number(sheet.abilityScores?.con);
+  const conMod = Number.isFinite(con) ? Math.floor((con - 10) / 2) : 0;
+  const heal = Math.max(1, roll + conMod);
+  const maxHp = clampHpValue(Number(sheet.hpMax) || 0);
+  let current = clampHpValue(Number(sheet.hpCurrent) || 0);
+  current = maxHp ? Math.min(maxHp, current + heal) : current + heal;
+
+  patchSheet((s) => {
+    s.hitDiceRemaining = remaining - 1;
+    s.hpCurrent = String(current);
+  });
+  syncHpFields();
+  syncHitDiceUi();
+  setRestMessage(`Descanso curto: +${heal} PV (d${sides}=${roll}${conMod >= 0 ? `+${conMod}` : conMod}). Restam ${remaining - 1} dados de vida.`);
+}
+
+function onLongRest() {
+  const sheet = loadSheet();
+  const maxHd = hitDiceMaxForSheet(sheet);
+  const remaining = hitDiceRemainingForSheet(sheet);
+  const regained = Math.floor(maxHd / 2);
+  const newRemaining = Math.min(maxHd, remaining + regained);
+  const env = REST_ENVIRONMENTS?.[sheet.restEnvironment]?.label || "ambiente";
+
+  patchSheet((s) => {
+    s.hitDiceRemaining = newRemaining;
+    if (s.hpMax) s.hpCurrent = s.hpMax;
+    s.hpTemp = "0";
+    s.deathSaves = { successes: 0, failures: 0 };
+    s.spellcasting.slotsUsed = {};
+  });
+  syncHpFields();
+  syncHitDiceUi();
+  renderDeathSaves();
+  renderSpellSlotsGrid();
+  setRestMessage(
+    `Descanso longo (${env}): vida reposta, slots de magia repostos, salvaguardas de morte zeradas, +${regained} dados de vida (total ${newRemaining}/${maxHd}).`
+  );
 }
 
 function buildAbilityScoresGrid() {
@@ -1599,6 +1822,15 @@ function syncCharacterCoreFromSheet() {
   syncDamageFields();
   renderDeathSaves();
   renderCharacterXpProgress();
+  renderSpellSlotsGrid();
+  syncHitDiceUi();
+  if (casterTypeSelect && document.activeElement !== casterTypeSelect) {
+    casterTypeSelect.value = sheet.spellcasting?.casterType || "none";
+  }
+  if (restEnvironmentSelect && document.activeElement !== restEnvironmentSelect) {
+    restEnvironmentSelect.value = sheet.restEnvironment || "tavern";
+  }
+  updateRestEnvironmentHint();
 }
 
 async function syncAlignmentSummary() {
@@ -2026,6 +2258,7 @@ async function boot() {
 
   buildAbilityScoresGrid();
   buildDeathSaveDots();
+  populateRestEnvironmentSelect();
   syncCharacterCoreFromSheet();
   initGameTools();
 
@@ -2112,6 +2345,12 @@ async function boot() {
   if (alignmentSelect) alignmentSelect.addEventListener("change", onAlignmentChange);
   if (portraitInput) portraitInput.addEventListener("change", onPortraitSelected);
   if (portraitClear) portraitClear.addEventListener("click", onPortraitClear);
+  if (casterTypeSelect) casterTypeSelect.addEventListener("change", onCasterTypeChange);
+  if (restEnvironmentSelect) restEnvironmentSelect.addEventListener("change", onRestEnvironmentChange);
+  if (hitDiceRemainingInput) {
+    hitDiceRemainingInput.addEventListener("input", onHitDiceRemainingInput);
+    hitDiceRemainingInput.addEventListener("change", onHitDiceRemainingInput);
+  }
 
   renderAll();
 }

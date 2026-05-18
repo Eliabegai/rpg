@@ -162,6 +162,73 @@ function renderXpProgressBar(p) {
   </div><span class="dm-xp-progress-label">${label}</span>`;
 }
 
+function pullPartyMemberFromSheet(partyId) {
+  const battle = loadDmBattle();
+  const member = battle.party.find((p) => p.id === partyId);
+  if (!member) return;
+  const sheet = loadSheet();
+  const sheetName = String(sheet.characterName || "").trim();
+  const memberName = String(member.name || "").trim();
+  if (!sheetName) {
+    setCampaignStatus("A ficha não tem nome de personagem.", true);
+    return;
+  }
+  if (normalizePartySyncName(sheetName) !== normalizePartySyncName(memberName)) {
+    const ok = window.confirm(
+      `A ficha é «${sheetName}» e a mesa tem «${memberName}». Importar nível e XP da ficha mesmo assim?`
+    );
+    if (!ok) return;
+    patchBattle((b) => {
+      const p = b.party.find((x) => x.id === partyId);
+      if (p) {
+        p.level = clampCharacterLevel(sheet.characterLevel);
+        p.xpTotal = normalizeXpTotal(sheet.xpTotal);
+      }
+    });
+    setCampaignStatus(`Dados de «${sheetName}» aplicados a «${memberName}».`);
+    return;
+  }
+  patchBattle((b) => {
+    const p = b.party.find((x) => x.id === partyId);
+    if (p) {
+      p.level = clampCharacterLevel(sheet.characterLevel);
+      p.xpTotal = normalizeXpTotal(sheet.xpTotal);
+    }
+  });
+  setCampaignStatus(`«${memberName}» sincronizado com a ficha.`);
+}
+
+function pushPartyMemberToSheet(partyId) {
+  const member = loadDmBattle().party.find((p) => p.id === partyId);
+  if (!member) return;
+  const result = syncDmPartyMemberToSheet(member);
+  if (!result.ok && result.nameMismatch) {
+    const ok = window.confirm(`${result.error}\n\nSubstituir o nome e dados da ficha?`);
+    if (ok) syncDmPartyMemberToSheet(member, { forceName: true });
+    return;
+  }
+  if (!result.ok) {
+    setCampaignStatus(result.error || "Falha ao enviar para a ficha.", true);
+    return;
+  }
+  setCampaignStatus(`Ficha atualizada com dados de «${member.name}».`);
+}
+
+function syncAllPartyFromSheet() {
+  const sheet = loadSheet();
+  const name = String(sheet.characterName || "").trim();
+  if (!name) {
+    setCampaignStatus("Define o nome na ficha de personagem.", true);
+    return;
+  }
+  const result = syncSheetToDmBattle(sheet);
+  if (!result.ok) {
+    setCampaignStatus(result.error || "Sincronização falhou.", true);
+    return;
+  }
+  setCampaignStatus(result.created ? "Personagem criado na mesa a partir da ficha." : "Mesa atualizada a partir da ficha.");
+}
+
 function applySessionXpToParty() {
   const battle = loadDmBattle();
   const ledger = computePartyXpLedger(battle);
@@ -547,8 +614,12 @@ function renderInitiative() {
 
       const partyActions =
         row.kind === "party"
-          ? `<button type="button" class="dm-party-down-btn" data-action="dm-toggle-party-down" data-party-id="${escapeHtml(row.id)}" title="${row.downed ? "Reviver personagem" : "Eliminar (fora do XP)"}" aria-pressed="${row.downed ? "true" : "false"}">${row.downed ? "↩" : "☠"}</button>
-             <button type="button" class="sheet-portrait-clear dm-init-remove" data-action="dm-remove-party" title="Remover">×</button>`
+          ? `<div class="dm-init-actions">
+             <button type="button" class="dm-sync-sheet-btn" data-action="dm-sync-from-sheet" data-party-id="${escapeHtml(row.id)}" title="Da ficha → mesa">↓</button>
+             <button type="button" class="dm-sync-sheet-btn" data-action="dm-push-to-sheet" data-party-id="${escapeHtml(row.id)}" title="Da mesa → ficha">↑</button>
+             <button type="button" class="dm-party-down-btn" data-action="dm-toggle-party-down" data-party-id="${escapeHtml(row.id)}" title="${row.downed ? "Reviver personagem" : "Eliminar (fora do XP)"}" aria-pressed="${row.downed ? "true" : "false"}">${row.downed ? "↩" : "☠"}</button>
+             <button type="button" class="sheet-portrait-clear dm-init-remove" data-action="dm-remove-party" title="Remover">×</button>
+           </div>`
           : "";
 
       return `<li class="dm-init-row ${kindClass}${deadClass}" ${dataAttr}>
@@ -1153,6 +1224,23 @@ function handleDocumentClick(e) {
 
   if (action === "dm-apply-session-xp") {
     applySessionXpToParty();
+    return;
+  }
+
+  if (action === "dm-sync-from-sheet") {
+    const partyId = btn.dataset.partyId;
+    if (partyId) pullPartyMemberFromSheet(partyId);
+    return;
+  }
+
+  if (action === "dm-push-to-sheet") {
+    const partyId = btn.dataset.partyId;
+    if (partyId) pushPartyMemberToSheet(partyId);
+    return;
+  }
+
+  if (action === "dm-sync-all-from-sheet") {
+    syncAllPartyFromSheet();
     return;
   }
 

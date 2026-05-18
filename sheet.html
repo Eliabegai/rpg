@@ -125,6 +125,13 @@
           </div>
           <div id="characterXpProgress" class="sheet-xp-progress-wrap" aria-live="polite"></div>
 
+          <div class="sheet-sync-bar">
+            <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="sync-sheet-to-dm">
+              Enviar para a mesa do mestre
+            </button>
+            <p id="sheetSyncStatus" class="sheet-sync-status" role="status" aria-live="polite"></p>
+          </div>
+
           <section class="sheet-core" id="characterCore" aria-labelledby="sheetCoreTitle">
             <h2 id="sheetCoreTitle" class="sheet-core-title">Dados do personagem</h2>
             <div class="sheet-core-layout">
@@ -235,6 +242,57 @@
                       Repor
                     </button>
                   </div>
+                </fieldset>
+
+                <fieldset class="sheet-spell-slots" aria-labelledby="sheetSpellSlotsTitle">
+                  <legend id="sheetSpellSlotsTitle" class="sheet-name-label">Slots de magia</legend>
+                  <p class="sheet-core-vitals-hint">v1: conjurador pleno (mago, clérigo…) ou meio-conjurador (paladino, ranger). Clica nos círculos para gastar.</p>
+                  <div class="sheet-spell-slots-config">
+                    <label class="sheet-inline-field">
+                      <span class="sheet-name-label">Tipo</span>
+                      <select id="casterTypeSelect" class="sheet-select">
+                        <option value="none">Sem magia</option>
+                        <option value="full">Conjurador pleno</option>
+                        <option value="half">Meio-conjurador</option>
+                      </select>
+                    </label>
+                    <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="spell-slots-reset">
+                      Repor todos
+                    </button>
+                  </div>
+                  <div id="spellSlotsGrid" class="spell-slots-grid" aria-live="polite"></div>
+                </fieldset>
+
+                <fieldset class="sheet-rest" aria-labelledby="sheetRestTitle">
+                  <legend id="sheetRestTitle" class="sheet-name-label">Descanso</legend>
+                  <label class="sheet-inline-field sheet-inline-field--grow">
+                    <span class="sheet-name-label">Ambiente</span>
+                    <select id="restEnvironmentSelect" class="sheet-select"></select>
+                  </label>
+                  <p id="restEnvironmentHint" class="sheet-rest-hint"></p>
+                  <div class="sheet-rest-hd">
+                    <label class="sheet-inline-field">
+                      <span class="sheet-name-label">Dados de vida restantes</span>
+                      <input
+                        type="number"
+                        id="hitDiceRemainingInput"
+                        class="sheet-number-input"
+                        min="0"
+                        max="20"
+                        inputmode="numeric"
+                      />
+                      <span id="hitDiceMaxHint" class="sheet-rest-hd-max"></span>
+                    </label>
+                  </div>
+                  <div class="sheet-rest-actions">
+                    <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="short-rest">
+                      Descanso curto
+                    </button>
+                    <button type="button" class="sheet-dice-btn" data-action="long-rest">
+                      Descanso longo
+                    </button>
+                  </div>
+                  <p id="restResultMessage" class="sheet-rest-result" role="status" aria-live="polite"></p>
                 </fieldset>
               </div>
             </div>
@@ -416,13 +474,16 @@
         <section id="gameToolsPanelDm" class="game-tools-pane" data-tools-pane="dm" role="tabpanel" aria-labelledby="gameToolsTabDm" hidden>
           <div class="game-tools-planned">
             <h3 class="game-tools-planned-title">Mesa do mestre</h3>
-            <p class="game-tools-planned-text">Gestão de combate, iniciativa e monstros — página dedicada.</p>
+            <p class="game-tools-planned-text">Sincroniza nível e XP com a mesa (por nome do personagem).</p>
+            <button type="button" class="sheet-dice-btn" data-action="sync-sheet-to-dm">Enviar ficha → mesa</button>
             <a href="dm.html" class="sheet-dice-btn dm-open-link">Abrir mesa do mestre</a>
+            <p id="gameToolsSyncStatus" class="sheet-sync-status" role="status" aria-live="polite"></p>
           </div>
         </section>
       </div>
     </aside>
 
+    <script src="spellcasting-data.js"></script>
     <script src="shared.js"></script>
     <script src="sheet.js"></script>
   </body>

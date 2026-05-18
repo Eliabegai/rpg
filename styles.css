@@ -1459,6 +1459,153 @@ body.game-tools-open .game-tools-fab {
   color: #64748b;
 }
 
+.sheet-sync-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 0.85rem;
+  max-width: 36rem;
+}
+
+.sheet-sync-status {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #166534;
+}
+
+.sheet-sync-status.is-error {
+  color: #b91c1c;
+}
+
+.sheet-spell-slots-config {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.sheet-spell-slots-empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.spell-slots-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.spell-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.spell-slot-level {
+  width: 1.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.spell-slot-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.spell-slot-dot {
+  width: 1.1rem;
+  height: 1.1rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid #6366f1;
+  background: #eef2ff;
+  cursor: pointer;
+}
+
+.spell-slot-dot.is-used {
+  background: #4f46e5;
+  border-color: #4338ca;
+}
+
+.spell-slot-dot:hover {
+  filter: brightness(0.95);
+}
+
+.spell-slot-count {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-rest-hint {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.sheet-rest-hd {
+  margin-bottom: 0.5rem;
+}
+
+.sheet-rest-hd-max {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.sheet-rest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.sheet-rest-result {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #166534;
+  line-height: 1.4;
+}
+
+.sheet-rest-result.is-error {
+  color: #b91c1c;
+}
+
+.dm-init-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dm-sync-sheet-btn {
+  padding: 0.15rem 0.35rem;
+  border: 1px solid #c7d2fe;
+  border-radius: 5px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dm-sync-sheet-btn:hover {
+  background: #e0e7ff;
+}
+
+.dm-sidebar-campaign .dm-sync-sheet-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+}
+
 .sheet-number-input,
 .sheet-select {
   padding: 0.45rem 0.55rem;

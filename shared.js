@@ -724,8 +724,112 @@ const DEFAULT_SHEET = {
   hpCurrent: "",
   hpTemp: "0",
   deathSaves: { successes: 0, failures: 0 },
+  spellcasting: { casterType: "none", slotsUsed: {} },
+  hitDiceRemaining: null,
+  restEnvironment: "tavern",
   items: [],
 };
+
+function normalizeCasterType(raw) {
+  return raw === "full" || raw === "half" ? raw : "none";
+}
+
+function normalizeSpellcasting(raw) {
+  const casterType = normalizeCasterType(raw?.casterType);
+  const slotsUsed =
+    typeof getSpellSlotsUsedMap === "function" ? getSpellSlotsUsedMap(raw?.slotsUsed) : {};
+  return { casterType, slotsUsed };
+}
+
+function normalizeRestEnvironment(raw) {
+  const allowed = ["wilderness", "campfire", "tavern", "dungeon", "stronghold"];
+  return allowed.includes(raw) ? raw : "tavern";
+}
+
+function normalizePartySyncName(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase();
+}
+
+function findDmPartyMemberByName(party, name) {
+  const key = normalizePartySyncName(name);
+  if (!key) return null;
+  return (party || []).find((p) => normalizePartySyncName(p.name) === key) ?? null;
+}
+
+function hitDiceMaxForSheet(sheet) {
+  return clampCharacterLevel(sheet?.characterLevel);
+}
+
+function hitDiceRemainingForSheet(sheet) {
+  const max = hitDiceMaxForSheet(sheet);
+  const raw = sheet?.hitDiceRemaining;
+  if (raw == null || raw === "") return max;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return max;
+  return Math.min(max, Math.max(0, Math.floor(n)));
+}
+
+function getSheetMaxSpellSlots(sheet) {
+  if (typeof getMaxSpellSlotsMap !== "function") return {};
+  return getMaxSpellSlotsMap(sheet?.spellcasting?.casterType, sheet?.characterLevel);
+}
+
+function clampSpellSlotsUsed(used, maxMap) {
+  const out = {};
+  for (const [lv, max] of Object.entries(maxMap || {})) {
+    const u = Number(used?.[lv]) || 0;
+    out[lv] = Math.min(max, Math.max(0, Math.floor(u)));
+  }
+  return out;
+}
+
+function syncSheetToDmBattle(sheet) {
+  const name = sheet?.characterName != null ? String(sheet.characterName).trim() : "";
+  if (!name) return { ok: false, error: "Define o nome do personagem na ficha." };
+  const battle = loadDmBattle();
+  const existing = findDmPartyMemberByName(battle.party, name);
+  if (existing) {
+    existing.level = clampCharacterLevel(sheet.characterLevel);
+    existing.xpTotal = normalizeXpTotal(sheet.xpTotal);
+    saveDmBattle(battle);
+    return { ok: true, memberId: existing.id, created: false };
+  }
+  const member = normalizeDmPartyMember({
+    name,
+    level: sheet.characterLevel,
+    xpTotal: sheet.xpTotal,
+    initiative: "",
+    downed: false,
+  });
+  if (!member) return { ok: false, error: "Não foi possível criar o personagem na mesa." };
+  battle.party.push(member);
+  saveDmBattle(battle);
+  return { ok: true, memberId: member.id, created: true };
+}
+
+function syncDmPartyMemberToSheet(member, { forceName = false } = {}) {
+  if (!member) return { ok: false, error: "Personagem inválido." };
+  const sheet = loadSheet();
+  const sheetName = String(sheet.characterName || "").trim();
+  const memberName = String(member.name || "").trim();
+  if (!sheetName && memberName) {
+    sheet.characterName = memberName;
+  } else if (!forceName && sheetName && normalizePartySyncName(sheetName) !== normalizePartySyncName(memberName)) {
+    return {
+      ok: false,
+      error: `A ficha é «${sheetName}» e a mesa tem «${memberName}». Ajusta o nome ou confirma a substituição.`,
+      nameMismatch: true,
+    };
+  } else if (forceName && memberName) {
+    sheet.characterName = memberName;
+  }
+  sheet.characterLevel = clampCharacterLevel(member.level);
+  sheet.xpTotal = normalizeXpTotal(member.xpTotal);
+  saveSheet(normalizeSheet(sheet));
+  return { ok: true };
+}
 
 function normalizeSheet(parsed) {
   const base = {
@@ -776,6 +880,12 @@ function normalizeSheet(parsed) {
     hpCurrent: parsed.hpCurrent != null ? String(parsed.hpCurrent) : "",
     hpTemp: parsed.hpTemp != null ? String(parsed.hpTemp) : "0",
     deathSaves: normalizeDeathSaves(parsed.deathSaves),
+    spellcasting: normalizeSpellcasting(parsed.spellcasting),
+    hitDiceRemaining:
+      parsed.hitDiceRemaining != null && parsed.hitDiceRemaining !== ""
+        ? Math.max(0, Math.floor(Number(parsed.hitDiceRemaining)))
+        : null,
+    restEnvironment: normalizeRestEnvironment(parsed.restEnvironment),
     items: Array.isArray(parsed.items)
       ? parsed.items.map(normalizeSheetItem).filter(Boolean)
       : [],
