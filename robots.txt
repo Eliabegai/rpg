@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://eliabenextil.github.io/rpg/sitemap.xml

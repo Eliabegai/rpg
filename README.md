@@ -1,6 +1,6 @@
-# D&D 5e — Mesa e explorador da API
+# Grimório 5e
 
-App estático (HTML + CSS + JS) para explorar a [D&D 5e API](https://www.dnd5eapi.co), ficha de personagem e mesa do mestre.
+App estático (HTML + CSS + JS) para explorar a [D&D 5e API](https://www.dnd5eapi.co), ficha de personagem e mesa do mestre — **Grimório 5e**.
 
 ## Desenvolvimento local
 
@@ -43,3 +43,20 @@ Não é obrigatório mover ficheiros para subpastas. O GitHub Pages serve bem HT
 ### API
 
 As requisições vão para `https://www.dnd5eapi.co` (CORS permitido). Não é preciso backend neste repositório.
+
+## SEO (aparecer no Google)
+
+O projeto já inclui:
+
+- **Títulos e meta descriptions** em cada página (`index.html`, `sheet.html`, `dm.html`)
+- Tags **Open Graph** e **Twitter** para partilhas
+- **`robots.txt`** e **`sitemap.xml`** (ajusta o domínio em `sitemap.xml` se o URL do Pages mudar)
+- Texto visível no rodapé da página inicial com palavras-chave naturais
+
+### O que podes fazer a seguir
+
+1. **Google Search Console** — adiciona a propriedade `https://eliabenextil.github.io/rpg/` e envia o sitemap (`/rpg/sitemap.xml`).
+2. **Conteúdo** — cada página tem um `<h1>` único com “Grimório 5e”; evita títulos duplicados noutros sites.
+3. **Links** — partilha o link em redes ou fóruns de RPG; backlinks ajudam.
+4. **Tempo** — sites novos podem demorar dias ou semanas a ser indexados.
+5. Se mudares o URL do GitHub Pages, atualiza `canonical`, `og:url` e `sitemap.xml` em todas as páginas.

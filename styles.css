@@ -116,6 +116,28 @@ body {
   overflow-x: auto;
 }
 
+.site-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.site-footer a {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.site-footer a:hover {
+  text-decoration: underline;
+}
+
+.site-footer strong {
+  color: #334155;
+}
+
 .container {
   position: relative;
   background-color: white;

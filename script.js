@@ -688,7 +688,7 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
     });
   }
 
-  mainTitle.textContent = formatResourceLabel(label);
+  mainTitle.textContent = `Grimório 5e — ${formatResourceLabel(label)}`;
   mainSubtitle.textContent = "A carregar…";
   browsePanel.hidden = false;
   allResults = [];
