@@ -459,14 +459,16 @@ function buildInitiativeEntries(battle) {
       downed: isPartyMemberDowned(p),
       imageUrl: "",
     })),
-    ...battle.encounters.map((e) => ({
-      kind: "monster",
-      id: e.id,
-      name: e.label || e.sourceName,
-      initiative: e.initiative,
-      dead: isEncounterDead(e),
-      imageUrl: encounterImageUrl(e),
-    })),
+    ...battle.encounters
+      .filter((e) => !isEncounterDead(e))
+      .map((e) => ({
+        kind: "monster",
+        id: e.id,
+        name: e.label || e.sourceName,
+        initiative: e.initiative,
+        dead: false,
+        imageUrl: encounterImageUrl(e),
+      })),
   ];
   return sortByInitiativeDesc(rows, (r) => parseInitiativeValue(r.initiative));
 }
@@ -610,6 +612,16 @@ function renderMonsterLibrary() {
     .join("");
 }
 
+function initiativeOrderHtml(initValue) {
+  const display =
+    initValue !== "" && initValue != null ? escapeHtml(String(initValue)) : "—";
+  return `<div class="dm-init-order" title="Ordem na iniciativa — valor maior age primeiro">
+    <span class="dm-init-order-label">Iniciativa</span>
+    <span class="dm-init-order-value" aria-hidden="true">${display}</span>
+    <span class="visually-hidden">Iniciativa ${display}</span>
+  </div>`;
+}
+
 function renderInitiative() {
   if (!dmInitiativeList || !dmInitEmpty) return;
   const battle = loadDmBattle();
@@ -624,7 +636,6 @@ function renderInitiative() {
   dmInitEmpty.hidden = true;
   dmInitiativeList.innerHTML = rows
     .map((row) => {
-      const init = row.initiative !== "" ? escapeHtml(row.initiative) : "—";
       const kindClass = row.kind === "party" ? "dm-init-row--party" : "dm-init-row--monster";
       const deadClass = row.dead ? " is-dead" : row.downed ? " is-downed" : "";
       const dataAttr =
@@ -651,7 +662,7 @@ function renderInitiative() {
               <span class="dm-init-field-label">Inic.</span>
               <input type="number" class="sheet-number-input dm-init-input" value="${row.initiative !== "" ? escapeHtml(row.initiative) : ""}" data-field="initiative" placeholder="—" inputmode="numeric" />
             </label>`
-          : `<span class="dm-init-readonly" title="Iniciativa">${init}</span>`;
+          : "";
 
       const nameCell =
         row.kind === "party"
@@ -660,20 +671,44 @@ function renderInitiative() {
 
       const partyActions =
         row.kind === "party"
-          ? `<div class="dm-init-actions">
-             <button type="button" class="dm-sync-sheet-btn" data-action="dm-sync-from-sheet" data-party-id="${escapeHtml(row.id)}" title="Da ficha → mesa">↓</button>
-             <button type="button" class="dm-sync-sheet-btn" data-action="dm-push-to-sheet" data-party-id="${escapeHtml(row.id)}" title="Da mesa → ficha">↑</button>
-             <button type="button" class="dm-party-down-btn" data-action="dm-toggle-party-down" data-party-id="${escapeHtml(row.id)}" title="${row.downed ? "Reviver personagem" : "Eliminar (fora do XP)"}" aria-pressed="${row.downed ? "true" : "false"}">${row.downed ? "↩" : "☠"}</button>
-             <button type="button" class="sheet-portrait-clear dm-init-remove" data-action="dm-remove-party" title="Remover">×</button>
+          ? `<div class="dm-init-actions-wrap">
+             <div class="dm-init-actions" role="group" aria-label="Sincronizar com a ficha">
+               <button type="button" class="dm-sync-sheet-btn dm-btn-tip" data-action="dm-sync-from-sheet" data-party-id="${escapeHtml(row.id)}"
+                 data-tip="Da ficha → mesa: traz nome, nível e XP da ficha de personagem"
+                 title="Da ficha → mesa: traz nome, nível e XP da ficha de personagem"
+                 aria-label="Sincronizar da ficha para a mesa">↓</button>
+               <button type="button" class="dm-sync-sheet-btn dm-btn-tip" data-action="dm-push-to-sheet" data-party-id="${escapeHtml(row.id)}"
+                 data-tip="Da mesa → ficha: envia nome, nível e XP desta linha para a ficha"
+                 title="Da mesa → ficha: envia nome, nível e XP desta linha para a ficha"
+                 aria-label="Enviar dados da mesa para a ficha">↑</button>
+             </div>
+             <div class="dm-init-danger" role="group" aria-label="Remover ou eliminar">
+               <button type="button" class="sheet-portrait-clear dm-init-remove dm-btn-tip" data-action="dm-remove-party"
+                 data-tip="Remover personagem da mesa"
+                 title="Remover personagem da mesa"
+                 aria-label="Remover personagem da mesa">×</button>
+               <button type="button" class="dm-party-down-btn dm-btn-tip" data-action="dm-toggle-party-down" data-party-id="${escapeHtml(row.id)}"
+                 data-tip="${row.downed ? "Restaurar personagem na iniciativa e no XP" : "Marcar eliminado (fora da divisão de XP da sessão)"}"
+                 title="${row.downed ? "Restaurar personagem na iniciativa e no XP" : "Marcar eliminado (fora da divisão de XP da sessão)"}"
+                 aria-label="${row.downed ? "Restaurar personagem" : "Marcar como eliminado"}"
+                 aria-pressed="${row.downed ? "true" : "false"}">${row.downed ? "↩" : "☠"}</button>
+             </div>
            </div>`
           : "";
 
-      return `<li class="dm-init-row ${kindClass}${deadClass}" ${dataAttr}>
-        <span class="dm-init-badge" title="Iniciativa">${init}</span>
+      const identityBlock = `<div class="dm-init-identity">
         ${thumb}
         <div class="dm-init-body">${nameCell}</div>
-        ${levelInput || `<span class="dm-init-field-spacer" aria-hidden="true"></span>`}
-        ${row.kind === "party" ? initInput : `<div class="dm-init-field dm-init-field--readonly">${initInput}</div>`}
+      </div>`;
+
+      const statsBlock =
+        row.kind === "party" ? `<div class="dm-init-stats">${levelInput}${initInput}</div>` : "";
+
+      return `<li class="dm-init-row ${kindClass}${deadClass}" ${dataAttr}>
+        ${initiativeOrderHtml(row.initiative)}
+        <span class="dm-init-gap" aria-hidden="true"></span>
+        ${identityBlock}
+        ${statsBlock}
         ${partyActions}
       </li>`;
     })
