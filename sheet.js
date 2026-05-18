@@ -1290,14 +1290,26 @@ function formatClassProfHint(selected, max) {
   return max === 1 ? `${selected} / 1 selecionada` : `${selected} / ${max} selecionadas`;
 }
 
-function renderRaceDetail(entry, data) {
+function renderBookDetail(entry, data, emptyLabel = "Sem dados para este item.") {
   const layout =
     typeof getSpecializedDetailLayout === "function"
       ? getSpecializedDetailLayout(entry.resourceKey, data)
       : null;
   if (layout?.html) return layout.html;
   const summary = renderSheetSummary(entry.resourceKey, data);
-  return summary || '<p class="sheet-card-muted">Sem dados de raça.</p>';
+  return summary || `<p class="sheet-card-muted">${escapeHtml(emptyLabel)}</p>`;
+}
+
+function renderRaceDetail(entry, data) {
+  return renderBookDetail(entry, data, "Sem dados de raça.");
+}
+
+function renderTraitDetail(entry, data) {
+  return renderBookDetail(entry, data, "Sem dados de traço.");
+}
+
+function renderFeatureDetail(entry, data) {
+  return renderBookDetail(entry, data, "Sem dados de capacidade.");
 }
 
 function renderClassDetail(entry, data) {
@@ -1437,6 +1449,16 @@ async function loadCardBody(cardEl) {
       }
     } else if (entry.resourceKey === "races" || entry.resourceKey === "subraces") {
       body.innerHTML = renderRaceDetail(entry, data);
+      if (typeof enrichDetailMounts === "function") {
+        await enrichDetailMounts(body);
+      }
+    } else if (entry.resourceKey === "traits") {
+      body.innerHTML = renderTraitDetail(entry, data);
+      if (typeof enrichDetailMounts === "function") {
+        await enrichDetailMounts(body);
+      }
+    } else if (entry.resourceKey === "features") {
+      body.innerHTML = renderFeatureDetail(entry, data);
       if (typeof enrichDetailMounts === "function") {
         await enrichDetailMounts(body);
       }

@@ -52,13 +52,44 @@ function layoutChipList(items) {
   return `<ul class="detail-chip-list">${chips}</ul>`;
 }
 
-function layoutTraitRefs(traits) {
-  const refs = Array.isArray(traits) ? traits : [];
-  const urls = refs.map((t) => cleanApiPath(t?.url)).filter(Boolean);
-  if (!urls.length) return layoutChipList(refs);
-  return `<div class="detail-trait-mount" data-trait-urls="${escapeHtml(urls.join(","))}">
-    <p class="detail-muted detail-enrich-placeholder">A carregar traços…</p>
+const REF_CARDS_FETCH_BATCH = 8;
+
+function layoutRefCardsMount(refs, { loadingLabel = "A carregar…" } = {}) {
+  const refsArr = Array.isArray(refs) ? refs : [];
+  const urls = refsArr.map((t) => cleanApiPath(t?.url)).filter(Boolean);
+  if (!urls.length) return layoutChipList(refsArr);
+  return `<div class="detail-ref-cards-mount detail-trait-mount" data-ref-urls="${escapeHtml(urls.join(","))}" data-trait-urls="${escapeHtml(urls.join(","))}">
+    <p class="detail-muted detail-enrich-placeholder">${escapeHtml(loadingLabel)}</p>
   </div>`;
+}
+
+function layoutTraitRefs(traits) {
+  return layoutRefCardsMount(traits, { loadingLabel: "A carregar traços…" });
+}
+
+function layoutPrerequisitesText(prerequisites) {
+  if (!Array.isArray(prerequisites) || !prerequisites.length) return "";
+  return prerequisites
+    .map((p) => {
+      if (!p || typeof p !== "object") return "";
+      if (p.type === "spell" && p.spell) {
+        const idx = String(p.spell).split("/").filter(Boolean).pop() || "";
+        return `Magia: ${formatResourceLabel(idx)}`;
+      }
+      if (p.type === "feature" && p.feature) {
+        return `Capacidade: ${p.feature.name || formatResourceLabel(p.feature.index || "")}`;
+      }
+      if (p.type === "level" && p.level != null) return `Nível de personagem ${p.level}`;
+      if (p.level != null) return `Nível ${p.level}`;
+      if (p.ability_score) {
+        const ab = p.ability_score.name || formatResourceLabel(p.ability_score.index || "");
+        const min = p.minimum_score != null ? ` ${p.minimum_score}+` : "";
+        return `${ab}${min}`;
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function layoutClassLevelsMount(classLevels) {
@@ -159,36 +190,56 @@ function renderClassBookHtml(data, { proficiencyChoicesHtml = "" } = {}) {
   return html;
 }
 
-async function enrichTraitMount(mountEl) {
+async function fetchRefCards(urls) {
+  const items = [];
+  for (let i = 0; i < urls.length; i += REF_CARDS_FETCH_BATCH) {
+    const batch = urls.slice(i, i + REF_CARDS_FETCH_BATCH);
+    const batchItems = await Promise.all(
+      batch.map(async (path) => {
+        const res = await apiFetch(path);
+        if (!res.ok) return null;
+        return res.json();
+      })
+    );
+    items.push(...batchItems);
+  }
+  return items;
+}
+
+function refCardsHtml(items, emptyMessage) {
+  const cards = items
+    .filter(Boolean)
+    .map(
+      (item) =>
+        `<article class="detail-action-card"><h5 class="detail-action-name">${escapeHtml(item.name || "")}</h5>${layoutFormatDesc(item.desc)}</article>`
+    )
+    .join("");
+  return cards
+    ? `<div class="detail-action-list">${cards}</div>`
+    : `<p class="detail-muted">${escapeHtml(emptyMessage)}</p>`;
+}
+
+async function enrichRefCardsMount(mountEl) {
   if (!mountEl || mountEl.dataset.enriched === "1") return;
-  const urls = (mountEl.dataset.traitUrls || "")
+  const urls = (mountEl.dataset.refUrls || mountEl.dataset.traitUrls || mountEl.dataset.featureUrls || "")
     .split(",")
     .map((u) => u.trim())
     .filter(Boolean);
   if (!urls.length) return;
 
   mountEl.dataset.enriched = "1";
+  const emptyMsg = mountEl.dataset.emptyMessage || "Sem descrição.";
+  const errorMsg = mountEl.dataset.errorMessage || "Não foi possível carregar.";
   try {
-    const traits = await Promise.all(
-      urls.map(async (path) => {
-        const res = await apiFetch(path);
-        if (!res.ok) return null;
-        return res.json();
-      })
-    );
-    const cards = traits
-      .filter(Boolean)
-      .map(
-        (t) =>
-          `<article class="detail-action-card"><h5 class="detail-action-name">${escapeHtml(t.name || "")}</h5>${layoutFormatDesc(t.desc)}</article>`
-      )
-      .join("");
-    mountEl.innerHTML = cards
-      ? `<div class="detail-action-list">${cards}</div>`
-      : '<p class="detail-muted">Sem descrição dos traços.</p>';
+    const items = await fetchRefCards(urls);
+    mountEl.innerHTML = refCardsHtml(items, emptyMsg);
   } catch {
-    mountEl.innerHTML = '<p class="detail-muted">Não foi possível carregar os traços.</p>';
+    mountEl.innerHTML = `<p class="detail-muted">${escapeHtml(errorMsg)}</p>`;
   }
+}
+
+async function enrichTraitMount(mountEl) {
+  return enrichRefCardsMount(mountEl);
 }
 
 async function enrichClassLevelsMount(mountEl) {
@@ -229,10 +280,10 @@ async function enrichClassLevelsMount(mountEl) {
 
 async function enrichDetailMounts(root) {
   if (!root) return;
-  const traitMounts = [...root.querySelectorAll(".detail-trait-mount")];
+  const refMounts = [...root.querySelectorAll(".detail-ref-cards-mount, .detail-trait-mount")];
   const levelMounts = [...root.querySelectorAll(".detail-class-levels-mount")];
   await Promise.all([
-    ...traitMounts.map((el) => enrichTraitMount(el)),
+    ...refMounts.map((el) => enrichRefCardsMount(el)),
     ...levelMounts.map((el) => enrichClassLevelsMount(el)),
   ]);
 }
@@ -569,6 +620,93 @@ function renderSubclassDetailLayout(data) {
   return { html, skip };
 }
 
+function renderTraitDetailLayout(data) {
+  const rows = [];
+  const profs = layoutRefNames(data.proficiencies);
+  if (profs) rows.push(["Proficiências", profs]);
+
+  let html = rows.length
+    ? `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`
+    : "";
+
+  if (data.desc) html += layoutSection("Descrição", layoutFormatDesc(data.desc));
+
+  if (Array.isArray(data.races) && data.races.length) {
+    html += layoutSection("Raças", layoutChipList(data.races));
+  }
+  if (Array.isArray(data.subraces) && data.subraces.length) {
+    html += layoutSection("Sub-raças", layoutChipList(data.subraces));
+  }
+
+  const skip = new Set([
+    "url",
+    "updated_at",
+    "image",
+    "name",
+    "index",
+    "desc",
+    "proficiencies",
+    "races",
+    "subraces",
+  ]);
+
+  return { html, skip };
+}
+
+function renderFeatureDetailLayout(data) {
+  const rows = [];
+  if (data.level != null) rows.push(["Nível", String(data.level)]);
+  if (data.class?.name) rows.push(["Classe", data.class.name]);
+  else if (data.class?.index) rows.push(["Classe", formatResourceLabel(data.class.index)]);
+  if (data.subclass?.name) rows.push(["Subclasse", data.subclass.name]);
+  else if (data.subclass?.index) rows.push(["Subclasse", formatResourceLabel(data.subclass.index)]);
+  if (data.parent?.name) rows.push(["Dentro de", data.parent.name]);
+  else if (data.parent?.index) rows.push(["Dentro de", formatResourceLabel(data.parent.index)]);
+  const prereq = layoutPrerequisitesText(data.prerequisites);
+  if (prereq) rows.push(["Pré-requisitos", prereq]);
+
+  let html = `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`;
+
+  if (data.desc) html += layoutSection("Descrição", layoutFormatDesc(data.desc));
+
+  const fs = data.feature_specific;
+  if (fs && typeof fs === "object") {
+    const subOpts = fs.subfeature_options;
+    if (subOpts?.from?.options?.length) {
+      const refs = subOpts.from.options.map((o) => o.item).filter(Boolean);
+      const choose = subOpts.choose != null ? Number(subOpts.choose) : 1;
+      const title = choose === 1 ? "Opções (escolhe 1)" : `Opções (escolhe ${choose})`;
+      html += layoutSection(
+        title,
+        layoutRefCardsMount(refs, { loadingLabel: "A carregar opções…" })
+      );
+    }
+    if (Array.isArray(fs.invocations) && fs.invocations.length) {
+      html += layoutSection(
+        `Invocações disponíveis (${fs.invocations.length})`,
+        layoutRefCardsMount(fs.invocations, { loadingLabel: "A carregar invocações…" })
+      );
+    }
+  }
+
+  const skip = new Set([
+    "url",
+    "updated_at",
+    "image",
+    "name",
+    "index",
+    "level",
+    "class",
+    "subclass",
+    "parent",
+    "prerequisites",
+    "desc",
+    "feature_specific",
+  ]);
+
+  return { html, skip };
+}
+
 /**
  * @returns {{ html: string, skip: Set<string> } | null}
  */
@@ -580,5 +718,7 @@ function getSpecializedDetailLayout(resourceKey, data) {
   if (resourceKey === "classes") return renderClassDetailLayout(data);
   if (resourceKey === "races" || resourceKey === "subraces") return renderRaceDetailLayout(data);
   if (resourceKey === "subclasses") return renderSubclassDetailLayout(data);
+  if (resourceKey === "traits") return renderTraitDetailLayout(data);
+  if (resourceKey === "features") return renderFeatureDetailLayout(data);
   return null;
 }
