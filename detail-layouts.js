@@ -44,6 +44,199 @@ function layoutSection(title, bodyHtml) {
   return `<section class="detail-layout-section"><h4 class="detail-layout-heading">${escapeHtml(title)}</h4>${bodyHtml}</section>`;
 }
 
+function layoutChipList(items) {
+  if (!Array.isArray(items) || !items.length) return "";
+  const chips = items
+    .map((i) => `<li>${escapeHtml(i?.name || i?.index || "")}</li>`)
+    .join("");
+  return `<ul class="detail-chip-list">${chips}</ul>`;
+}
+
+function layoutTraitRefs(traits) {
+  const refs = Array.isArray(traits) ? traits : [];
+  const urls = refs.map((t) => cleanApiPath(t?.url)).filter(Boolean);
+  if (!urls.length) return layoutChipList(refs);
+  return `<div class="detail-trait-mount" data-trait-urls="${escapeHtml(urls.join(","))}">
+    <p class="detail-muted detail-enrich-placeholder">A carregar traços…</p>
+  </div>`;
+}
+
+function layoutClassLevelsMount(classLevels) {
+  const path = typeof classLevels === "string" ? cleanApiPath(classLevels) : "";
+  if (!path) return "";
+  return `<div class="detail-class-levels-mount" data-levels-path="${escapeHtml(path)}">
+    <p class="detail-muted detail-enrich-placeholder">A carregar evolução por nível…</p>
+  </div>`;
+}
+
+function layoutStartingEquipmentSection(equipment, options) {
+  const parts = [];
+
+  if (Array.isArray(equipment) && equipment.length) {
+    const items = equipment
+      .map((e) => {
+        const qty = e.quantity != null && e.quantity !== 1 ? `${e.quantity}× ` : "";
+        const name = e.equipment?.name || e.equipment?.index || "—";
+        return `${qty}${name}`;
+      })
+      .join(", ");
+    parts.push(`<p class="detail-text">${escapeHtml(items)}</p>`);
+  }
+
+  if (Array.isArray(options) && options.length) {
+    const opts = options
+      .map(
+        (opt) =>
+          `<article class="detail-action-card">${
+            opt.desc ? `<p class="detail-text">${escapeHtml(opt.desc)}</p>` : ""
+          }</article>`
+      )
+      .join("");
+    parts.push(`<div class="detail-action-list">${opts}</div>`);
+  }
+
+  return parts.join("");
+}
+
+function layoutMultiClassingSection(multiClassing) {
+  if (!multiClassing || typeof multiClassing !== "object") return "";
+  const parts = [];
+  const mcProfs = layoutRefNames(multiClassing.proficiencies);
+  if (mcProfs) {
+    parts.push(
+      `<p class="detail-text"><strong>Proficiências ao multiclasse:</strong> ${escapeHtml(mcProfs)}</p>`
+    );
+  }
+  if (multiClassing.prerequisite_options) {
+    parts.push(
+      `<p class="detail-muted">Requisitos de atributo ou proficiência — consulta o manual ou o detalhe completo na API.</p>`
+    );
+  }
+  return parts.join("");
+}
+
+function renderClassBookHtml(data, { proficiencyChoicesHtml = "" } = {}) {
+  const rows = [];
+  if (data.hit_die != null) rows.push(["Dado de vida", `d${data.hit_die}`]);
+  const saves = layoutRefNames(data.saving_throws);
+  if (saves) rows.push(["Salvaguardas", saves]);
+  const profs = layoutRefNames(data.proficiencies);
+  if (profs) rows.push(["Proficiências", profs]);
+  if (data.spellcasting) {
+    const sc = data.spellcasting;
+    const ability = sc.spellcasting_ability?.name || sc.spellcasting_ability?.index || "";
+    rows.push(["Conjuração", `A partir do nível ${sc.level ?? 1} · ${ability}`]);
+  }
+
+  let html = `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`;
+
+  if (data.spellcasting?.info?.length) {
+    const spellBody = data.spellcasting.info
+      .map(
+        (block) =>
+          `<article class="detail-action-card"><h5 class="detail-action-name">${escapeHtml(block.name || "")}</h5>${layoutFormatDesc(block.desc)}</article>`
+      )
+      .join("");
+    html += layoutSection("Magias (resumo)", `<div class="detail-action-list">${spellBody}</div>`);
+  }
+
+  if (Array.isArray(data.subclasses) && data.subclasses.length) {
+    html += layoutSection("Subclasses", layoutChipList(data.subclasses));
+  }
+
+  const equipBody = layoutStartingEquipmentSection(data.starting_equipment, data.starting_equipment_options);
+  if (equipBody) html += layoutSection("Equipamento inicial", equipBody);
+
+  const mcBody = layoutMultiClassingSection(data.multi_classing);
+  if (mcBody) html += layoutSection("Multiclasse", mcBody);
+
+  if (proficiencyChoicesHtml) html += proficiencyChoicesHtml;
+
+  if (data.class_levels) {
+    html += layoutSection("Evolução por nível", layoutClassLevelsMount(data.class_levels));
+  }
+
+  return html;
+}
+
+async function enrichTraitMount(mountEl) {
+  if (!mountEl || mountEl.dataset.enriched === "1") return;
+  const urls = (mountEl.dataset.traitUrls || "")
+    .split(",")
+    .map((u) => u.trim())
+    .filter(Boolean);
+  if (!urls.length) return;
+
+  mountEl.dataset.enriched = "1";
+  try {
+    const traits = await Promise.all(
+      urls.map(async (path) => {
+        const res = await apiFetch(path);
+        if (!res.ok) return null;
+        return res.json();
+      })
+    );
+    const cards = traits
+      .filter(Boolean)
+      .map(
+        (t) =>
+          `<article class="detail-action-card"><h5 class="detail-action-name">${escapeHtml(t.name || "")}</h5>${layoutFormatDesc(t.desc)}</article>`
+      )
+      .join("");
+    mountEl.innerHTML = cards
+      ? `<div class="detail-action-list">${cards}</div>`
+      : '<p class="detail-muted">Sem descrição dos traços.</p>';
+  } catch {
+    mountEl.innerHTML = '<p class="detail-muted">Não foi possível carregar os traços.</p>';
+  }
+}
+
+async function enrichClassLevelsMount(mountEl) {
+  if (!mountEl || mountEl.dataset.enriched === "1") return;
+  const path = mountEl.dataset.levelsPath;
+  if (!path) return;
+
+  mountEl.dataset.enriched = "1";
+  try {
+    const res = await apiFetch(path);
+    if (!res.ok) throw new Error("levels");
+    const levels = await res.json();
+    if (!Array.isArray(levels) || !levels.length) {
+      mountEl.innerHTML = '<p class="detail-muted">Sem níveis definidos.</p>';
+      return;
+    }
+
+    mountEl.innerHTML = levels
+      .map((lv) => {
+        const levelNum = lv.level != null ? lv.level : "?";
+        const features = Array.isArray(lv.features) ? lv.features : [];
+        const featList = features.length
+          ? `<ul class="detail-chip-list">${features
+              .map((f) => `<li>${escapeHtml(f.name || f.index || "")}</li>`)
+              .join("")}</ul>`
+          : '<p class="detail-muted">Sem capacidades novas neste nível.</p>';
+        const open = levelNum === 1 ? " open" : "";
+        return `<details class="detail-level-block"${open}>
+          <summary class="detail-level-summary">Nível ${escapeHtml(String(levelNum))}</summary>
+          ${featList}
+        </details>`;
+      })
+      .join("");
+  } catch {
+    mountEl.innerHTML = '<p class="detail-muted">Não foi possível carregar os níveis da classe.</p>';
+  }
+}
+
+async function enrichDetailMounts(root) {
+  if (!root) return;
+  const traitMounts = [...root.querySelectorAll(".detail-trait-mount")];
+  const levelMounts = [...root.querySelectorAll(".detail-class-levels-mount")];
+  await Promise.all([
+    ...traitMounts.map((el) => enrichTraitMount(el)),
+    ...levelMounts.map((el) => enrichClassLevelsMount(el)),
+  ]);
+}
+
 function formatSpeeds(speed) {
   if (!speed || typeof speed !== "object") return "—";
   return Object.entries(speed)
@@ -259,37 +452,16 @@ function renderEquipmentDetailLayout(data) {
 }
 
 function renderClassDetailLayout(data) {
-  const rows = [];
-  if (data.hit_die != null) rows.push(["Dado de vida", `d${data.hit_die}`]);
-  const saves = layoutRefNames(data.saving_throws);
-  if (saves) rows.push(["Salvaguardas", saves]);
-  const profs = layoutRefNames(data.proficiencies);
-  if (profs) rows.push(["Proficiências", profs]);
-  if (data.spellcasting) {
-    const sc = data.spellcasting;
-    const ability = sc.spellcasting_ability?.name || sc.spellcasting_ability?.index || "";
-    rows.push(["Conjuração", `A partir do nível ${sc.level ?? 1} · ${ability}`]);
-  }
-
-  let html = `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`;
-
-  if (data.spellcasting?.info?.length) {
-    const spellBody = data.spellcasting.info
-      .map(
-        (block) =>
-          `<article class="detail-action-card"><h5 class="detail-action-name">${escapeHtml(block.name || "")}</h5>${layoutFormatDesc(block.desc)}</article>`
-      )
-      .join("");
-    html += layoutSection("Magias (resumo)", `<div class="detail-action-list">${spellBody}</div>`);
-  }
-
   const choices = Array.isArray(data.proficiency_choices) ? data.proficiency_choices : [];
+  let proficiencyChoicesHtml = "";
   if (choices.length) {
     const choiceHtml = choices
       .map((c) => `<p class="detail-text">${escapeHtml(c.desc || "")}</p>`)
       .join("");
-    html += layoutSection("Escolhas de proficiência", choiceHtml);
+    proficiencyChoicesHtml = layoutSection("Escolhas de proficiência", choiceHtml);
   }
+
+  const html = renderClassBookHtml(data, { proficiencyChoicesHtml });
 
   const skip = new Set([
     "url",
@@ -330,19 +502,19 @@ function renderRaceDetailLayout(data) {
   if (data.size_description) html += layoutSection("Tamanho e porte", layoutFormatDesc(data.size_description));
   if (data.language_desc) html += layoutSection("Idiomas", layoutFormatDesc(data.language_desc));
 
-  if (Array.isArray(data.traits) && data.traits.length) {
-    const traits = data.traits
-      .map((t) => `<li>${escapeHtml(t.name || t.index || "")}</li>`)
-      .join("");
-    html += layoutSection("Traços raciais", `<ul class="detail-chip-list">${traits}</ul>`);
+  const traitRefs = data.traits || data.racial_traits;
+  if (Array.isArray(traitRefs) && traitRefs.length) {
+    html += layoutSection("Traços raciais", layoutTraitRefs(traitRefs));
   }
 
   if (Array.isArray(data.subraces) && data.subraces.length) {
-    const subs = data.subraces
-      .map((s) => `<li>${escapeHtml(s.name || s.index || "")}</li>`)
-      .join("");
-    html += layoutSection("Sub-raças", `<ul class="detail-chip-list">${subs}</ul>`);
+    html += layoutSection("Sub-raças", layoutChipList(data.subraces));
   }
+
+  if (data.race?.name || data.race?.index) {
+    html += `<p class="detail-text"><strong>Raça base:</strong> ${escapeHtml(data.race.name || data.race.index)}</p>`;
+  }
+  if (data.desc) html += layoutSection("Descrição", layoutFormatDesc(data.desc));
 
   const skip = new Set([
     "url",
@@ -359,10 +531,17 @@ function renderRaceDetailLayout(data) {
     "languages",
     "language_desc",
     "traits",
+    "racial_traits",
     "subraces",
+    "race",
+    "desc",
   ]);
 
   return { html, skip };
+}
+
+function renderSubraceDetailLayout(data) {
+  return renderRaceDetailLayout(data);
 }
 
 function renderSubclassDetailLayout(data) {
@@ -399,7 +578,7 @@ function getSpecializedDetailLayout(resourceKey, data) {
   if (resourceKey === "spells") return renderSpellDetailLayout(data);
   if (resourceKey === "equipment") return renderEquipmentDetailLayout(data);
   if (resourceKey === "classes") return renderClassDetailLayout(data);
-  if (resourceKey === "races") return renderRaceDetailLayout(data);
+  if (resourceKey === "races" || resourceKey === "subraces") return renderRaceDetailLayout(data);
   if (resourceKey === "subclasses") return renderSubclassDetailLayout(data);
   return null;
 }

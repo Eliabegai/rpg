@@ -575,6 +575,40 @@ body {
   color: #333;
 }
 
+.detail-level-block {
+  margin: 0 0 0.35rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.detail-level-block[open] {
+  background: #fff;
+}
+
+.detail-level-summary {
+  padding: 0.4rem 0.55rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  list-style: none;
+}
+
+.detail-level-summary::-webkit-details-marker {
+  display: none;
+}
+
+.detail-level-block .detail-chip-list {
+  margin: 0 0 0.45rem;
+  padding: 0 0.55rem 0.5rem 1.65rem;
+}
+
+.detail-enrich-placeholder {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
 .detail-action-list {
   display: flex;
   flex-direction: column;

@@ -1185,6 +1185,9 @@ async function loadItemDetail(url, rowBtn) {
       updateFavoriteCache(currentResourceLabel, selectedItemIndex, data);
     }
     renderDetail(data);
+    if (typeof enrichDetailMounts === "function") {
+      await enrichDetailMounts(detailPanel);
+    }
     persistUiSession();
   } catch {
     selectedItemUrl = null;

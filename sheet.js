@@ -1290,15 +1290,24 @@ function formatClassProfHint(selected, max) {
   return max === 1 ? `${selected} / 1 selecionada` : `${selected} / ${max} selecionadas`;
 }
 
+function renderRaceDetail(entry, data) {
+  const layout =
+    typeof getSpecializedDetailLayout === "function"
+      ? getSpecializedDetailLayout(entry.resourceKey, data)
+      : null;
+  if (layout?.html) return layout.html;
+  const summary = renderSheetSummary(entry.resourceKey, data);
+  return summary || '<p class="sheet-card-muted">Sem dados de raça.</p>';
+}
+
 function renderClassDetail(entry, data) {
-  const rowsHtml = renderSheetSummary("classes", data);
-  let html = rowsHtml || "";
+  let html =
+    typeof renderClassBookHtml === "function"
+      ? renderClassBookHtml(data, { proficiencyChoicesHtml: "" })
+      : renderSheetSummary("classes", data);
 
   if (Array.isArray(data.proficiencies) && data.proficiencies.length) {
-    html += `<h4 class="sheet-card-subtitle">Proficiências fixas</h4>
-      <ul class="detail-chip-list">${data.proficiencies
-        .map((p) => `<li><span class="detail-ref">${escapeHtml(p.name ?? p.index)}</span></li>`)
-        .join("")}</ul>`;
+    html += `<h4 class="sheet-card-subtitle">Proficiências fixas</h4>${layoutChipList(data.proficiencies)}`;
   }
 
   const choices = Array.isArray(data.proficiency_choices)
@@ -1423,6 +1432,14 @@ async function loadCardBody(cardEl) {
       body.innerHTML = '<p class="sheet-card-muted">Não foi possível carregar.</p>';
     } else if (entry.resourceKey === "classes") {
       body.innerHTML = renderClassDetail(entry, data);
+      if (typeof enrichDetailMounts === "function") {
+        await enrichDetailMounts(body);
+      }
+    } else if (entry.resourceKey === "races" || entry.resourceKey === "subraces") {
+      body.innerHTML = renderRaceDetail(entry, data);
+      if (typeof enrichDetailMounts === "function") {
+        await enrichDetailMounts(body);
+      }
     } else if (
       entry.resourceKey === "equipment" ||
       entry.resourceKey === "magic-items" ||
