@@ -60,6 +60,9 @@ const hpHealBtn = document.getElementById("hpHealBtn");
 const deathSaveSuccess = document.getElementById("deathSaveSuccess");
 const deathSaveFailure = document.getElementById("deathSaveFailure");
 const deathSaveResetBtn = document.getElementById("deathSaveResetBtn");
+const d20Panel = document.getElementById("d20Panel");
+const d20Arena = document.getElementById("d20Arena");
+const d20Racer = document.getElementById("d20Racer");
 const d20Stage = document.getElementById("d20Stage");
 const d20Face = document.getElementById("d20Face");
 const d20Outcome = document.getElementById("d20Outcome");
@@ -287,9 +290,10 @@ function rollDie(sides) {
 
 let hitDieRollTicker = null;
 let d20RollActive = false;
+let d20CornerHitTimer = null;
 
 const D20_ROLL_TICK_MS = [
-  42, 42, 44, 46, 50, 54, 58, 64, 72, 82, 94, 108, 125, 145, 170, 200, 235, 280, 340, 420, 520,
+  58, 58, 62, 66, 72, 78, 86, 94, 106, 118, 132, 150, 172, 198, 228, 265, 310, 365, 430, 520, 640,
 ];
 
 function clampD20Modifier(n) {
@@ -307,7 +311,15 @@ function formatRollModifier(mod) {
 }
 
 function resetD20StageClasses() {
-  d20Stage?.classList.remove("is-rolling", "is-slowing", "is-landing", "is-landed", "is-crit", "is-fumble");
+  d20Stage?.classList.remove(
+    "is-rolling",
+    "is-slowing",
+    "is-landing",
+    "is-landed",
+    "is-crit",
+    "is-fumble",
+    "is-corner-hit"
+  );
 }
 
 function setD20Face(value) {
@@ -316,33 +328,141 @@ function setD20Face(value) {
   d20Face.dataset.value = String(value);
 }
 
-async function animateD20Suspense(finalNatural) {
-  if (!d20Face || !d20Stage) return;
+function getArenaBounds() {
+  const pad = 22;
+  const w = d20Arena?.clientWidth ?? 280;
+  const h = d20Arena?.clientHeight ?? 120;
+  const size = d20Stage?.offsetWidth ?? 116;
+  return {
+    size,
+    center: { left: (w - size) / 2, top: (h - size) / 2 },
+    corners: [
+      { left: pad, top: pad },
+      { left: w - size - pad, top: pad },
+      { left: w - size - pad, top: h - size - pad },
+      { left: pad, top: h - size - pad },
+    ],
+  };
+}
 
-  resetD20StageClasses();
-  d20Stage.classList.add("is-rolling");
-
-  const slowAt = Math.floor(D20_ROLL_TICK_MS.length * 0.52);
-  const settleAt = D20_ROLL_TICK_MS.length - 4;
-
-  for (let i = 0; i < D20_ROLL_TICK_MS.length; i++) {
-    if (i === slowAt) {
-      d20Stage.classList.remove("is-rolling");
-      d20Stage.classList.add("is-slowing");
-    }
-    setD20Face(i >= settleAt ? finalNatural : rollDie(20));
-    await delay(D20_ROLL_TICK_MS[i]);
+function clearD20CornerHitTimer() {
+  if (d20CornerHitTimer) {
+    clearTimeout(d20CornerHitTimer);
+    d20CornerHitTimer = null;
   }
+}
 
-  d20Stage.classList.remove("is-slowing");
-  d20Stage.classList.add("is-landing");
-  setD20Face(finalNatural);
-  await delay(220);
+function pulseD20CornerHit(delayMs) {
+  clearD20CornerHitTimer();
+  d20CornerHitTimer = setTimeout(() => {
+    d20Stage?.classList.remove("is-corner-hit");
+    void d20Stage?.offsetWidth;
+    d20Stage?.classList.add("is-corner-hit");
+    d20CornerHitTimer = null;
+  }, delayMs);
+}
 
-  d20Stage.classList.remove("is-landing");
-  d20Stage.classList.add("is-landed");
-  if (finalNatural === 20) d20Stage.classList.add("is-crit");
-  if (finalNatural === 1) d20Stage.classList.add("is-fumble");
+function moveD20RacerTo(pos, durationMs, { hit = true } = {}) {
+  if (!d20Racer) return;
+  const ms = Math.max(95, durationMs);
+  const ease =
+    ms > 220 ? "cubic-bezier(0.22, 1, 0.36, 1)" : "cubic-bezier(0.55, 0.06, 0.68, 0.99)";
+  d20Racer.style.transition = `left ${ms}ms ${ease}, top ${ms}ms ${ease}`;
+  d20Racer.style.left = `${pos.left}px`;
+  d20Racer.style.top = `${pos.top}px`;
+  if (hit) pulseD20CornerHit(ms);
+}
+
+function prepareD20RacerForBounce() {
+  if (!d20Racer) return;
+  d20Racer.style.transform = "none";
+  const { center } = getArenaBounds();
+  d20Racer.style.left = `${center.left}px`;
+  d20Racer.style.top = `${center.top}px`;
+}
+
+function resetD20RacerPosition() {
+  if (!d20Racer) return;
+  d20Racer.style.transition = "";
+  d20Racer.style.left = "";
+  d20Racer.style.top = "";
+  d20Racer.style.transform = "";
+}
+
+async function expandD20Panel() {
+  d20Panel?.classList.add("is-expanded");
+  await delay(380);
+  prepareD20RacerForBounce();
+}
+
+async function collapseD20Panel() {
+  const { center } = getArenaBounds();
+  moveD20RacerTo(center, 360, { hit: false });
+  await delay(360);
+  resetD20RacerPosition();
+  d20Panel?.classList.remove("is-expanded", "is-rolling", "is-slowing");
+}
+
+async function animateD20Suspense(finalNatural) {
+  if (!d20Face || !d20Stage || !d20Arena || !d20Racer || !d20Panel) return;
+
+  try {
+    await expandD20Panel();
+    d20Panel.classList.add("is-rolling");
+    resetD20StageClasses();
+    d20Stage.classList.add("is-rolling");
+
+    const center = () => getArenaBounds().center;
+    const corners = () => getArenaBounds().corners;
+    let cornerIndex = 0;
+    const slowAt = Math.floor(D20_ROLL_TICK_MS.length * 0.52);
+    const settleAt = D20_ROLL_TICK_MS.length - 4;
+
+    for (let i = 0; i < D20_ROLL_TICK_MS.length; i++) {
+      const ms = D20_ROLL_TICK_MS[i];
+
+      if (i === slowAt) {
+        d20Stage.classList.remove("is-rolling");
+        d20Stage.classList.add("is-slowing");
+        d20Panel.classList.remove("is-rolling");
+        d20Panel.classList.add("is-slowing");
+        moveD20RacerTo(center(), ms, { hit: false });
+      } else if (i < slowAt) {
+        moveD20RacerTo(corners()[cornerIndex % corners().length], Math.round(ms * 1.12));
+        cornerIndex += 1;
+      } else if (i >= slowAt && i < settleAt) {
+        const jitter = 18;
+        const c = center();
+        moveD20RacerTo(
+          {
+            left: c.left + (Math.random() - 0.5) * jitter * 2,
+            top: c.top + (Math.random() - 0.5) * jitter * 2,
+          },
+          Math.round(ms * 0.75),
+          { hit: i % 2 === 0 }
+        );
+      }
+
+      setD20Face(i >= settleAt ? finalNatural : rollDie(20));
+      await delay(ms);
+    }
+
+    d20Stage.classList.remove("is-slowing");
+    d20Stage.classList.add("is-landing");
+    moveD20RacerTo(center(), 0, { hit: false });
+    setD20Face(finalNatural);
+    await delay(240);
+
+    d20Stage.classList.remove("is-landing");
+    d20Stage.classList.add("is-landed");
+    if (finalNatural === 20) d20Stage.classList.add("is-crit");
+    if (finalNatural === 1) d20Stage.classList.add("is-fumble");
+
+    await delay(380);
+  } finally {
+    clearD20CornerHitTimer();
+    await collapseD20Panel();
+  }
 }
 
 function presentD20Result(natural, modifier) {

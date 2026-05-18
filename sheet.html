@@ -114,18 +114,22 @@
             <div class="sheet-dice-block sheet-dice-block--d20">
               <h3 class="sheet-dice-subtitle">Rolagem d20</h3>
               <p class="sheet-dice-hint">Ataques, perícias, iniciativa e testes de resistência.</p>
-              <div class="sheet-d20-panel">
-                <div
-                  class="sheet-d20-stage"
-                  id="d20Stage"
-                  role="status"
-                  aria-live="assertive"
-                  aria-atomic="true"
-                  aria-label="Pronto para rolar"
-                >
-                  <span class="sheet-d20-glow" aria-hidden="true"></span>
-                  <span class="sheet-d20-face" id="d20Face">—</span>
-                  <span class="sheet-d20-badge" aria-hidden="true">d20</span>
+              <div class="sheet-d20-panel" id="d20Panel">
+                <div class="sheet-d20-arena" id="d20Arena">
+                  <div class="sheet-d20-racer" id="d20Racer">
+                    <div
+                      class="sheet-d20-stage"
+                      id="d20Stage"
+                      role="status"
+                      aria-live="assertive"
+                      aria-atomic="true"
+                      aria-label="Pronto para rolar"
+                    >
+                      <span class="sheet-d20-glow" aria-hidden="true"></span>
+                      <span class="sheet-d20-face" id="d20Face">—</span>
+                      <span class="sheet-d20-badge" aria-hidden="true">d20</span>
+                    </div>
+                  </div>
                 </div>
                 <span class="sheet-d20-outcome" id="d20Outcome" hidden></span>
                 <div class="sheet-d20-controls">
