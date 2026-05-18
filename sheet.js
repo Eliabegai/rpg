@@ -3,6 +3,19 @@ const libraryEmpty = document.getElementById("libraryEmpty");
 const sheetBoard = document.getElementById("sheetBoard");
 const sheetEmpty = document.getElementById("sheetEmpty");
 const characterNameInput = document.getElementById("characterName");
+const characterLevelInput = document.getElementById("characterLevelInput");
+const characterXpInput = document.getElementById("characterXpInput");
+const characterXpProgressEl = document.getElementById("characterXpProgress");
+const sheetSyncStatus = document.getElementById("sheetSyncStatus");
+const gameToolsSyncStatus = document.getElementById("gameToolsSyncStatus");
+const casterTypeSelect = document.getElementById("casterTypeSelect");
+const spellSlotsGrid = document.getElementById("spellSlotsGrid");
+const spellListByLevel = document.getElementById("spellListByLevel");
+const restEnvironmentSelect = document.getElementById("restEnvironmentSelect");
+const restEnvironmentHint = document.getElementById("restEnvironmentHint");
+const hitDiceRemainingInput = document.getElementById("hitDiceRemainingInput");
+const hitDiceMaxHint = document.getElementById("hitDiceMaxHint");
+const restResultMessage = document.getElementById("restResultMessage");
 const localeSelect = document.getElementById("localeSelect");
 const abilityScoresGrid = document.getElementById("abilityScoresGrid");
 const armorClassInput = document.getElementById("armorClassInput");
@@ -33,8 +46,9 @@ let alignmentsLoaded = false;
 function patchSheet(mutator) {
   const sheet = loadSheet();
   mutator(sheet);
-  saveSheet(sheet);
-  return sheet;
+  const normalized = normalizeSheet(sheet);
+  saveSheet(normalized);
+  return normalized;
 }
 
 function abilityModifier(score) {
@@ -954,8 +968,12 @@ function toggleSheetItem(entry) {
       applyCacheToEntry(item, fav.cachedData, fav.dataLocale || currentLocale);
     }
     sheet.items.push(item);
+    if (isSpellResourceKey(entry.resourceKey)) {
+      const level = item.cachedData ? spellLevelFromApiData(item.cachedData) : 0;
+      addSpellToSheetList(sheet, item, { level, prepared: true });
+    }
   }
-  saveSheet(sheet);
+  saveSheet(normalizeSheet(sheet));
   renderAll();
 }
 
@@ -1023,8 +1041,13 @@ function renderLibrary() {
           </li>`;
         })
         .join("");
+      const spellHint =
+        resourceKey === "spells"
+          ? '<p class="sheet-library-spell-hint">Magias «Na ficha» entram na lista por nível (secção Slots).</p>'
+          : "";
       return `<section class="sheet-library-group" aria-labelledby="lib-${escapeHtml(resourceKey)}">
         <h2 class="sheet-library-group-title" id="lib-${escapeHtml(resourceKey)}">${escapeHtml(title)} <span class="sheet-count">(${items.length})</span></h2>
+        ${spellHint}
         <ul class="sheet-library-list">${rows}</ul>
       </section>`;
     })
@@ -1267,15 +1290,36 @@ function formatClassProfHint(selected, max) {
   return max === 1 ? `${selected} / 1 selecionada` : `${selected} / ${max} selecionadas`;
 }
 
+function renderBookDetail(entry, data, emptyLabel = "Sem dados para este item.") {
+  const layout =
+    typeof getSpecializedDetailLayout === "function"
+      ? getSpecializedDetailLayout(entry.resourceKey, data)
+      : null;
+  if (layout?.html) return layout.html;
+  const summary = renderSheetSummary(entry.resourceKey, data);
+  return summary || `<p class="sheet-card-muted">${escapeHtml(emptyLabel)}</p>`;
+}
+
+function renderRaceDetail(entry, data) {
+  return renderBookDetail(entry, data, "Sem dados de raça.");
+}
+
+function renderTraitDetail(entry, data) {
+  return renderBookDetail(entry, data, "Sem dados de traço.");
+}
+
+function renderFeatureDetail(entry, data) {
+  return renderBookDetail(entry, data, "Sem dados de capacidade.");
+}
+
 function renderClassDetail(entry, data) {
-  const rowsHtml = renderSheetSummary("classes", data);
-  let html = rowsHtml || "";
+  let html =
+    typeof renderClassBookHtml === "function"
+      ? renderClassBookHtml(data, { proficiencyChoicesHtml: "" })
+      : renderSheetSummary("classes", data);
 
   if (Array.isArray(data.proficiencies) && data.proficiencies.length) {
-    html += `<h4 class="sheet-card-subtitle">Proficiências fixas</h4>
-      <ul class="detail-chip-list">${data.proficiencies
-        .map((p) => `<li><span class="detail-ref">${escapeHtml(p.name ?? p.index)}</span></li>`)
-        .join("")}</ul>`;
+    html += `<h4 class="sheet-card-subtitle">Proficiências fixas</h4>${layoutChipList(data.proficiencies)}`;
   }
 
   const choices = Array.isArray(data.proficiency_choices)
@@ -1400,6 +1444,24 @@ async function loadCardBody(cardEl) {
       body.innerHTML = '<p class="sheet-card-muted">Não foi possível carregar.</p>';
     } else if (entry.resourceKey === "classes") {
       body.innerHTML = renderClassDetail(entry, data);
+      if (typeof enrichDetailMounts === "function") {
+        await enrichDetailMounts(body);
+      }
+    } else if (entry.resourceKey === "races" || entry.resourceKey === "subraces") {
+      body.innerHTML = renderRaceDetail(entry, data);
+      if (typeof enrichDetailMounts === "function") {
+        await enrichDetailMounts(body);
+      }
+    } else if (entry.resourceKey === "traits") {
+      body.innerHTML = renderTraitDetail(entry, data);
+      if (typeof enrichDetailMounts === "function") {
+        await enrichDetailMounts(body);
+      }
+    } else if (entry.resourceKey === "features") {
+      body.innerHTML = renderFeatureDetail(entry, data);
+      if (typeof enrichDetailMounts === "function") {
+        await enrichDetailMounts(body);
+      }
     } else if (
       entry.resourceKey === "equipment" ||
       entry.resourceKey === "magic-items" ||
@@ -1504,6 +1566,35 @@ function onSheetClick(e) {
   }
   if (action === "death-save-reset") {
     onDeathSaveReset();
+    return;
+  }
+  if (action === "sync-sheet-to-dm") {
+    onSyncSheetToDm();
+    return;
+  }
+  if (action === "spell-slots-reset") {
+    onSpellSlotsReset();
+    return;
+  }
+  if (action === "toggle-spell-slot") {
+    onSpellSlotToggle(btn.dataset.slotLevel, btn.dataset.slotIndex);
+    return;
+  }
+  if (action === "import-spell-favorites") {
+    onImportSpellFavorites();
+    return;
+  }
+  if (action === "remove-spell") {
+    onRemoveSpell(btn.dataset.spellIndex);
+    return;
+  }
+  if (action === "short-rest") {
+    onShortRest();
+    return;
+  }
+  if (action === "long-rest") {
+    onLongRest();
+    return;
   }
 }
 
@@ -1511,6 +1602,367 @@ function onCharacterNameInput() {
   patchSheet((sheet) => {
     sheet.characterName = characterNameInput ? characterNameInput.value.trim() : "";
   });
+}
+
+function renderCharacterXpProgress() {
+  if (!characterXpProgressEl) return;
+  const sheet = loadSheet();
+  const level = clampCharacterLevel(sheet.characterLevel);
+  const prog = characterXpProgress(sheet.xpTotal, level);
+  if (prog.nextAt == null) {
+    characterXpProgressEl.innerHTML = `<p class="sheet-xp-progress-note">Nível máximo — ${prog.xpTotal.toLocaleString("pt-BR")} XP total.</p>`;
+    return;
+  }
+  const label = `${prog.inLevel.toLocaleString("pt-BR")} / ${prog.span.toLocaleString("pt-BR")} XP para o nível ${level + 1}`;
+  characterXpProgressEl.innerHTML = `<div class="sheet-xp-progress" role="progressbar" aria-valuenow="${prog.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${escapeHtml(label)}">
+      <span class="sheet-xp-progress-fill" style="width:${prog.pct}%"></span>
+    </div>
+    <p class="sheet-xp-progress-note">${escapeHtml(label)}</p>`;
+}
+
+function onCharacterLevelInput() {
+  patchSheet((sheet) => {
+    sheet.characterLevel = clampCharacterLevel(characterLevelInput?.value);
+    const maxHd = hitDiceMaxForSheet(sheet);
+    if (hitDiceRemainingForSheet(sheet) > maxHd) sheet.hitDiceRemaining = maxHd;
+  });
+  renderCharacterXpProgress();
+  renderSpellSlotsGrid();
+  renderSpellListByLevel();
+  syncHitDiceUi();
+}
+
+function onCharacterXpInput() {
+  patchSheet((sheet) => {
+    sheet.xpTotal = normalizeXpTotal(characterXpInput?.value);
+    sheet.characterLevel = levelFromXpTotal(sheet.xpTotal);
+    const maxHd = hitDiceMaxForSheet(sheet);
+    if (hitDiceRemainingForSheet(sheet) > maxHd) sheet.hitDiceRemaining = maxHd;
+  });
+  syncCharacterCoreFromSheet();
+  renderCharacterXpProgress();
+}
+
+function setSheetSyncStatus(message, isError = false) {
+  for (const el of [sheetSyncStatus, gameToolsSyncStatus]) {
+    if (!el) continue;
+    el.textContent = message;
+    el.classList.toggle("is-error", isError);
+  }
+}
+
+function onSyncSheetToDm() {
+  const result = syncSheetToDmBattle(loadSheet());
+  if (!result.ok) {
+    setSheetSyncStatus(result.error || "Sincronização falhou.", true);
+    return;
+  }
+  setSheetSyncStatus(
+    result.created ? "Personagem adicionado à mesa do mestre." : "Dados atualizados na mesa (nível e XP)."
+  );
+}
+
+function populateRestEnvironmentSelect() {
+  if (!restEnvironmentSelect || typeof REST_ENVIRONMENTS !== "object") return;
+  restEnvironmentSelect.innerHTML = Object.entries(REST_ENVIRONMENTS)
+    .map(([key, env]) => `<option value="${escapeHtml(key)}">${escapeHtml(env.label)}</option>`)
+    .join("");
+}
+
+function updateRestEnvironmentHint() {
+  if (!restEnvironmentHint || !restEnvironmentSelect) return;
+  const env = REST_ENVIRONMENTS?.[restEnvironmentSelect.value];
+  restEnvironmentHint.textContent = env?.hint || "";
+}
+
+function syncHitDiceUi() {
+  const sheet = loadSheet();
+  const max = hitDiceMaxForSheet(sheet);
+  const remaining = hitDiceRemainingForSheet(sheet);
+  if (hitDiceRemainingInput && document.activeElement !== hitDiceRemainingInput) {
+    hitDiceRemainingInput.value = String(remaining);
+    hitDiceRemainingInput.max = String(max);
+  }
+  if (hitDiceMaxHint) hitDiceMaxHint.textContent = max ? ` / ${max}` : "";
+}
+
+function spellLevelGroupLabel(level) {
+  return level === 0 ? "Truques" : `${level}º nível`;
+}
+
+function renderSpellListByLevel() {
+  if (!spellListByLevel) return;
+  const sheet = loadSheet();
+  const spells = sheet.spellcasting?.spells || [];
+
+  if (!spells.length) {
+    const favSpells = loadFavorites().filter((f) => isSpellResourceKey(f.resourceKey)).length;
+    const sheetSpells = (loadSheet().items || []).filter((i) => isSpellResourceKey(i.resourceKey)).length;
+    let hint =
+      "Nenhuma magia na lista. Marca ★ na exploração ou «+ Na ficha» nas magias da biblioteca, depois importa.";
+    if (favSpells === 0 && sheetSpells === 0) {
+      hint = "Sem magias nos favoritos ★ nem na ficha. Explora Magias na API e marca ★ ou «+ Na ficha».";
+    }
+    spellListByLevel.innerHTML = `<p class="sheet-spell-list-empty">${escapeHtml(hint)}</p>`;
+    return;
+  }
+
+  const byLevel = new Map();
+  for (const spell of spells) {
+    const lv = spell.level;
+    if (!byLevel.has(lv)) byLevel.set(lv, []);
+    byLevel.get(lv).push(spell);
+  }
+
+  const levels = [...byLevel.keys()].sort((a, b) => a - b);
+  spellListByLevel.innerHTML = levels
+    .map((level) => {
+      const list = byLevel.get(level);
+      let headerExtra = "";
+      if (level > 0 && sheet.spellcasting?.casterType !== "none") {
+        const { remaining, max } = remainingSlotsSummaryForLevel(sheet, level);
+        if (max > 0) {
+          headerExtra = `<span class="spell-list-slot-hint">${remaining} slot${remaining === 1 ? "" : "s"} disp. (≥${level}º)</span>`;
+        }
+      }
+      const rows = list
+        .map((spell) => {
+          const status = getSpellCastStatus(sheet, spell);
+          return `<li class="spell-list-item">
+            <label class="spell-list-prepared">
+              <input type="checkbox" class="spell-list-prepared-input" data-action="toggle-spell-prepared"
+                data-spell-index="${escapeHtml(spell.index)}" ${spell.prepared ? "checked" : ""} />
+              <span class="spell-list-name">${escapeHtml(spell.name)}</span>
+            </label>
+            <span class="spell-list-status spell-list-status--${escapeHtml(status.key)}">${escapeHtml(status.label)}</span>
+            <button type="button" class="spell-list-remove" data-action="remove-spell"
+              data-spell-index="${escapeHtml(spell.index)}" aria-label="Remover ${escapeHtml(spell.name)}">×</button>
+          </li>`;
+        })
+        .join("");
+      return `<section class="spell-list-group" aria-labelledby="spell-lv-${level}">
+        <h3 class="spell-list-group-title" id="spell-lv-${level}">
+          ${escapeHtml(spellLevelGroupLabel(level))}
+          ${headerExtra}
+        </h3>
+        <ul class="spell-list-items">${rows}</ul>
+      </section>`;
+    })
+    .join("");
+}
+
+async function hydrateSpellListLevels() {
+  const sheet = loadSheet();
+  ensureSpellcastingSpells(sheet);
+  let changed = false;
+  await Promise.all(
+    sheet.spellcasting.spells.map(async (spell) => {
+      const cached = getCachedEntryData(spell);
+      if (cached) {
+        const lv = spellLevelFromApiData(cached);
+        if (lv !== spell.level) {
+          spell.level = lv;
+          changed = true;
+        }
+        return;
+      }
+      const data = await fetchAndCacheFavoriteEntry(spell);
+      if (data) {
+        const lv = spellLevelFromApiData(data);
+        if (lv !== spell.level) {
+          spell.level = lv;
+          changed = true;
+        }
+      }
+    })
+  );
+  if (changed) {
+    sheet.spellcasting.spells.sort(
+      (a, b) =>
+        a.level - b.level || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" })
+    );
+    saveSheet(normalizeSheet(sheet));
+    renderSpellListByLevel();
+  }
+}
+
+function onImportSpellFavorites() {
+  let added = 0;
+  patchSheet((sheet) => {
+    added = importSpellFavoritesToSheet(sheet);
+  });
+  renderSpellListByLevel();
+  void hydrateSpellListLevels();
+  if (added > 0 && restResultMessage) {
+    setRestMessage(
+      `${added} magia${added === 1 ? "" : "s"} importada${added === 1 ? "" : "s"} (favoritos ★ e itens na ficha).`
+    );
+  }
+}
+
+function onToggleSpellPrepared(spellIndex) {
+  const ix = String(spellIndex);
+  patchSheet((sheet) => {
+    const spell = sheet.spellcasting.spells.find((s) => s.index === ix);
+    if (spell) spell.prepared = !spell.prepared;
+  });
+  renderSpellListByLevel();
+}
+
+function onRemoveSpell(spellIndex) {
+  const ix = String(spellIndex);
+  patchSheet((sheet) => {
+    sheet.spellcasting.spells = sheet.spellcasting.spells.filter((s) => s.index !== ix);
+  });
+  renderSpellListByLevel();
+}
+
+function renderSpellSlotsGrid() {
+  if (!spellSlotsGrid) return;
+  const sheet = loadSheet();
+  const casterType = sheet.spellcasting?.casterType || "none";
+  if (casterTypeSelect && document.activeElement !== casterTypeSelect) {
+    casterTypeSelect.value = casterType;
+  }
+
+  const maxMap = getSheetMaxSpellSlots(sheet);
+  const keys = Object.keys(maxMap);
+  if (casterType === "none" || !keys.length) {
+    spellSlotsGrid.innerHTML = '<p class="sheet-spell-slots-empty">Sem slots neste nível para o tipo escolhido.</p>';
+    return;
+  }
+
+  const usedMap = clampSpellSlotsUsed(sheet.spellcasting.slotsUsed, maxMap);
+
+  spellSlotsGrid.innerHTML = keys
+    .map((lv) => {
+      const max = maxMap[lv];
+      const used = usedMap[lv] || 0;
+      const dots = Array.from({ length: max }, (_, i) => {
+        const isUsed = i < used;
+        return `<button type="button" class="spell-slot-dot${isUsed ? " is-used" : ""}"
+          data-action="toggle-spell-slot" data-slot-level="${lv}" data-slot-index="${i}"
+          aria-label="${isUsed ? "Recuperar" : "Gastar"} slot ${lv}º nível ${i + 1}"
+          aria-pressed="${isUsed}"></button>`;
+      }).join("");
+      return `<div class="spell-slot-row">
+        <span class="spell-slot-level">${lv}º</span>
+        <div class="spell-slot-dots">${dots}</div>
+        <span class="spell-slot-count">${used}/${max}</span>
+      </div>`;
+    })
+    .join("");
+}
+
+function onCasterTypeChange() {
+  patchSheet((sheet) => {
+    sheet.spellcasting.casterType = normalizeCasterType(casterTypeSelect?.value);
+    sheet.spellcasting.slotsUsed = {};
+  });
+  renderSpellSlotsGrid();
+  renderSpellListByLevel();
+}
+
+function onSpellSlotToggle(level, index) {
+  patchSheet((sheet) => {
+    const maxMap = getSheetMaxSpellSlots(sheet);
+    const lv = String(level);
+    const max = maxMap[lv] || 0;
+    if (!max) return;
+    const idx = Number(index);
+    let used = sheet.spellcasting.slotsUsed[lv] || 0;
+    if (idx < used) used = idx;
+    else used = Math.min(max, idx + 1);
+    sheet.spellcasting.slotsUsed[lv] = used;
+    sheet.spellcasting.slotsUsed = clampSpellSlotsUsed(sheet.spellcasting.slotsUsed, maxMap);
+  });
+  renderSpellSlotsGrid();
+  renderSpellListByLevel();
+}
+
+function onSpellSlotsReset() {
+  patchSheet((sheet) => {
+    sheet.spellcasting.slotsUsed = {};
+  });
+  renderSpellSlotsGrid();
+  renderSpellListByLevel();
+}
+
+function hitDieSidesFromSheet(sheet) {
+  const m = String(sheet.hitDie || "d10").match(/d(\d+)/i);
+  return m ? Number(m[1]) : 10;
+}
+
+function onHitDiceRemainingInput() {
+  patchSheet((sheet) => {
+    const max = hitDiceMaxForSheet(sheet);
+    const n = Number(hitDiceRemainingInput?.value);
+    sheet.hitDiceRemaining = Number.isFinite(n) ? Math.min(max, Math.max(0, Math.floor(n))) : max;
+  });
+  syncHitDiceUi();
+}
+
+function onRestEnvironmentChange() {
+  patchSheet((sheet) => {
+    sheet.restEnvironment = normalizeRestEnvironment(restEnvironmentSelect?.value);
+  });
+  updateRestEnvironmentHint();
+}
+
+function setRestMessage(text, isError = false) {
+  if (!restResultMessage) return;
+  restResultMessage.textContent = text;
+  restResultMessage.classList.toggle("is-error", isError);
+}
+
+function onShortRest() {
+  const sheet = loadSheet();
+  const remaining = hitDiceRemainingForSheet(sheet);
+  if (remaining <= 0) {
+    setRestMessage("Sem dados de vida para gastar.", true);
+    return;
+  }
+  const sides = hitDieSidesFromSheet(sheet);
+  const roll = rollDie(sides);
+  const con = Number(sheet.abilityScores?.con);
+  const conMod = Number.isFinite(con) ? Math.floor((con - 10) / 2) : 0;
+  const heal = Math.max(1, roll + conMod);
+  const maxHp = clampHpValue(Number(sheet.hpMax) || 0);
+  let current = clampHpValue(Number(sheet.hpCurrent) || 0);
+  current = maxHp ? Math.min(maxHp, current + heal) : current + heal;
+
+  patchSheet((s) => {
+    s.hitDiceRemaining = remaining - 1;
+    s.hpCurrent = String(current);
+  });
+  syncHpFields();
+  syncHitDiceUi();
+  setRestMessage(`Descanso curto: +${heal} PV (d${sides}=${roll}${conMod >= 0 ? `+${conMod}` : conMod}). Restam ${remaining - 1} dados de vida.`);
+}
+
+function onLongRest() {
+  const sheet = loadSheet();
+  const maxHd = hitDiceMaxForSheet(sheet);
+  const remaining = hitDiceRemainingForSheet(sheet);
+  const regained = Math.floor(maxHd / 2);
+  const newRemaining = Math.min(maxHd, remaining + regained);
+  const env = REST_ENVIRONMENTS?.[sheet.restEnvironment]?.label || "ambiente";
+
+  patchSheet((s) => {
+    s.hitDiceRemaining = newRemaining;
+    if (s.hpMax) s.hpCurrent = s.hpMax;
+    s.hpTemp = "0";
+    s.deathSaves = { successes: 0, failures: 0 };
+    s.spellcasting.slotsUsed = {};
+  });
+  syncHpFields();
+  syncHitDiceUi();
+  renderDeathSaves();
+  renderSpellSlotsGrid();
+  renderSpellListByLevel();
+  setRestMessage(
+    `Descanso longo (${env}): vida reposta, slots de magia repostos, salvaguardas de morte zeradas, +${regained} dados de vida (total ${newRemaining}/${maxHd}).`
+  );
 }
 
 function buildAbilityScoresGrid() {
@@ -1537,6 +1989,12 @@ function syncCharacterCoreFromSheet() {
   if (armorClassInput && document.activeElement !== armorClassInput) {
     armorClassInput.value = sheet.armorClass;
   }
+  if (characterLevelInput && document.activeElement !== characterLevelInput) {
+    characterLevelInput.value = String(clampCharacterLevel(sheet.characterLevel));
+  }
+  if (characterXpInput && document.activeElement !== characterXpInput) {
+    characterXpInput.value = String(normalizeXpTotal(sheet.xpTotal));
+  }
   if (alignmentSelect && document.activeElement !== alignmentSelect) {
     alignmentSelect.value = sheet.alignment;
   }
@@ -1557,6 +2015,17 @@ function syncCharacterCoreFromSheet() {
   syncD20Fields();
   syncDamageFields();
   renderDeathSaves();
+  renderCharacterXpProgress();
+  renderSpellSlotsGrid();
+  renderSpellListByLevel();
+  syncHitDiceUi();
+  if (casterTypeSelect && document.activeElement !== casterTypeSelect) {
+    casterTypeSelect.value = sheet.spellcasting?.casterType || "none";
+  }
+  if (restEnvironmentSelect && document.activeElement !== restEnvironmentSelect) {
+    restEnvironmentSelect.value = sheet.restEnvironment || "tavern";
+  }
+  updateRestEnvironmentHint();
 }
 
 async function syncAlignmentSummary() {
@@ -1984,6 +2453,7 @@ async function boot() {
 
   buildAbilityScoresGrid();
   buildDeathSaveDots();
+  populateRestEnvironmentSelect();
   syncCharacterCoreFromSheet();
   initGameTools();
 
@@ -1991,6 +2461,10 @@ async function boot() {
   document.body.addEventListener("change", (e) => {
     onClassProficiencyChange(e);
     onAbilityAssignChange(e);
+    if (e.target?.dataset?.action === "toggle-spell-prepared") {
+      onToggleSpellPrepared(e.target.dataset.spellIndex);
+      return;
+    }
     if (e.target === hitDieSelect) onHitDieSelectChange();
     if (e.target === d20ModifierInput) onD20ModifierChange();
     if (e.target === dmgModifierInput) onDamageModifierChange();
@@ -2000,6 +2474,14 @@ async function boot() {
   if (characterNameInput) {
     characterNameInput.addEventListener("input", onCharacterNameInput);
     characterNameInput.addEventListener("change", onCharacterNameInput);
+  }
+  if (characterLevelInput) {
+    characterLevelInput.addEventListener("input", onCharacterLevelInput);
+    characterLevelInput.addEventListener("change", onCharacterLevelInput);
+  }
+  if (characterXpInput) {
+    characterXpInput.addEventListener("input", onCharacterXpInput);
+    characterXpInput.addEventListener("change", onCharacterXpInput);
   }
   if (abilityScoresGrid) {
     abilityScoresGrid.addEventListener("input", onAbilityInput);
@@ -2062,6 +2544,12 @@ async function boot() {
   if (alignmentSelect) alignmentSelect.addEventListener("change", onAlignmentChange);
   if (portraitInput) portraitInput.addEventListener("change", onPortraitSelected);
   if (portraitClear) portraitClear.addEventListener("click", onPortraitClear);
+  if (casterTypeSelect) casterTypeSelect.addEventListener("change", onCasterTypeChange);
+  if (restEnvironmentSelect) restEnvironmentSelect.addEventListener("change", onRestEnvironmentChange);
+  if (hitDiceRemainingInput) {
+    hitDiceRemainingInput.addEventListener("input", onHitDiceRemainingInput);
+    hitDiceRemainingInput.addEventListener("change", onHitDiceRemainingInput);
+  }
 
   renderAll();
 }

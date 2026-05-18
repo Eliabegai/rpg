@@ -1084,6 +1084,10 @@ function renderDetail(data) {
   detailNodeId = 0;
   const title = data.name ?? data.index ?? "Detalhe";
   const skip = new Set(["url", "updated_at", "image", "name", "index"]);
+  const layout = typeof getSpecializedDetailLayout === "function"
+    ? getSpecializedDetailLayout(currentResourceLabel, data)
+    : null;
+  if (layout?.skip) layout.skip.forEach((k) => skip.add(k));
   const idx = data.index != null ? String(data.index) : "";
   const relPath = cleanApiPath(data.url || "");
   const favOn = currentResourceLabel && idx ? isFavorite(currentResourceLabel, idx) : false;
@@ -1106,6 +1110,8 @@ function renderDetail(data) {
     )}" loading="lazy" decoding="async" /></figure>`;
   }
   html += `<h3 class="detail-title">${escapeHtml(String(title))}</h3>`;
+
+  if (layout?.html) html += layout.html;
 
   const keys = Object.keys(data)
     .filter((k) => !skip.has(k))
@@ -1179,6 +1185,9 @@ async function loadItemDetail(url, rowBtn) {
       updateFavoriteCache(currentResourceLabel, selectedItemIndex, data);
     }
     renderDetail(data);
+    if (typeof enrichDetailMounts === "function") {
+      await enrichDetailMounts(detailPanel);
+    }
     persistUiSession();
   } catch {
     selectedItemUrl = null;

@@ -7,7 +7,51 @@ const STORAGE_SESSION = "dnd5eapi.session";
 const STORAGE_SHEET = "dnd5eapi.sheet";
 const STORAGE_GAME_TOOLS = "dnd5eapi.gameTools";
 const STORAGE_DM_BATTLE = "dnd5eapi.dmBattle";
+const STORAGE_CAMPAIGN = "dnd5eapi.campaign";
+const STORAGE_SESSION_HISTORY = "dnd5eapi.sessionHistory";
+const STORAGE_TABLE_MODE = "dnd5eapi.tableMode";
 const STORAGE_DM_VISITED = "dnd5eapi.dmVisited";
+const SESSION_HISTORY_MAX = 48;
+const CAMPAIGN_EXPORT_VERSION = 1;
+
+/** XP acumulado mínimo por nível (PHB 2014). Índice = nível (1–20). */
+const XP_THRESHOLDS = [
+  0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000,
+  165000, 195000, 225000, 265000, 305000, 355000,
+];
+
+/** DMG 2014 — orçamento de XP por personagem [fácil, médio, difícil, mortal]. Índice = nível−1. */
+const ENCOUNTER_XP_BUDGET = [
+  [25, 50, 75, 100],
+  [50, 100, 150, 200],
+  [75, 150, 225, 400],
+  [125, 250, 375, 500],
+  [250, 500, 750, 1100],
+  [300, 600, 900, 1400],
+  [350, 750, 1100, 1700],
+  [450, 900, 1400, 2100],
+  [550, 1100, 1600, 2400],
+  [600, 1200, 1900, 2800],
+  [800, 1600, 2400, 3600],
+  [1000, 2000, 3000, 4500],
+  [1100, 2200, 3400, 5100],
+  [1250, 2500, 3800, 5700],
+  [1400, 2800, 4300, 6400],
+  [1600, 3200, 4800, 7200],
+  [2000, 3900, 5900, 8800],
+  [2100, 4200, 6300, 9500],
+  [2400, 4900, 7300, 10900],
+  [2800, 5700, 8500, 12700],
+];
+
+const ENCOUNTER_DIFFICULTY_LABELS = {
+  trivial: "Trivial",
+  easy: "Fácil",
+  medium: "Médio",
+  hard: "Difícil",
+  deadly: "Mortal",
+  beyond: "Além do mortal",
+};
 const STORAGE_IMAGE_CACHE = "dnd5eapi.imageCache";
 const IMAGE_CACHE_MAX_ENTRIES = 96;
 
@@ -19,6 +63,8 @@ const GAME_TOOLS_TABS = ["combat", "character", "dm"];
  * @property {string} id
  * @property {string} name
  * @property {string} initiative
+ * @property {number} level nível de personagem (1–20)
+ * @property {number} xpTotal XP acumulado (PHB)
  * @property {boolean} downed fora do XP (mantido no registo para reviver)
  */
 
@@ -62,6 +108,129 @@ function filterKilledByForXp(killerIds, party) {
 function monsterXpFromApiData(data) {
   const xp = Number(data?.xp);
   return Number.isFinite(xp) && xp >= 0 ? Math.floor(xp) : 0;
+}
+
+function clampCharacterLevel(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(20, Math.max(1, Math.floor(n)));
+}
+
+function xpThresholdForLevel(level) {
+  const lv = clampCharacterLevel(level);
+  return XP_THRESHOLDS[lv - 1] ?? 0;
+}
+
+function xpToNextLevel(level) {
+  const lv = clampCharacterLevel(level);
+  if (lv >= 20) return null;
+  return XP_THRESHOLDS[lv] - XP_THRESHOLDS[lv - 1];
+}
+
+function normalizeXpTotal(raw) {
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+}
+
+/** Progresso de XP dentro do nível atual (0–100). */
+function characterXpProgress(xpTotal, level) {
+  const lv = clampCharacterLevel(level);
+  const total = normalizeXpTotal(xpTotal);
+  const floor = xpThresholdForLevel(lv);
+  if (lv >= 20) {
+    return { level: lv, xpTotal: total, floor, nextAt: null, inLevel: 0, span: 0, pct: 100 };
+  }
+  const nextAt = XP_THRESHOLDS[lv];
+  const span = nextAt - floor;
+  const inLevel = Math.max(0, total - floor);
+  const pct = span > 0 ? Math.min(100, Math.round((inLevel / span) * 100)) : 0;
+  return { level: lv, xpTotal: total, floor, nextAt, inLevel, span, pct };
+}
+
+function levelFromXpTotal(xpTotal) {
+  const total = normalizeXpTotal(xpTotal);
+  let lv = 1;
+  for (let i = XP_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (total >= XP_THRESHOLDS[i]) {
+      lv = i + 1;
+      break;
+    }
+  }
+  return clampCharacterLevel(lv);
+}
+
+function encounterMonsterMultiplier(count) {
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  if (n <= 1) return 1;
+  if (n === 2) return 1.5;
+  if (n <= 6) return 2;
+  if (n <= 10) return 2.5;
+  if (n <= 14) return 3;
+  return 4;
+}
+
+/** Orçamento de encontro somado para o grupo (DMG, grupos 3–5; ajuste simples fora disso). */
+function partyEncounterBudget(party) {
+  const members = activePartyMembers(party);
+  const tiers = ["easy", "medium", "hard", "deadly"];
+  const budget = { easy: 0, medium: 0, hard: 0, deadly: 0 };
+  if (!members.length) return budget;
+
+  for (const m of members) {
+    const row = ENCOUNTER_XP_BUDGET[clampCharacterLevel(m.level) - 1];
+    if (!row) continue;
+    budget.easy += row[0];
+    budget.medium += row[1];
+    budget.hard += row[2];
+    budget.deadly += row[3];
+  }
+
+  const n = members.length;
+  let factor = 1;
+  if (n < 3) factor = 1.5;
+  else if (n > 5) factor = 5 / n;
+
+  if (factor !== 1) {
+    for (const t of tiers) budget[t] = Math.floor(budget[t] * factor);
+  }
+  return budget;
+}
+
+function classifyEncounterDifficulty(adjustedXp, budget) {
+  if (!budget || adjustedXp <= 0) return "trivial";
+  if (adjustedXp <= budget.easy) return "easy";
+  if (adjustedXp <= budget.medium) return "medium";
+  if (adjustedXp <= budget.hard) return "hard";
+  if (adjustedXp <= budget.deadly) return "deadly";
+  return "beyond";
+}
+
+/**
+ * @param {DmPartyMember[]} party
+ * @param {DmEncounter[]} encounters criaturas vivas na mesa
+ */
+function computeEncounterDifficulty(party, encounters) {
+  const living = (encounters || []).filter((e) => {
+    const cur = Number(e?.hpCurrent);
+    const max = Number(e?.hpMax);
+    if (!Number.isFinite(cur)) return true;
+    return cur > 0 && (!Number.isFinite(max) || cur <= max);
+  });
+  const monsterCount = living.length;
+  const rawXp = living.reduce((s, e) => s + (Number(e.xp) || 0), 0);
+  const multiplier = encounterMonsterMultiplier(monsterCount);
+  const adjustedXp = Math.floor(rawXp * multiplier);
+  const budget = partyEncounterBudget(party);
+  const difficulty = classifyEncounterDifficulty(adjustedXp, budget);
+  return {
+    monsterCount,
+    rawXp,
+    multiplier,
+    adjustedXp,
+    budget,
+    difficulty,
+    difficultyLabel: ENCOUNTER_DIFFICULTY_LABELS[difficulty] || difficulty,
+  };
 }
 
 function splitXpAmongParty(totalXp, partyIds) {
@@ -387,6 +556,8 @@ function normalizeDmPartyMember(raw) {
     id: raw.id != null ? String(raw.id) : newEntityId("party"),
     name: name.slice(0, 120),
     initiative: raw.initiative != null ? String(raw.initiative) : "",
+    level: clampCharacterLevel(raw.level),
+    xpTotal: normalizeXpTotal(raw.xpTotal),
     downed: Boolean(raw.downed),
   };
 }
@@ -454,6 +625,60 @@ function saveDmBattle(battle) {
   }
 }
 
+function normalizeCampaign(parsed) {
+  const base = { name: "" };
+  if (!parsed || typeof parsed !== "object") return base;
+  return {
+    name: parsed.name != null ? String(parsed.name).trim().slice(0, 120) : "",
+  };
+}
+
+function loadCampaign() {
+  try {
+    const raw = localStorage.getItem(STORAGE_CAMPAIGN);
+    if (!raw) return normalizeCampaign(null);
+    return normalizeCampaign(JSON.parse(raw));
+  } catch {
+    return normalizeCampaign(null);
+  }
+}
+
+function saveCampaign(campaign) {
+  try {
+    localStorage.setItem(STORAGE_CAMPAIGN, JSON.stringify(normalizeCampaign(campaign)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function buildCampaignExportBundle() {
+  const campaign = loadCampaign();
+  return {
+    version: CAMPAIGN_EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    campaign,
+    dmBattle: loadDmBattle(),
+    favorites: loadFavorites(),
+    sheet: loadSheet(),
+    sessionHistory: loadSessionHistory(),
+  };
+}
+
+function importCampaignBundle(raw) {
+  if (!raw || typeof raw !== "object") return { ok: false, error: "JSON inválido." };
+  const version = Number(raw.version);
+  if (!Number.isFinite(version) || version < 1) {
+    return { ok: false, error: "Versão de exportação não suportada." };
+  }
+  if (raw.campaign) saveCampaign(raw.campaign);
+  if (raw.dmBattle != null) saveDmBattle(raw.dmBattle);
+  if (Array.isArray(raw.favorites)) saveFavorites(raw.favorites);
+  if (raw.sheet != null) saveSheet(normalizeSheet(raw.sheet));
+  if (Array.isArray(raw.sessionHistory)) saveSessionHistory(raw.sessionHistory);
+  return { ok: true };
+}
+
 /** PV médios a partir do JSON do monstro na API 2014. */
 function monsterHpFromApiData(data) {
   if (!data || typeof data !== "object") return 10;
@@ -487,6 +712,8 @@ const ABILITY_KEYS = ["str", "dex", "con", "int", "wis", "cha"];
 
 const DEFAULT_SHEET = {
   characterName: "",
+  characterLevel: 1,
+  xpTotal: 0,
   portraitImage: "",
   armorClass: "",
   alignment: "",
@@ -502,8 +729,350 @@ const DEFAULT_SHEET = {
   hpCurrent: "",
   hpTemp: "0",
   deathSaves: { successes: 0, failures: 0 },
+  spellcasting: { casterType: "none", slotsUsed: {}, spells: [] },
+  hitDiceRemaining: null,
+  restEnvironment: "tavern",
   items: [],
 };
+
+function normalizeCasterType(raw) {
+  if (raw === "full" || raw === "half" || raw === "warlock" || raw === "third") return raw;
+  return "none";
+}
+
+function isTableModeEnabled() {
+  try {
+    return localStorage.getItem(STORAGE_TABLE_MODE) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setTableModeEnabled(on) {
+  try {
+    localStorage.setItem(STORAGE_TABLE_MODE, on ? "1" : "0");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function applyTableModeClass() {
+  document.documentElement.classList.toggle("table-mode", isTableModeEnabled());
+}
+
+function loadSessionHistory() {
+  try {
+    const raw = localStorage.getItem(STORAGE_SESSION_HISTORY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSessionHistory(entries) {
+  try {
+    localStorage.setItem(STORAGE_SESSION_HISTORY, JSON.stringify(entries.slice(0, SESSION_HISTORY_MAX)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function appendSessionHistory(entry) {
+  if (!entry || typeof entry !== "object") return false;
+  const list = loadSessionHistory();
+  list.unshift({
+    id: entry.id != null ? String(entry.id) : newEntityId("hist"),
+    at: entry.at || new Date().toISOString(),
+    campaignName: entry.campaignName != null ? String(entry.campaignName).slice(0, 120) : "",
+    totalXp: Number(entry.totalXp) || 0,
+    monstersDefeated: Number(entry.monstersDefeated) || 0,
+    members: Array.isArray(entry.members)
+      ? entry.members.map((m) => ({
+          name: String(m?.name || "").slice(0, 120),
+          xp: Number(m?.xp) || 0,
+          level: clampCharacterLevel(m?.level),
+        }))
+      : [],
+  });
+  return saveSessionHistory(list);
+}
+
+function clearSessionHistory() {
+  try {
+    localStorage.removeItem(STORAGE_SESSION_HISTORY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function spellLevelFromApiData(data) {
+  const n = Number(data?.level);
+  return Number.isFinite(n) ? Math.min(9, Math.max(0, Math.floor(n))) : 0;
+}
+
+function isSpellResourceKey(resourceKey) {
+  const k = String(resourceKey || "").toLowerCase();
+  return k === "spells" || k === "spell";
+}
+
+function spellIndexFromEntry(entry) {
+  if (entry?.index != null && String(entry.index) !== "") return String(entry.index);
+  const parts = cleanApiPath(entry?.path || "").split("/").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "";
+}
+
+function ensureSpellcastingSpells(sheet) {
+  if (!sheet.spellcasting || typeof sheet.spellcasting !== "object") {
+    sheet.spellcasting = { casterType: "none", slotsUsed: {}, spells: [] };
+  }
+  if (!Array.isArray(sheet.spellcasting.spells)) {
+    sheet.spellcasting.spells = [];
+  }
+}
+
+/** Favoritos ★ e magias já marcadas «Na ficha». */
+function gatherSpellEntriesForImport(sheet) {
+  const seen = new Set();
+  const out = [];
+  const add = (entry) => {
+    if (!entry || !isSpellResourceKey(entry.resourceKey)) return;
+    const index = spellIndexFromEntry(entry);
+    if (!index || seen.has(index)) return;
+    seen.add(index);
+    const fav =
+      findFavorite("spells", index) ||
+      (isSpellResourceKey(entry.resourceKey) ? findFavorite(entry.resourceKey, index) : null);
+    const cached = entry.cachedData || fav?.cachedData;
+    out.push({
+      resourceKey: "spells",
+      index,
+      name: entry.name != null ? String(entry.name) : index,
+      path: cleanApiPath(entry.path || fav?.path || ""),
+      cachedData: cached,
+      dataLocale: entry.dataLocale || fav?.dataLocale,
+    });
+  };
+  loadFavorites().forEach(add);
+  (sheet?.items || []).forEach(add);
+  return out;
+}
+
+function normalizeSpellListEntry(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const resourceKey = raw.resourceKey != null ? String(raw.resourceKey) : "spells";
+  if (resourceKey !== "spells") return null;
+  const index = raw.index != null ? String(raw.index) : "";
+  if (!index) return null;
+  const levelRaw = Number(raw.level);
+  const level = Number.isFinite(levelRaw) ? Math.min(9, Math.max(0, Math.floor(levelRaw))) : 0;
+  return {
+    resourceKey: "spells",
+    index,
+    name: raw.name != null ? String(raw.name) : index,
+    path: cleanApiPath(raw.path || ""),
+    level,
+    prepared: raw.prepared !== false,
+  };
+}
+
+function normalizeSpellcasting(raw) {
+  const casterType = normalizeCasterType(raw?.casterType);
+  const slotsUsed =
+    typeof getSpellSlotsUsedMap === "function" ? getSpellSlotsUsedMap(raw?.slotsUsed) : {};
+  const seen = new Set();
+  const spells = [];
+  if (Array.isArray(raw?.spells)) {
+    for (const entry of raw.spells) {
+      const norm = normalizeSpellListEntry(entry);
+      if (!norm || seen.has(norm.index)) continue;
+      seen.add(norm.index);
+      spells.push(norm);
+    }
+  }
+  spells.sort(
+    (a, b) => a.level - b.level || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" })
+  );
+  return { casterType, slotsUsed, spells };
+}
+
+/** Slots restantes no nível da magia ou acima (PHB; bruxo: qualquer slot de pacto). */
+function hasAvailableSpellSlot(sheet, spellLevel) {
+  const lv = Math.min(9, Math.max(0, Math.floor(Number(spellLevel) || 0)));
+  if (lv === 0) return true;
+  const casterType = sheet?.spellcasting?.casterType;
+  if (!casterType || casterType === "none") return false;
+  const maxMap = getSheetMaxSpellSlots(sheet);
+  const usedMap = clampSpellSlotsUsed(sheet.spellcasting.slotsUsed, maxMap);
+  if (casterType === "warlock") {
+    return Object.keys(maxMap).some((key) => (maxMap[key] || 0) - (usedMap[key] || 0) > 0);
+  }
+  for (const slotLv of SPELL_SLOT_LEVELS) {
+    if (slotLv < lv) continue;
+    const rem = (maxMap[String(slotLv)] || 0) - (usedMap[String(slotLv)] || 0);
+    if (rem > 0) return true;
+  }
+  return false;
+}
+
+function getSpellCastStatus(sheet, spell) {
+  if (!spell?.prepared) return { key: "unprepared", label: "Não preparada" };
+  if (spell.level === 0) return { key: "ready", label: "Truque" };
+  if (sheet?.spellcasting?.casterType === "none") return { key: "no-caster", label: "Sem conjuração" };
+  if (hasAvailableSpellSlot(sheet, spell.level)) return { key: "ready", label: "Posso usar" };
+  return { key: "no-slot", label: "Sem slot" };
+}
+
+function remainingSlotsSummaryForLevel(sheet, spellLevel) {
+  const lv = Math.min(9, Math.max(1, Math.floor(Number(spellLevel) || 1)));
+  const maxMap = getSheetMaxSpellSlots(sheet);
+  const usedMap = clampSpellSlotsUsed(sheet.spellcasting.slotsUsed, maxMap);
+  let rem = 0;
+  let max = 0;
+  for (const slotLv of SPELL_SLOT_LEVELS) {
+    if (slotLv < lv) continue;
+    rem += (maxMap[String(slotLv)] || 0) - (usedMap[String(slotLv)] || 0);
+    max += maxMap[String(slotLv)] || 0;
+  }
+  return { remaining: rem, max };
+}
+
+function importSpellFavoritesToSheet(sheet) {
+  ensureSpellcastingSpells(sheet);
+  const existing = new Set(sheet.spellcasting.spells.map((s) => s.index));
+  let added = 0;
+  for (const src of gatherSpellEntriesForImport(sheet)) {
+    const ix = String(src.index);
+    if (existing.has(ix)) continue;
+    const level = src.cachedData ? spellLevelFromApiData(src.cachedData) : 0;
+    const entry = normalizeSpellListEntry({ ...src, level, prepared: true });
+    if (!entry) continue;
+    sheet.spellcasting.spells.push(entry);
+    existing.add(ix);
+    added += 1;
+  }
+  sheet.spellcasting.spells.sort(
+    (a, b) => a.level - b.level || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" })
+  );
+  return added;
+}
+
+function addSpellToSheetList(sheet, entry, { level, prepared = true } = {}) {
+  const ix = String(entry.index);
+  if ((sheet.spellcasting.spells || []).some((s) => s.index === ix)) return false;
+  const spellLevel =
+    level != null && Number.isFinite(Number(level))
+      ? Math.min(9, Math.max(0, Math.floor(Number(level))))
+      : 0;
+  const norm = normalizeSpellListEntry({
+    resourceKey: "spells",
+    index: ix,
+    name: entry.name,
+    path: entry.path,
+    level: spellLevel,
+    prepared,
+  });
+  if (!norm) return false;
+  sheet.spellcasting.spells.push(norm);
+  sheet.spellcasting.spells.sort(
+    (a, b) => a.level - b.level || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" })
+  );
+  return true;
+}
+
+function normalizeRestEnvironment(raw) {
+  const allowed = ["wilderness", "campfire", "tavern", "dungeon", "stronghold"];
+  return allowed.includes(raw) ? raw : "tavern";
+}
+
+function normalizePartySyncName(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase();
+}
+
+function findDmPartyMemberByName(party, name) {
+  const key = normalizePartySyncName(name);
+  if (!key) return null;
+  return (party || []).find((p) => normalizePartySyncName(p.name) === key) ?? null;
+}
+
+function hitDiceMaxForSheet(sheet) {
+  return clampCharacterLevel(sheet?.characterLevel);
+}
+
+function hitDiceRemainingForSheet(sheet) {
+  const max = hitDiceMaxForSheet(sheet);
+  const raw = sheet?.hitDiceRemaining;
+  if (raw == null || raw === "") return max;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return max;
+  return Math.min(max, Math.max(0, Math.floor(n)));
+}
+
+function getSheetMaxSpellSlots(sheet) {
+  if (typeof getMaxSpellSlotsMap !== "function") return {};
+  return getMaxSpellSlotsMap(sheet?.spellcasting?.casterType, sheet?.characterLevel);
+}
+
+function clampSpellSlotsUsed(used, maxMap) {
+  const out = {};
+  for (const [lv, max] of Object.entries(maxMap || {})) {
+    const u = Number(used?.[lv]) || 0;
+    out[lv] = Math.min(max, Math.max(0, Math.floor(u)));
+  }
+  return out;
+}
+
+function syncSheetToDmBattle(sheet) {
+  const name = sheet?.characterName != null ? String(sheet.characterName).trim() : "";
+  if (!name) return { ok: false, error: "Define o nome do personagem na ficha." };
+  const battle = loadDmBattle();
+  const existing = findDmPartyMemberByName(battle.party, name);
+  if (existing) {
+    existing.level = clampCharacterLevel(sheet.characterLevel);
+    existing.xpTotal = normalizeXpTotal(sheet.xpTotal);
+    saveDmBattle(battle);
+    return { ok: true, memberId: existing.id, created: false };
+  }
+  const member = normalizeDmPartyMember({
+    name,
+    level: sheet.characterLevel,
+    xpTotal: sheet.xpTotal,
+    initiative: "",
+    downed: false,
+  });
+  if (!member) return { ok: false, error: "Não foi possível criar o personagem na mesa." };
+  battle.party.push(member);
+  saveDmBattle(battle);
+  return { ok: true, memberId: member.id, created: true };
+}
+
+function syncDmPartyMemberToSheet(member, { forceName = false } = {}) {
+  if (!member) return { ok: false, error: "Personagem inválido." };
+  const sheet = loadSheet();
+  const sheetName = String(sheet.characterName || "").trim();
+  const memberName = String(member.name || "").trim();
+  if (!sheetName && memberName) {
+    sheet.characterName = memberName;
+  } else if (!forceName && sheetName && normalizePartySyncName(sheetName) !== normalizePartySyncName(memberName)) {
+    return {
+      ok: false,
+      error: `A ficha é «${sheetName}» e a mesa tem «${memberName}». Ajusta o nome ou confirma a substituição.`,
+      nameMismatch: true,
+    };
+  } else if (forceName && memberName) {
+    sheet.characterName = memberName;
+  }
+  sheet.characterLevel = clampCharacterLevel(member.level);
+  sheet.xpTotal = normalizeXpTotal(member.xpTotal);
+  saveSheet(normalizeSheet(sheet));
+  return { ok: true };
+}
 
 function normalizeSheet(parsed) {
   const base = {
@@ -539,6 +1108,8 @@ function normalizeSheet(parsed) {
 
   return {
     characterName: parsed.characterName != null ? String(parsed.characterName) : "",
+    characterLevel: clampCharacterLevel(parsed.characterLevel),
+    xpTotal: normalizeXpTotal(parsed.xpTotal),
     portraitImage: typeof parsed.portraitImage === "string" ? parsed.portraitImage : "",
     armorClass: parsed.armorClass != null ? String(parsed.armorClass) : "",
     alignment: parsed.alignment != null ? String(parsed.alignment) : "",
@@ -552,6 +1123,12 @@ function normalizeSheet(parsed) {
     hpCurrent: parsed.hpCurrent != null ? String(parsed.hpCurrent) : "",
     hpTemp: parsed.hpTemp != null ? String(parsed.hpTemp) : "0",
     deathSaves: normalizeDeathSaves(parsed.deathSaves),
+    spellcasting: normalizeSpellcasting(parsed.spellcasting),
+    hitDiceRemaining:
+      parsed.hitDiceRemaining != null && parsed.hitDiceRemaining !== ""
+        ? Math.max(0, Math.floor(Number(parsed.hitDiceRemaining)))
+        : null,
+    restEnvironment: normalizeRestEnvironment(parsed.restEnvironment),
     items: Array.isArray(parsed.items)
       ? parsed.items.map(normalizeSheetItem).filter(Boolean)
       : [],

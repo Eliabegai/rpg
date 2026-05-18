@@ -2,7 +2,12 @@ const dmMonsterLibrary = document.getElementById("dmMonsterLibrary");
 const dmMonsterEmpty = document.getElementById("dmMonsterEmpty");
 const dmPartyForm = document.getElementById("dmPartyForm");
 const dmPartyNameInput = document.getElementById("dmPartyNameInput");
+const dmPartyLevelInput = document.getElementById("dmPartyLevelInput");
 const dmPartyInitInput = document.getElementById("dmPartyInitInput");
+const dmCampaignNameInput = document.getElementById("dmCampaignNameInput");
+const dmCampaignImportInput = document.getElementById("dmCampaignImportInput");
+const dmCampaignStatus = document.getElementById("dmCampaignStatus");
+const dmXpPhbTable = document.getElementById("dmXpPhbTable");
 const dmInitiativeList = document.getElementById("dmInitiativeList");
 const dmInitEmpty = document.getElementById("dmInitEmpty");
 const dmEncounterList = document.getElementById("dmEncounterList");
@@ -10,6 +15,8 @@ const dmEncounterEmpty = document.getElementById("dmEncounterEmpty");
 const dmEncounterDeadWrap = document.getElementById("dmEncounterDeadWrap");
 const dmEncounterDeadList = document.getElementById("dmEncounterDeadList");
 const dmXpLedger = document.getElementById("dmXpLedger");
+const dmEncounterDiff = document.getElementById("dmEncounterDiff");
+const dmSessionHistory = document.getElementById("dmSessionHistory");
 const localeSelect = document.getElementById("localeSelect");
 
 const DM_DAMAGE_TICK_MS = [45, 48, 52, 58, 68, 82, 100, 125, 160, 200];
@@ -126,6 +133,213 @@ function computePartyXpLedger(battle) {
   return totals;
 }
 
+function renderXpPhbReferenceTable() {
+  if (!dmXpPhbTable) return;
+  const rows = XP_THRESHOLDS.map((xp, i) => {
+    const level = i + 1;
+    const next = level < 20 ? XP_THRESHOLDS[level] - xp : null;
+    return `<tr>
+      <td>${level}</td>
+      <td class="dm-xp-value">${xp.toLocaleString("pt-BR")}</td>
+      <td class="dm-xp-phb-delta">${next != null ? next.toLocaleString("pt-BR") : "—"}</td>
+    </tr>`;
+  }).join("");
+  dmXpPhbTable.innerHTML = `<table class="dm-xp-table dm-xp-phb-table">
+    <thead>
+      <tr><th scope="col">Nív.</th><th scope="col">XP total</th><th scope="col">Para subir</th></tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderXpProgressBar(p) {
+  const prog = characterXpProgress(p.xpTotal, p.level);
+  if (prog.nextAt == null) {
+    return `<div class="dm-xp-progress dm-xp-progress--max" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"><span class="dm-xp-progress-fill" style="width:100%"></span></div>`;
+  }
+  const label = `${prog.inLevel.toLocaleString("pt-BR")} / ${prog.span.toLocaleString("pt-BR")} XP`;
+  return `<div class="dm-xp-progress" role="progressbar" aria-valuenow="${prog.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progresso para o nível ${p.level + 1}">
+    <span class="dm-xp-progress-fill" style="width:${prog.pct}%"></span>
+  </div><span class="dm-xp-progress-label">${label}</span>`;
+}
+
+function pullPartyMemberFromSheet(partyId) {
+  const battle = loadDmBattle();
+  const member = battle.party.find((p) => p.id === partyId);
+  if (!member) return;
+  const sheet = loadSheet();
+  const sheetName = String(sheet.characterName || "").trim();
+  const memberName = String(member.name || "").trim();
+  if (!sheetName) {
+    setCampaignStatus("A ficha não tem nome de personagem.", true);
+    return;
+  }
+  if (normalizePartySyncName(sheetName) !== normalizePartySyncName(memberName)) {
+    const ok = window.confirm(
+      `A ficha é «${sheetName}» e a mesa tem «${memberName}». Importar nível e XP da ficha mesmo assim?`
+    );
+    if (!ok) return;
+    patchBattle((b) => {
+      const p = b.party.find((x) => x.id === partyId);
+      if (p) {
+        p.level = clampCharacterLevel(sheet.characterLevel);
+        p.xpTotal = normalizeXpTotal(sheet.xpTotal);
+      }
+    });
+    setCampaignStatus(`Dados de «${sheetName}» aplicados a «${memberName}».`);
+    return;
+  }
+  patchBattle((b) => {
+    const p = b.party.find((x) => x.id === partyId);
+    if (p) {
+      p.level = clampCharacterLevel(sheet.characterLevel);
+      p.xpTotal = normalizeXpTotal(sheet.xpTotal);
+    }
+  });
+  setCampaignStatus(`«${memberName}» sincronizado com a ficha.`);
+}
+
+function pushPartyMemberToSheet(partyId) {
+  const member = loadDmBattle().party.find((p) => p.id === partyId);
+  if (!member) return;
+  const result = syncDmPartyMemberToSheet(member);
+  if (!result.ok && result.nameMismatch) {
+    const ok = window.confirm(`${result.error}\n\nSubstituir o nome e dados da ficha?`);
+    if (ok) syncDmPartyMemberToSheet(member, { forceName: true });
+    return;
+  }
+  if (!result.ok) {
+    setCampaignStatus(result.error || "Falha ao enviar para a ficha.", true);
+    return;
+  }
+  setCampaignStatus(`Ficha atualizada com dados de «${member.name}».`);
+}
+
+function syncAllPartyFromSheet() {
+  const sheet = loadSheet();
+  const name = String(sheet.characterName || "").trim();
+  if (!name) {
+    setCampaignStatus("Define o nome na ficha de personagem.", true);
+    return;
+  }
+  const result = syncSheetToDmBattle(sheet);
+  if (!result.ok) {
+    setCampaignStatus(result.error || "Sincronização falhou.", true);
+    return;
+  }
+  setCampaignStatus(result.created ? "Personagem criado na mesa a partir da ficha." : "Mesa atualizada a partir da ficha.");
+}
+
+function buildSessionHistoryEntry(battle, ledger, totalXp) {
+  const campaign = loadCampaign();
+  const members = activePartyMembers(battle.party).map((p) => ({
+    name: p.name,
+    xp: ledger.get(p.id) || 0,
+    level: p.level,
+  }));
+  const monstersDefeated = battle.encounters.filter((e) => isEncounterDead(e)).length;
+  return {
+    campaignName: campaign.name || "",
+    totalXp,
+    monstersDefeated,
+    members,
+  };
+}
+
+function renderSessionHistory() {
+  if (!dmSessionHistory) return;
+  const entries = loadSessionHistory();
+  if (!entries.length) {
+    dmSessionHistory.innerHTML = '<p class="dm-history-empty">Ainda sem sessões registadas.</p>';
+    return;
+  }
+  dmSessionHistory.innerHTML = `<ul class="dm-history-list">${entries
+    .map((e) => {
+      const when = new Date(e.at);
+      const dateStr = Number.isFinite(when.getTime())
+        ? when.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+        : e.at;
+      const camp = e.campaignName ? ` · ${escapeHtml(e.campaignName)}` : "";
+      const memberRows = (e.members || [])
+        .filter((m) => m.xp > 0)
+        .map((m) => `<li>${escapeHtml(m.name)} +${m.xp} XP (nív. ${m.level})</li>`)
+        .join("");
+      return `<li class="dm-history-item">
+        <p class="dm-history-meta"><time datetime="${escapeHtml(e.at)}">${escapeHtml(dateStr)}</time>${camp}</p>
+        <p class="dm-history-summary">${e.totalXp} XP · ${e.monstersDefeated} monstro(s)</p>
+        ${memberRows ? `<ul class="dm-history-members">${memberRows}</ul>` : ""}
+      </li>`;
+    })
+    .join("")}</ul>`;
+}
+
+function applySessionXpToParty() {
+  const battle = loadDmBattle();
+  const ledger = computePartyXpLedger(battle);
+  let credited = 0;
+  patchBattle((b) => {
+    for (const p of b.party) {
+      const gain = ledger.get(p.id) || 0;
+      if (!gain) continue;
+      p.xpTotal = normalizeXpTotal(p.xpTotal) + gain;
+      p.level = levelFromXpTotal(p.xpTotal);
+      credited += gain;
+    }
+    for (const enc of b.encounters) {
+      if (isEncounterDead(enc)) enc.killedBy = [];
+    }
+  });
+  if (credited > 0) {
+    appendSessionHistory(buildSessionHistoryEntry(battle, ledger, credited));
+    renderSessionHistory();
+    setCampaignStatus(`+${credited} XP creditado ao grupo.`);
+  } else {
+    setCampaignStatus("Nada a creditar — elimina monstros e marca participantes.");
+  }
+}
+
+function renderEncounterDifficulty() {
+  if (!dmEncounterDiff) return;
+  const battle = loadDmBattle();
+  const active = activePartyMembers(battle.party);
+  const living = battle.encounters.filter((e) => !isEncounterDead(e));
+
+  if (!active.length) {
+    dmEncounterDiff.innerHTML = '<p class="dm-diff-empty">Adiciona personagens vivos para calcular o orçamento.</p>';
+    return;
+  }
+  if (!living.length) {
+    dmEncounterDiff.innerHTML = '<p class="dm-diff-empty">Sem criaturas vivas na mesa.</p>';
+    return;
+  }
+
+  const diff = computeEncounterDifficulty(battle.party, battle.encounters);
+  const multLabel = diff.multiplier % 1 === 0 ? String(diff.multiplier) : String(diff.multiplier).replace(".", ",");
+
+  const budgetRows = ["easy", "medium", "hard", "deadly"]
+    .map(
+      (tier) =>
+        `<tr><th scope="row">${escapeHtml(ENCOUNTER_DIFFICULTY_LABELS[tier])}</th><td>${diff.budget[tier].toLocaleString("pt-BR")}</td></tr>`
+    )
+    .join("");
+
+  dmEncounterDiff.innerHTML = `<div class="dm-diff-card dm-diff-card--${escapeHtml(diff.difficulty)}">
+    <p class="dm-diff-verdict"><span class="dm-diff-badge">${escapeHtml(diff.difficultyLabel)}</span></p>
+    <dl class="dm-diff-stats">
+      <div><dt>Criaturas</dt><dd>${diff.monsterCount}</dd></div>
+      <div><dt>XP base</dt><dd>${diff.rawXp.toLocaleString("pt-BR")}</dd></div>
+      <div><dt>Multiplicador</dt><dd>×${multLabel}</dd></div>
+      <div><dt>XP ajustado</dt><dd class="dm-diff-adjusted">${diff.adjustedXp.toLocaleString("pt-BR")}</dd></div>
+    </dl>
+    <details class="dm-diff-budget-collapse">
+      <summary>Orçamento do grupo (DMG)</summary>
+      <table class="dm-xp-table dm-diff-budget-table">
+        <tbody>${budgetRows}</tbody>
+      </table>
+    </details>
+  </div>`;
+}
+
 function renderXpSidebar() {
   if (!dmXpLedger) return;
   const battle = loadDmBattle();
@@ -140,27 +354,85 @@ function renderXpSidebar() {
     return;
   }
 
-  let grand = 0;
+  let grandSession = 0;
   const rows = active
     .map((p) => {
-      const xp = totals.get(p.id) || 0;
-      grand += xp;
-      return `<tr>
-        <td class="dm-xp-name">${escapeHtml(p.name)}</td>
-        <td class="dm-xp-value">${xp}</td>
+      const sessionXp = totals.get(p.id) || 0;
+      grandSession += sessionXp;
+      const total = normalizeXpTotal(p.xpTotal);
+      return `<tr class="dm-xp-row">
+        <td class="dm-xp-name">
+          ${escapeHtml(p.name)}
+          <span class="dm-xp-level">Nív. ${p.level}</span>
+          <span class="dm-xp-meta">${total.toLocaleString("pt-BR")} XP total</span>
+          ${renderXpProgressBar(p)}
+        </td>
+        <td class="dm-xp-value">${sessionXp}</td>
       </tr>`;
     })
     .join("");
 
-  dmXpLedger.innerHTML = `<table class="dm-xp-table">
+  const grandTotal = active.reduce((s, p) => s + normalizeXpTotal(p.xpTotal), 0);
+
+  dmXpLedger.innerHTML = `<table class="dm-xp-table dm-xp-table--progress">
     <thead>
-      <tr><th scope="col">Personagem</th><th scope="col">XP</th></tr>
+      <tr><th scope="col">Personagem</th><th scope="col">Sessão</th></tr>
     </thead>
     <tbody>${rows}</tbody>
     <tfoot>
-      <tr><th scope="row">Total</th><td class="dm-xp-value dm-xp-total">${grand}</td></tr>
+      <tr><th scope="row">Sessão</th><td class="dm-xp-value dm-xp-total">${grandSession}</td></tr>
+      <tr><th scope="row">Total acum.</th><td class="dm-xp-value">${grandTotal.toLocaleString("pt-BR")}</td></tr>
     </tfoot>
   </table>`;
+}
+
+function renderCampaignUi() {
+  const campaign = loadCampaign();
+  if (dmCampaignNameInput && dmCampaignNameInput !== document.activeElement) {
+    dmCampaignNameInput.value = campaign.name;
+  }
+}
+
+function setCampaignStatus(message, isError = false) {
+  if (!dmCampaignStatus) return;
+  dmCampaignStatus.textContent = message;
+  dmCampaignStatus.classList.toggle("is-error", isError);
+}
+
+function exportCampaignJson() {
+  const bundle = buildCampaignExportBundle();
+  const name = bundle.campaign?.name?.trim() || "campanha";
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40) || "campanha";
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `grimorio-${slug}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setCampaignStatus("Exportação concluída.");
+}
+
+async function importCampaignJsonFile(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const result = importCampaignBundle(parsed);
+    if (!result.ok) {
+      setCampaignStatus(result.error || "Importação falhou.", true);
+      return;
+    }
+    renderCampaignUi();
+    renderAll();
+    setCampaignStatus("Campanha importada.");
+  } catch {
+    setCampaignStatus("Ficheiro JSON inválido.", true);
+  }
 }
 
 function encounterLabelFor(entry, battle) {
@@ -182,18 +454,21 @@ function buildInitiativeEntries(battle) {
       id: p.id,
       name: p.name,
       initiative: p.initiative,
+      level: p.level,
       dead: false,
       downed: isPartyMemberDowned(p),
       imageUrl: "",
     })),
-    ...battle.encounters.map((e) => ({
-      kind: "monster",
-      id: e.id,
-      name: e.label || e.sourceName,
-      initiative: e.initiative,
-      dead: isEncounterDead(e),
-      imageUrl: encounterImageUrl(e),
-    })),
+    ...battle.encounters
+      .filter((e) => !isEncounterDead(e))
+      .map((e) => ({
+        kind: "monster",
+        id: e.id,
+        name: e.label || e.sourceName,
+        initiative: e.initiative,
+        dead: false,
+        imageUrl: encounterImageUrl(e),
+      })),
   ];
   return sortByInitiativeDesc(rows, (r) => parseInitiativeValue(r.initiative));
 }
@@ -337,6 +612,16 @@ function renderMonsterLibrary() {
     .join("");
 }
 
+function initiativeOrderHtml(initValue) {
+  const display =
+    initValue !== "" && initValue != null ? escapeHtml(String(initValue)) : "—";
+  return `<div class="dm-init-order" title="Ordem na iniciativa — valor maior age primeiro">
+    <span class="dm-init-order-label">Iniciativa</span>
+    <span class="dm-init-order-value" aria-hidden="true">${display}</span>
+    <span class="visually-hidden">Iniciativa ${display}</span>
+  </div>`;
+}
+
 function renderInitiative() {
   if (!dmInitiativeList || !dmInitEmpty) return;
   const battle = loadDmBattle();
@@ -351,7 +636,6 @@ function renderInitiative() {
   dmInitEmpty.hidden = true;
   dmInitiativeList.innerHTML = rows
     .map((row) => {
-      const init = row.initiative !== "" ? escapeHtml(row.initiative) : "—";
       const kindClass = row.kind === "party" ? "dm-init-row--party" : "dm-init-row--monster";
       const deadClass = row.dead ? " is-dead" : row.downed ? " is-downed" : "";
       const dataAttr =
@@ -364,10 +648,21 @@ function renderInitiative() {
           ? `<span class="dm-init-thumb">${portraitHtml(row.imageUrl, row.name, "dm-init-thumb-img")}</span>`
           : `<span class="dm-init-kind" title="${escapeHtml(row.name)}">${escapeHtml(partyInitialLetter(row.name))}</span>`;
 
+      const levelInput =
+        row.kind === "party"
+          ? `<label class="dm-init-field dm-init-field--level">
+              <span class="dm-init-field-label">Nív.</span>
+              <input type="number" class="sheet-number-input dm-init-level-input" value="${row.level}" data-field="level" min="1" max="20" inputmode="numeric" />
+            </label>`
+          : "";
+
       const initInput =
         row.kind === "party"
-          ? `<input type="number" class="sheet-number-input dm-init-input" value="${row.initiative !== "" ? escapeHtml(row.initiative) : ""}" data-field="initiative" placeholder="—" inputmode="numeric" aria-label="Iniciativa" />`
-          : `<span class="dm-init-readonly">${init}</span>`;
+          ? `<label class="dm-init-field dm-init-field--init">
+              <span class="dm-init-field-label">Inic.</span>
+              <input type="number" class="sheet-number-input dm-init-input" value="${row.initiative !== "" ? escapeHtml(row.initiative) : ""}" data-field="initiative" placeholder="—" inputmode="numeric" />
+            </label>`
+          : "";
 
       const nameCell =
         row.kind === "party"
@@ -376,15 +671,44 @@ function renderInitiative() {
 
       const partyActions =
         row.kind === "party"
-          ? `<button type="button" class="dm-party-down-btn" data-action="dm-toggle-party-down" data-party-id="${escapeHtml(row.id)}" title="${row.downed ? "Reviver personagem" : "Eliminar (fora do XP)"}" aria-pressed="${row.downed ? "true" : "false"}">${row.downed ? "↩" : "☠"}</button>
-             <button type="button" class="sheet-portrait-clear dm-init-remove" data-action="dm-remove-party" title="Remover">×</button>`
+          ? `<div class="dm-init-actions-wrap">
+             <div class="dm-init-actions" role="group" aria-label="Sincronizar com a ficha">
+               <button type="button" class="dm-sync-sheet-btn dm-btn-tip" data-action="dm-sync-from-sheet" data-party-id="${escapeHtml(row.id)}"
+                 data-tip="Da ficha → mesa: traz nome, nível e XP da ficha de personagem"
+                 title="Da ficha → mesa: traz nome, nível e XP da ficha de personagem"
+                 aria-label="Sincronizar da ficha para a mesa">↓</button>
+               <button type="button" class="dm-sync-sheet-btn dm-btn-tip" data-action="dm-push-to-sheet" data-party-id="${escapeHtml(row.id)}"
+                 data-tip="Da mesa → ficha: envia nome, nível e XP desta linha para a ficha"
+                 title="Da mesa → ficha: envia nome, nível e XP desta linha para a ficha"
+                 aria-label="Enviar dados da mesa para a ficha">↑</button>
+             </div>
+             <div class="dm-init-danger" role="group" aria-label="Remover ou eliminar">
+               <button type="button" class="sheet-portrait-clear dm-init-remove dm-btn-tip" data-action="dm-remove-party"
+                 data-tip="Remover personagem da mesa"
+                 title="Remover personagem da mesa"
+                 aria-label="Remover personagem da mesa">×</button>
+               <button type="button" class="dm-party-down-btn dm-btn-tip" data-action="dm-toggle-party-down" data-party-id="${escapeHtml(row.id)}"
+                 data-tip="${row.downed ? "Restaurar personagem na iniciativa e no XP" : "Marcar eliminado (fora da divisão de XP da sessão)"}"
+                 title="${row.downed ? "Restaurar personagem na iniciativa e no XP" : "Marcar eliminado (fora da divisão de XP da sessão)"}"
+                 aria-label="${row.downed ? "Restaurar personagem" : "Marcar como eliminado"}"
+                 aria-pressed="${row.downed ? "true" : "false"}">${row.downed ? "↩" : "☠"}</button>
+             </div>
+           </div>`
           : "";
 
-      return `<li class="dm-init-row ${kindClass}${deadClass}" ${dataAttr}>
-        <span class="dm-init-badge" title="Iniciativa">${init}</span>
+      const identityBlock = `<div class="dm-init-identity">
         ${thumb}
         <div class="dm-init-body">${nameCell}</div>
-        <div class="dm-init-edit">${initInput}</div>
+      </div>`;
+
+      const statsBlock =
+        row.kind === "party" ? `<div class="dm-init-stats">${levelInput}${initInput}</div>` : "";
+
+      return `<li class="dm-init-row ${kindClass}${deadClass}" ${dataAttr}>
+        ${initiativeOrderHtml(row.initiative)}
+        <span class="dm-init-gap" aria-hidden="true"></span>
+        ${identityBlock}
+        ${statsBlock}
         ${partyActions}
       </li>`;
     })
@@ -614,16 +938,20 @@ function renderEncounters() {
 
 function renderAll() {
   const encUi = captureEncounterUiState();
+  renderCampaignUi();
   renderMonsterLibrary();
   renderInitiative();
+  renderEncounterDifficulty();
   renderEncounters();
   restoreEncounterUiState(encUi);
   renderXpSidebar();
+  renderSessionHistory();
 }
 
 function refreshEncountersUi() {
   const encUi = captureEncounterUiState();
   renderInitiative();
+  renderEncounterDifficulty();
   renderEncounters();
   restoreEncounterUiState(encUi);
   renderXpSidebar();
@@ -640,7 +968,7 @@ function focusEncounter(encId) {
   el?.querySelector(".dm-encounter-dice")?.setAttribute("open", "");
 }
 
-function addPartyMember(name, initiative) {
+function addPartyMember(name, initiative, level) {
   const trimmed = String(name || "").trim();
   if (!trimmed) return;
   patchBattle((battle) => {
@@ -648,6 +976,7 @@ function addPartyMember(name, initiative) {
       id: newEntityId("party"),
       name: trimmed,
       initiative: initiative != null && initiative !== "" ? String(initiative) : "",
+      level: clampCharacterLevel(level),
       downed: false,
     });
   });
@@ -684,6 +1013,8 @@ function updatePartyField(id, field, value) {
       if (v) p.name = v.slice(0, 120);
     } else if (field === "initiative") {
       p.initiative = value != null && value !== "" ? String(value) : "";
+    } else if (field === "level") {
+      p.level = clampCharacterLevel(value);
     }
   });
   scheduleRender();
@@ -946,9 +1277,11 @@ function onPartyFormSubmit(e) {
   e.preventDefault();
   const name = dmPartyNameInput?.value;
   const init = dmPartyInitInput?.value;
-  addPartyMember(name, init);
+  const level = dmPartyLevelInput?.value;
+  addPartyMember(name, init, level);
   if (dmPartyNameInput) dmPartyNameInput.value = "";
   if (dmPartyInitInput) dmPartyInitInput.value = "";
+  if (dmPartyLevelInput) dmPartyLevelInput.value = "1";
   dmPartyNameInput?.focus();
 }
 
@@ -964,6 +1297,42 @@ function handleDocumentClick(e) {
     btn.closest(".dm-compact-d20")
   ) {
     e.stopPropagation();
+  }
+
+  if (action === "dm-export-campaign") {
+    exportCampaignJson();
+    return;
+  }
+
+  if (action === "dm-apply-session-xp") {
+    applySessionXpToParty();
+    return;
+  }
+
+  if (action === "dm-sync-from-sheet") {
+    const partyId = btn.dataset.partyId;
+    if (partyId) pullPartyMemberFromSheet(partyId);
+    return;
+  }
+
+  if (action === "dm-push-to-sheet") {
+    const partyId = btn.dataset.partyId;
+    if (partyId) pushPartyMemberToSheet(partyId);
+    return;
+  }
+
+  if (action === "dm-sync-all-from-sheet") {
+    syncAllPartyFromSheet();
+    return;
+  }
+
+  if (action === "dm-clear-session-history") {
+    if (window.confirm("Apagar todo o histórico de sessões?")) {
+      clearSessionHistory();
+      renderSessionHistory();
+      setCampaignStatus("Histórico limpo.");
+    }
+    return;
   }
 
   if (action === "dm-explore-monsters") {
@@ -1168,10 +1537,23 @@ function initDmPage() {
   backfillEncounterMeta();
 
   dmPartyForm?.addEventListener("submit", onPartyFormSubmit);
+  dmCampaignNameInput?.addEventListener("change", () => {
+    saveCampaign({ name: dmCampaignNameInput.value });
+    setCampaignStatus("Nome da campanha guardado.");
+  });
+  dmCampaignNameInput?.addEventListener("blur", () => {
+    saveCampaign({ name: dmCampaignNameInput.value });
+  });
+  dmCampaignImportInput?.addEventListener("change", () => {
+    const file = dmCampaignImportInput.files?.[0];
+    void importCampaignJsonFile(file);
+    dmCampaignImportInput.value = "";
+  });
   document.addEventListener("click", handleDocumentClick);
   document.addEventListener("change", handleDocumentChange);
   document.addEventListener("input", handleDocumentInput);
 
+  renderXpPhbReferenceTable();
   renderAll();
   void warmFavoriteMonsterImages().then(() => {
     backfillEncounterMeta();
