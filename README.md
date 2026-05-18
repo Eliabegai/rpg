@@ -9,7 +9,15 @@ npm install
 npm start
 ```
 
-Abre `http://localhost:3000` (ou a porta que o `serve` indicar).
+Abre no browser:
+
+- **http://localhost:3000/** — explorar API (`index.html`)
+- **http://localhost:3000/sheet.html** — ficha
+- **http://localhost:3000/dm.html** — mesa do mestre
+
+Usa sempre a porta **3000** (definida no script). Se der erro de porta ocupada, fecha o outro processo ou corre `npx serve . -l 3001` e abre essa porta.
+
+> **Nota:** O `serve` pode aceitar URLs curtas (`/dm`, `/sheet`). Com o `base-path.js` atualizado, CSS e JS carregam da raiz em localhost. Se algo falhar, abre o ficheiro `.html` completo na URL.
 
 ## GitHub Pages
 
