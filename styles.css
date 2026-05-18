@@ -1097,8 +1097,461 @@ body {
   border-bottom: 0;
 }
 
-.sheet-dice-block--d20 {
+.sheet-dice-block--d20,
+.sheet-dice-block--damage {
   padding-bottom: 1.35rem;
+}
+
+/* —— Rolagem de dano —— */
+.sheet-dmg-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  padding: 1.15rem 1rem 1rem;
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse 110% 70% at 50% -10%, rgba(248, 113, 113, 0.12), transparent 55%),
+    linear-gradient(165deg, #1c1917 0%, #292524 48%, #1c1917 100%);
+  border: 1px solid #44403c;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 8px 24px rgba(15, 23, 42, 0.2);
+  transition:
+    min-height 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.32s ease;
+}
+
+.sheet-dmg-panel.is-expanded {
+  min-height: 20rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 40px rgba(127, 29, 29, 0.25);
+}
+
+.sheet-dmg-panel.is-rolling .sheet-dmg-palette,
+.sheet-dmg-panel.is-rolling .sheet-dmg-controls,
+.sheet-dmg-panel.is-slowing .sheet-dmg-palette,
+.sheet-dmg-panel.is-slowing .sheet-dmg-controls {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.sheet-dmg-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.sheet-dmg-add-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 2.85rem;
+  padding: 0.4rem 0.45rem 0.35rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.55);
+  color: #f8fafc;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    filter 0.15s ease;
+}
+
+.sheet-dmg-add-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.12);
+}
+
+.sheet-dmg-add-text {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.9;
+}
+
+.sheet-dmg-add-icon {
+  display: block;
+  width: 1.35rem;
+  height: 1.35rem;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+
+.sheet-dmg-add-icon--d4 {
+  clip-path: polygon(50% 4%, 96% 92%, 4% 92%);
+  background: linear-gradient(155deg, #fca5a5, #b91c1c 55%, #7f1d1d);
+}
+.sheet-dmg-add-icon--d6 {
+  border-radius: 18%;
+  background: linear-gradient(155deg, #86efac, #16a34a 55%, #14532d);
+}
+.sheet-dmg-add-icon--d8 {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  background: linear-gradient(155deg, #93c5fd, #2563eb 55%, #1e3a8a);
+}
+.sheet-dmg-add-icon--d10 {
+  clip-path: polygon(50% 0%, 100% 36%, 82% 100%, 18% 100%, 0% 36%);
+  background: linear-gradient(155deg, #d8b4fe, #9333ea 55%, #6b21a8);
+}
+.sheet-dmg-add-icon--d12 {
+  clip-path: polygon(50% 0%, 80% 8%, 100% 32%, 100% 68%, 80% 92%, 50% 100%, 20% 92%, 0% 68%, 0% 32%, 20% 8%);
+  background: linear-gradient(155deg, #fdba74, #ea580c 55%, #9a3412);
+}
+.sheet-dmg-add-icon--d20 {
+  clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  background: linear-gradient(155deg, #fde047, #ca8a04 55%, #854d0e);
+}
+
+.sheet-dmg-formula {
+  margin: 0;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #fcd34d;
+  letter-spacing: 0.02em;
+}
+
+.sheet-dmg-arena {
+  position: relative;
+  width: 100%;
+  min-height: 6.5rem;
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.4);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  transition: min-height 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sheet-dmg-panel.is-expanded .sheet-dmg-arena {
+  min-height: 15rem;
+}
+
+.sheet-dmg-panel.is-rolling .sheet-dmg-arena,
+.sheet-dmg-panel.is-slowing .sheet-dmg-arena {
+  box-shadow: inset 0 0 36px rgba(220, 38, 38, 0.14);
+}
+
+.sheet-dmg-empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.sheet-dmg-dice-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  padding: 0.85rem;
+  min-height: 5.5rem;
+}
+
+.sheet-dmg-panel.is-rolling .sheet-dmg-dice-field,
+.sheet-dmg-panel.is-slowing .sheet-dmg-dice-field {
+  position: relative;
+  display: block;
+  min-height: 13rem;
+  padding: 0;
+}
+
+.sheet-dmg-die {
+  --dmg-shape: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  --dmg-w: 3.35rem;
+  --dmg-h: 3.35rem;
+  --dmg-face-offset: 0;
+  --dmg-label-bottom: 0.18rem;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--dmg-w);
+  height: var(--dmg-h);
+  padding: 0;
+  border: none;
+  background: transparent;
+  clip-path: var(--dmg-shape);
+  cursor: pointer;
+  font: inherit;
+  filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.42));
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease;
+}
+
+.sheet-dmg-panel.is-expanded .sheet-dmg-die--d4 {
+  --dmg-w: 3.55rem;
+  --dmg-h: 3.85rem;
+}
+.sheet-dmg-panel.is-expanded .sheet-dmg-die--d6 {
+  --dmg-w: 3.65rem;
+  --dmg-h: 3.65rem;
+}
+.sheet-dmg-panel.is-expanded .sheet-dmg-die--d8 {
+  --dmg-w: 3.75rem;
+  --dmg-h: 3.75rem;
+}
+.sheet-dmg-panel.is-expanded .sheet-dmg-die--d10 {
+  --dmg-w: 3.7rem;
+  --dmg-h: 3.8rem;
+}
+.sheet-dmg-panel.is-expanded .sheet-dmg-die--d12 {
+  --dmg-w: 3.85rem;
+  --dmg-h: 3.85rem;
+}
+.sheet-dmg-panel.is-expanded .sheet-dmg-die--d20 {
+  --dmg-w: 3.75rem;
+  --dmg-h: 3.95rem;
+}
+
+.sheet-dmg-die-shell {
+  position: absolute;
+  inset: 0;
+  clip-path: inherit;
+  pointer-events: none;
+}
+
+.sheet-dmg-die-shine {
+  position: absolute;
+  inset: 0;
+  clip-path: inherit;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.45), transparent 58%);
+  opacity: 0.85;
+}
+
+.sheet-dmg-die-facet {
+  position: absolute;
+  inset: 0;
+  clip-path: inherit;
+  box-shadow:
+    inset 0 2px 5px rgba(255, 255, 255, 0.28),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.38);
+}
+
+.sheet-dmg-panel.is-rolling .sheet-dmg-die,
+.sheet-dmg-panel.is-slowing .sheet-dmg-die {
+  position: absolute;
+  left: var(--dmg-x, 40%);
+  top: var(--dmg-y, 40%);
+  margin: 0;
+  transition:
+    left 0.12s ease-out,
+    top 0.12s ease-out,
+    transform 0.15s ease;
+}
+
+.sheet-dmg-die:hover:not(:disabled) {
+  transform: scale(1.07);
+  filter: drop-shadow(0 7px 14px rgba(0, 0, 0, 0.5));
+}
+
+.sheet-dmg-die:disabled {
+  cursor: default;
+}
+
+.sheet-dmg-die.is-rolling {
+  animation: sheet-dmg-tumble 0.1s ease-in-out infinite alternate;
+  z-index: 2;
+}
+
+.sheet-dmg-die.is-rolling .sheet-dmg-die-face {
+  animation: sheet-d20-blur 0.08s linear infinite;
+}
+
+.sheet-dmg-die.is-landed {
+  animation: sheet-dmg-land 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  z-index: 3;
+}
+
+.sheet-dmg-die.is-corner-hit {
+  animation: sheet-d20-corner-hit 0.18s ease-out;
+}
+
+/* d4 — tetraedro (triângulo) */
+.sheet-dmg-die--d4 {
+  --dmg-shape: polygon(50% 5%, 94% 90%, 6% 90%);
+  --dmg-w: 3.15rem;
+  --dmg-h: 3.5rem;
+  --dmg-face-offset: -0.12rem;
+  --dmg-label-bottom: 0.42rem;
+}
+.sheet-dmg-die--d4 .sheet-dmg-die-shell {
+  background: linear-gradient(160deg, #fecaca 0%, #dc2626 42%, #991b1b 100%);
+  box-shadow: inset 0 0 0 2px rgba(252, 165, 165, 0.75);
+}
+
+/* d6 — cubo (quadrado arredondado) */
+.sheet-dmg-die--d6 {
+  --dmg-shape: none;
+  --dmg-w: 3.25rem;
+  --dmg-h: 3.25rem;
+  --dmg-label-bottom: 0.22rem;
+  clip-path: none;
+  border-radius: 16%;
+}
+.sheet-dmg-die--d6 .sheet-dmg-die-shell {
+  clip-path: none;
+  border-radius: 16%;
+  background: linear-gradient(160deg, #bbf7d0 0%, #22c55e 40%, #15803d 100%);
+  box-shadow: inset 0 0 0 2px rgba(134, 239, 172, 0.75);
+}
+.sheet-dmg-die--d6 .sheet-dmg-die-shine,
+.sheet-dmg-die--d6 .sheet-dmg-die-facet {
+  clip-path: none;
+  border-radius: 16%;
+}
+
+/* d8 — octaedro (losango) */
+.sheet-dmg-die--d8 {
+  --dmg-shape: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  --dmg-w: 3.45rem;
+  --dmg-h: 3.45rem;
+}
+.sheet-dmg-die--d8 .sheet-dmg-die-shell {
+  background: linear-gradient(160deg, #bfdbfe 0%, #3b82f6 42%, #1d4ed8 100%);
+  box-shadow: inset 0 0 0 2px rgba(147, 197, 253, 0.75);
+}
+
+/* d10 — pentágono */
+.sheet-dmg-die--d10 {
+  --dmg-shape: polygon(50% 0%, 100% 36%, 82% 100%, 18% 100%, 0% 36%);
+  --dmg-w: 3.4rem;
+  --dmg-h: 3.55rem;
+  --dmg-label-bottom: 0.28rem;
+}
+.sheet-dmg-die--d10 .sheet-dmg-die-shell {
+  background: linear-gradient(160deg, #e9d5ff 0%, #a855f7 42%, #7e22ce 100%);
+  box-shadow: inset 0 0 0 2px rgba(216, 180, 254, 0.75);
+}
+
+/* d12 — dodecaedro (decágono) */
+.sheet-dmg-die--d12 {
+  --dmg-shape: polygon(50% 0%, 80% 8%, 100% 32%, 100% 68%, 80% 92%, 50% 100%, 20% 92%, 0% 68%, 0% 32%, 20% 8%);
+  --dmg-w: 3.5rem;
+  --dmg-h: 3.5rem;
+}
+.sheet-dmg-die--d12 .sheet-dmg-die-shell {
+  background: linear-gradient(160deg, #fed7aa 0%, #f97316 42%, #c2410c 100%);
+  box-shadow: inset 0 0 0 2px rgba(253, 186, 116, 0.75);
+}
+
+/* d20 — icosaedro (hexágono) */
+.sheet-dmg-die--d20 {
+  --dmg-shape: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  --dmg-w: 3.45rem;
+  --dmg-h: 3.65rem;
+  --dmg-label-bottom: 0.32rem;
+}
+.sheet-dmg-die--d20 .sheet-dmg-die-shell {
+  background: linear-gradient(160deg, #fef08a 0%, #eab308 42%, #a16207 100%);
+  box-shadow: inset 0 0 0 2px rgba(253, 224, 71, 0.75);
+}
+
+.sheet-dmg-die-face {
+  position: relative;
+  z-index: 2;
+  margin-top: var(--dmg-face-offset);
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.55),
+    0 0 12px rgba(255, 255, 255, 0.2);
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-dmg-panel.is-expanded .sheet-dmg-die-face {
+  font-size: 1.5rem;
+}
+
+.sheet-dmg-die-label {
+  position: absolute;
+  z-index: 2;
+  bottom: var(--dmg-label-bottom);
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.sheet-dmg-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+}
+
+.sheet-dmg-mod-field {
+  min-width: 5.5rem;
+}
+
+.sheet-dmg-mod-field .sheet-name-label {
+  color: #d6d3d1;
+}
+
+.sheet-dmg-mod-field .sheet-number-input {
+  background: #0f172a;
+  border-color: #57534e;
+  color: #f8fafc;
+}
+
+.sheet-dice-btn--dmg {
+  padding: 0.55rem 1.1rem;
+  font-size: 0.92rem;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  border-color: #b91c1c;
+  box-shadow: 0 2px 0 #991b1b;
+}
+
+.sheet-dice-btn--dmg:hover {
+  background: linear-gradient(180deg, #f87171 0%, #ef4444 100%);
+}
+
+.sheet-dice-btn--dmg:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.sheet-dmg-result {
+  margin: 0;
+  min-height: 1.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fecaca;
+  text-align: center;
+}
+
+@keyframes sheet-dmg-tumble {
+  from {
+    transform: rotate(-12deg) scale(0.94);
+  }
+  to {
+    transform: rotate(12deg) scale(1.06);
+  }
+}
+
+@keyframes sheet-dmg-land {
+  0% {
+    transform: scale(0.7) rotate(-8deg);
+    opacity: 0.5;
+  }
+  70% {
+    transform: scale(1.12) rotate(4deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
 }
 
 .sheet-d20-panel {
@@ -1751,6 +2204,28 @@ body {
 
   .sheet-d20-panel.is-expanded .sheet-d20-arena {
     min-height: 10.5rem;
+  }
+
+  .sheet-dmg-die.is-rolling,
+  .sheet-dmg-die.is-landed,
+  .sheet-dmg-die.is-corner-hit,
+  .sheet-dmg-die.is-rolling .sheet-dmg-die-face {
+    animation: none;
+  }
+
+  .sheet-dmg-panel.is-expanded {
+    min-height: auto;
+  }
+
+  .sheet-dmg-panel.is-expanded .sheet-dmg-arena {
+    min-height: 6.5rem;
+  }
+
+  .sheet-dmg-panel.is-rolling .sheet-dmg-die,
+  .sheet-dmg-panel.is-slowing .sheet-dmg-die {
+    position: relative;
+    left: auto;
+    top: auto;
   }
 }
 

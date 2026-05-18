@@ -69,6 +69,15 @@ const d20Outcome = document.getElementById("d20Outcome");
 const d20ModifierInput = document.getElementById("d20ModifierInput");
 const rollD20Btn = document.getElementById("rollD20Btn");
 const d20ResultText = document.getElementById("d20ResultText");
+const dmgPanel = document.getElementById("dmgPanel");
+const dmgArena = document.getElementById("dmgArena");
+const dmgFormula = document.getElementById("dmgFormula");
+const dmgEmpty = document.getElementById("dmgEmpty");
+const dmgDiceField = document.getElementById("dmgDiceField");
+const dmgModifierInput = document.getElementById("dmgModifierInput");
+const rollDmgBtn = document.getElementById("rollDmgBtn");
+const clearDmgBtn = document.getElementById("clearDmgBtn");
+const dmgResultText = document.getElementById("dmgResultText");
 
 function rollD6() {
   return 1 + Math.floor(Math.random() * 6);
@@ -307,7 +316,7 @@ function readD20Modifier() {
 
 function formatRollModifier(mod) {
   if (mod === 0) return "+0";
-  return mod > 0 ? `+${mod}` : String(mod);
+  return mod > 0 ? `+ ${mod}` : String(mod);
 }
 
 function resetD20StageClasses() {
@@ -546,6 +555,279 @@ function syncD20Fields() {
   if (d20ModifierInput && document.activeElement !== d20ModifierInput) {
     d20ModifierInput.value = sheet.d20Modifier ?? "0";
   }
+}
+
+const DAMAGE_ROLL_TICK_MS = [55, 58, 62, 68, 76, 88, 102, 120, 145, 175, 210, 260, 320, 400];
+const MAX_DAMAGE_DICE = 24;
+
+let dmgRollActive = false;
+
+function newDamageDieId() {
+  return `dmg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function clampDamageModifier(n) {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-99, Math.min(99, Math.floor(n)));
+}
+
+function readDamageModifier() {
+  return clampDamageModifier(Number(dmgModifierInput?.value));
+}
+
+function getDamageRollState(sheet = loadSheet()) {
+  return sheet.damageRoll ?? { modifier: "0", pool: [] };
+}
+
+function formatDamageFormula(pool, modifier = 0) {
+  if (!pool?.length) return "—";
+  const counts = {};
+  for (const die of pool) {
+    counts[die.sides] = (counts[die.sides] || 0) + 1;
+  }
+  const parts = DAMAGE_DIE_SIDES.filter((s) => counts[s]).map((s) =>
+    counts[s] === 1 ? `d${s}` : `${counts[s]}d${s}`
+  );
+  const mod = clampDamageModifier(modifier);
+  let formula = parts.join(" + ");
+  if (mod !== 0) formula += ` ${formatRollModifier(mod)}`;
+  return formula;
+}
+
+function renderDamagePoolUi() {
+  const sheet = loadSheet();
+  const { pool, modifier } = getDamageRollState(sheet);
+  const mod = readDamageModifier();
+
+  if (dmgFormula) dmgFormula.textContent = formatDamageFormula(pool, mod);
+  if (clearDmgBtn) clearDmgBtn.hidden = pool.length === 0;
+
+  if (!dmgDiceField || !dmgEmpty) return;
+
+  if (pool.length === 0) {
+    dmgEmpty.hidden = false;
+    dmgDiceField.hidden = true;
+    dmgDiceField.innerHTML = "";
+    return;
+  }
+
+  dmgEmpty.hidden = true;
+  dmgDiceField.hidden = false;
+  dmgDiceField.innerHTML = pool
+    .map(
+      (die) => `<button type="button" class="sheet-dmg-die sheet-dmg-die--d${die.sides}"
+        data-action="remove-damage-die" data-id="${escapeHtml(die.id)}" data-sides="${die.sides}"
+        title="Remover d${die.sides}" aria-label="Remover d${die.sides}">
+        <span class="sheet-dmg-die-shell" aria-hidden="true">
+          <span class="sheet-dmg-die-shine"></span>
+          <span class="sheet-dmg-die-facet"></span>
+        </span>
+        <span class="sheet-dmg-die-face">—</span>
+        <span class="sheet-dmg-die-label">d${die.sides}</span>
+      </button>`
+    )
+    .join("");
+}
+
+function syncDamageFields() {
+  const sheet = loadSheet();
+  const { modifier } = getDamageRollState(sheet);
+  if (dmgModifierInput && document.activeElement !== dmgModifierInput) {
+    dmgModifierInput.value = modifier ?? "0";
+  }
+  renderDamagePoolUi();
+}
+
+function addDamageDie(sides) {
+  const n = Number(sides);
+  if (!DAMAGE_DIE_SIDES.includes(n)) return;
+  patchSheet((sheet) => {
+    if (!sheet.damageRoll) sheet.damageRoll = { modifier: "0", pool: [] };
+    if (sheet.damageRoll.pool.length >= MAX_DAMAGE_DICE) return;
+    sheet.damageRoll.pool.push({ id: newDamageDieId(), sides: n });
+  });
+  renderDamagePoolUi();
+}
+
+function removeDamageDie(id) {
+  if (!id) return;
+  patchSheet((sheet) => {
+    if (!sheet.damageRoll?.pool) return;
+    sheet.damageRoll.pool = sheet.damageRoll.pool.filter((d) => d.id !== id);
+  });
+  renderDamagePoolUi();
+}
+
+function clearDamagePool() {
+  patchSheet((sheet) => {
+    sheet.damageRoll = { modifier: readDamageModifier(), pool: [] };
+  });
+  if (dmgResultText) dmgResultText.textContent = "";
+  renderDamagePoolUi();
+}
+
+function onDamageModifierChange() {
+  const mod = readDamageModifier();
+  if (dmgModifierInput && dmgModifierInput.value !== String(mod)) {
+    dmgModifierInput.value = String(mod);
+  }
+  patchSheet((sheet) => {
+    if (!sheet.damageRoll) sheet.damageRoll = { modifier: "0", pool: [] };
+    sheet.damageRoll.modifier = String(mod);
+  });
+  renderDamagePoolUi();
+}
+
+function scatterDamageDicePositions() {
+  dmgDiceField?.querySelectorAll(".sheet-dmg-die").forEach((el) => {
+    const x = 6 + Math.random() * 72;
+    const y = 8 + Math.random() * 68;
+    el.style.setProperty("--dmg-x", `${x}%`);
+    el.style.setProperty("--dmg-y", `${y}%`);
+  });
+}
+
+function setDamageDieFace(el, value) {
+  const face = el?.querySelector(".sheet-dmg-die-face");
+  if (!face) return;
+  face.textContent = String(value);
+  face.dataset.value = String(value);
+}
+
+async function expandDamagePanel() {
+  dmgPanel?.classList.add("is-expanded");
+  await delay(380);
+}
+
+async function collapseDamagePanel() {
+  dmgPanel?.classList.remove("is-expanded", "is-rolling", "is-slowing");
+  dmgDiceField?.querySelectorAll(".sheet-dmg-die").forEach((el) => {
+    el.style.removeProperty("--dmg-x");
+    el.style.removeProperty("--dmg-y");
+    el.classList.remove("is-rolling", "is-corner-hit");
+  });
+  await delay(300);
+}
+
+async function animateDamageRoll(rolls) {
+  const diceEls = [...(dmgDiceField?.querySelectorAll(".sheet-dmg-die") ?? [])];
+  if (!diceEls.length) return rolls;
+
+  try {
+    await expandDamagePanel();
+    dmgPanel?.classList.add("is-rolling");
+    scatterDamageDicePositions();
+
+    diceEls.forEach((el) => {
+      el.classList.add("is-rolling");
+      el.disabled = true;
+    });
+
+    const slowAt = Math.floor(DAMAGE_ROLL_TICK_MS.length * 0.55);
+    const settleAt = DAMAGE_ROLL_TICK_MS.length - 3;
+
+    for (let i = 0; i < DAMAGE_ROLL_TICK_MS.length; i++) {
+      const ms = DAMAGE_ROLL_TICK_MS[i];
+      if (i === slowAt) {
+        dmgPanel?.classList.add("is-slowing");
+        diceEls.forEach((el) => el.classList.remove("is-rolling"));
+        diceEls.forEach((el) => el.classList.add("is-rolling"));
+      }
+
+      diceEls.forEach((el, idx) => {
+        const sides = rolls[idx]?.sides ?? Number(el.dataset.sides) ?? 6;
+        const value = i >= settleAt ? rolls[idx].value : rollDie(sides);
+        setDamageDieFace(el, value);
+        if (i >= settleAt && i === DAMAGE_ROLL_TICK_MS.length - 1) {
+          el.classList.remove("is-rolling");
+          el.classList.add("is-landed", "is-corner-hit");
+        }
+      });
+
+      if (i < slowAt && i % 2 === 0) scatterDamageDicePositions();
+      await delay(ms);
+    }
+
+    await delay(350);
+  } finally {
+    diceEls.forEach((el) => {
+      el.disabled = false;
+    });
+    await collapseDamagePanel();
+  }
+
+  return rolls;
+}
+
+function presentDamageResult(rolls, modifier) {
+  const diceSum = rolls.reduce((s, r) => s + r.value, 0);
+  const total = diceSum + modifier;
+  const breakdown = rolls.map((r) => r.value).join(" + ");
+  const modLabel = formatRollModifier(modifier);
+
+  if (dmgResultText) {
+    if (modifier === 0) {
+      dmgResultText.textContent = `${breakdown} = ${total}`;
+    } else {
+      dmgResultText.textContent = `(${breakdown}) ${modLabel} = ${total}`;
+    }
+  }
+
+  if (dmgArena) {
+    const pool = getDamageRollState().pool;
+    dmgArena.setAttribute(
+      "aria-label",
+      `Dano: ${formatDamageFormula(pool, modifier)}. Resultado ${total}.`
+    );
+  }
+
+  return { rolls, diceSum, modifier, total };
+}
+
+async function rollDamagePool() {
+  if (dmgRollActive) return;
+
+  const sheet = loadSheet();
+  const pool = getDamageRollState(sheet).pool;
+  if (!pool.length) {
+    if (dmgResultText) dmgResultText.textContent = "Adiciona pelo menos um dado.";
+    return;
+  }
+
+  const modifier = readDamageModifier();
+  const rolls = pool.map((die) => ({
+    id: die.id,
+    sides: die.sides,
+    value: rollDie(die.sides),
+  }));
+
+  dmgRollActive = true;
+  if (rollDmgBtn) {
+    rollDmgBtn.disabled = true;
+    rollDmgBtn.setAttribute("aria-busy", "true");
+  }
+  if (dmgResultText) dmgResultText.textContent = "";
+
+  if (prefersReducedMotion()) {
+    rolls.forEach((r) => {
+      const el = dmgDiceField?.querySelector(`[data-id="${r.id}"]`);
+      if (el) {
+        setDamageDieFace(el, r.value);
+        el.classList.add("is-landed");
+      }
+    });
+  } else {
+    await animateDamageRoll(rolls);
+  }
+
+  const result = presentDamageResult(rolls, modifier);
+
+  dmgRollActive = false;
+  if (rollDmgBtn) {
+    rollDmgBtn.disabled = false;
+    rollDmgBtn.setAttribute("aria-busy", "false");
+  }
+  return result;
 }
 
 async function rollHitDie() {
@@ -1201,6 +1483,23 @@ function onSheetClick(e) {
     rollD20Check();
     return;
   }
+  if (action === "add-damage-die") {
+    addDamageDie(Number(btn.dataset.sides));
+    return;
+  }
+  if (action === "remove-damage-die") {
+    if (dmgRollActive) return;
+    removeDamageDie(btn.dataset.id);
+    return;
+  }
+  if (action === "roll-damage") {
+    rollDamagePool();
+    return;
+  }
+  if (action === "clear-damage") {
+    clearDamagePool();
+    return;
+  }
   if (action === "hp-full-heal") {
     onHpFullHeal();
     return;
@@ -1262,6 +1561,7 @@ function syncCharacterCoreFromSheet() {
   syncAbilityAssignDropdowns();
   syncHpFields();
   syncD20Fields();
+  syncDamageFields();
   renderDeathSaves();
 }
 
@@ -1614,6 +1914,7 @@ async function boot() {
     onAbilityAssignChange(e);
     if (e.target === hitDieSelect) onHitDieSelectChange();
     if (e.target === d20ModifierInput) onD20ModifierChange();
+    if (e.target === dmgModifierInput) onDamageModifierChange();
     if (e.target === hpMaxInput || e.target === hpCurrentInput || e.target === hpTempInput) onHpFieldChange();
   });
 
@@ -1664,6 +1965,16 @@ async function boot() {
   if (d20ModifierInput) {
     d20ModifierInput.addEventListener("input", onD20ModifierChange);
     d20ModifierInput.addEventListener("change", onD20ModifierChange);
+  }
+  if (rollDmgBtn) {
+    rollDmgBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      rollDamagePool();
+    });
+  }
+  if (dmgModifierInput) {
+    dmgModifierInput.addEventListener("input", onDamageModifierChange);
+    dmgModifierInput.addEventListener("change", onDamageModifierChange);
   }
   if (armorClassInput) {
     armorClassInput.addEventListener("input", onArmorClassInput);

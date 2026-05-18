@@ -22,6 +22,7 @@ const DEFAULT_SHEET = {
   abilityGeneration: { sets: [], assignment: {} },
   hitDie: "d10",
   d20Modifier: "0",
+  damageRoll: { modifier: "0", pool: [] },
   hpMax: "",
   hpCurrent: "",
   hpTemp: "0",
@@ -71,6 +72,7 @@ function normalizeSheet(parsed) {
     abilityGeneration: normalizeAbilityGeneration(parsed.abilityGeneration),
     hitDie: parsed.hitDie != null ? String(parsed.hitDie) : "d10",
     d20Modifier: parsed.d20Modifier != null ? String(parsed.d20Modifier) : "0",
+    damageRoll: normalizeDamageRoll(parsed.damageRoll),
     hpMax: parsed.hpMax != null ? String(parsed.hpMax) : "",
     hpCurrent: parsed.hpCurrent != null ? String(parsed.hpCurrent) : "",
     hpTemp: parsed.hpTemp != null ? String(parsed.hpTemp) : "0",
@@ -116,6 +118,26 @@ function normalizeAbilityGeneration(raw) {
     }
   }
   return { sets, assignment };
+}
+
+const DAMAGE_DIE_SIDES = [4, 6, 8, 10, 12, 20];
+
+function normalizeDamageRoll(raw) {
+  const modifier = raw?.modifier != null ? String(raw.modifier) : "0";
+  const pool = Array.isArray(raw?.pool)
+    ? raw.pool
+        .map((die, i) => {
+          const sides = Number(die?.sides);
+          if (!DAMAGE_DIE_SIDES.includes(sides)) return null;
+          return {
+            id: die?.id != null ? String(die.id) : `dmg-${i}`,
+            sides,
+          };
+        })
+        .filter(Boolean)
+        .slice(0, 24)
+    : [];
+  return { modifier, pool };
 }
 
 function normalizeDeathSaves(raw) {
