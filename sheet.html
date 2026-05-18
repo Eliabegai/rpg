@@ -11,6 +11,7 @@
       <aside class="sheet-library" aria-label="Biblioteca de favoritos">
         <nav class="app-top-nav" aria-label="Navegação">
           <a class="app-top-nav-link" href="index.html">← Explorar API</a>
+          <a class="app-top-nav-link" href="dm.html">Mestre</a>
           <span class="app-top-nav-current" aria-current="page">Ficha</span>
         </nav>
         <h1 class="sheet-library-title">Favoritos</h1>
@@ -28,6 +29,7 @@
         <div class="sheet-main-inner">
           <nav class="app-top-nav app-top-nav--mobile" aria-label="Navegação">
             <a class="app-top-nav-link" href="index.html">← Explorar API</a>
+            <a class="app-top-nav-link" href="dm.html">Mestre</a>
             <span class="app-top-nav-current" aria-current="page">Ficha</span>
           </nav>
 
@@ -226,7 +228,7 @@
       <nav class="game-tools-tabs" role="tablist" aria-label="Secções da mesa">
         <button type="button" class="game-tools-tab is-active" role="tab" id="gameToolsTabCombat" data-tools-tab="combat" aria-selected="true" aria-controls="gameToolsPanelCombat">Combate</button>
         <button type="button" class="game-tools-tab" role="tab" id="gameToolsTabCharacter" data-tools-tab="character" aria-selected="false" aria-controls="gameToolsPanelCharacter">Personagem</button>
-        <button type="button" class="game-tools-tab game-tools-tab--planned" role="tab" id="gameToolsTabDm" data-tools-tab="dm" aria-selected="false" aria-controls="gameToolsPanelDm" disabled title="Em breve">Mestre</button>
+        <button type="button" class="game-tools-tab" role="tab" id="gameToolsTabDm" data-tools-tab="dm" aria-selected="false" aria-controls="gameToolsPanelDm" title="Abrir mesa do mestre">Mestre</button>
       </nav>
       <div class="game-tools-body">
         <section id="gameToolsPanelCombat" class="game-tools-pane is-active" data-tools-pane="combat" role="tabpanel" aria-labelledby="gameToolsTabCombat">
@@ -355,15 +357,11 @@
             </div>
           </section>
         </section>
-        <section id="gameToolsPanelDm" class="game-tools-pane game-tools-pane--planned" data-tools-pane="dm" role="tabpanel" aria-labelledby="gameToolsTabDm" hidden>
+        <section id="gameToolsPanelDm" class="game-tools-pane" data-tools-pane="dm" role="tabpanel" aria-labelledby="gameToolsTabDm" hidden>
           <div class="game-tools-planned">
             <h3 class="game-tools-planned-title">Mesa do mestre</h3>
-            <p class="game-tools-planned-text">Em breve: adicionar monstros à mesa com PV, iniciativa, dados de ataque e ações — sem misturar com a ficha do jogador.</p>
-            <ul class="game-tools-planned-list">
-              <li>Rastrear iniciativa</li>
-              <li>PV por criatura</li>
-              <li>Rolagens de ataque e dano por monstro</li>
-            </ul>
+            <p class="game-tools-planned-text">Gestão de combate, iniciativa e monstros — página dedicada.</p>
+            <a href="dm.html" class="sheet-dice-btn dm-open-link">Abrir mesa do mestre</a>
           </div>
         </section>
       </div>

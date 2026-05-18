@@ -1032,26 +1032,7 @@ function renderLibrary() {
 }
 
 function openInExplorer(entry) {
-  const resourcePath = resourcePathFromItemPath(entry.path);
-  try {
-    const session = {
-      resourceKey: entry.resourceKey,
-      resourcePath,
-      itemIndex: String(entry.index),
-      itemPath: cleanApiPath(entry.path),
-      filter: "",
-      spellLevel: "",
-      spellSchool: "",
-      spellClass: "",
-      spellSubclass: "",
-      page: 1,
-      listScope: "all",
-    };
-    localStorage.setItem(STORAGE_SESSION, JSON.stringify(session));
-  } catch {
-    /* quota */
-  }
-  window.location.href = "index.html";
+  openEntryInExplorer(entry);
 }
 
 function renderSheetSummary(resourceKey, data) {
@@ -1947,8 +1928,12 @@ function closeGameTools() {
 }
 
 function setGameToolsTab(tab, { save = true } = {}) {
+  if (tab === "dm") {
+    window.location.href = "dm.html";
+    return;
+  }
   const id = GAME_TOOLS_TABS.includes(tab) ? tab : "combat";
-  const activeTab = id === "dm" ? "combat" : id;
+  const activeTab = id;
 
   document.querySelectorAll(".game-tools-tab").forEach((btn) => {
     const on = btn.dataset.toolsTab === activeTab;

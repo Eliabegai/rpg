@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Mesa do mestre — D&D 5e</title>
+  </head>
+  <body class="dm-page">
+    <div class="app-shell dm-shell">
+      <aside class="dm-sidebar" aria-label="Monstros favoritos">
+        <nav class="app-top-nav" aria-label="Navegação">
+          <a class="app-top-nav-link" href="index.html">← Explorar API</a>
+          <a class="app-top-nav-link" href="sheet.html">Ficha</a>
+          <span class="app-top-nav-current" aria-current="page">Mestre</span>
+        </nav>
+        <h1 class="dm-sidebar-title">Monstros favoritos</h1>
+        <p class="dm-sidebar-sub">
+          Marca ★ em monstros na exploração. Adiciona quantos quiseres à mesa de combate.
+        </p>
+        <p id="dmMonsterEmpty" class="sheet-empty" hidden>
+          Sem monstros favoritos.
+          <a href="index.html" data-action="dm-explore-monsters">Explorar monstros</a>
+        </p>
+        <ul id="dmMonsterLibrary" class="dm-monster-list"></ul>
+
+        <section class="dm-sidebar-xp" aria-labelledby="dmXpTitle">
+          <h2 id="dmXpTitle" class="dm-sidebar-xp-title">XP da sessão</h2>
+          <p class="dm-sidebar-xp-hint">Dividido entre quem eliminou cada monstro (só personagens vivos).</p>
+          <div id="dmXpLedger" class="dm-xp-ledger" aria-live="polite"></div>
+        </section>
+      </aside>
+
+      <main class="dm-main">
+        <div class="dm-main-inner">
+          <header class="dm-header">
+            <div class="dm-header-text">
+              <h1 class="dm-title">Mesa do mestre</h1>
+              <p class="dm-subtitle">Personagens em combate, iniciativa e criaturas na mesa.</p>
+            </div>
+            <div class="locale-bar dm-locale-bar" aria-label="Idioma da API">
+              <label for="localeSelect" class="locale-bar-label">Idioma</label>
+              <select id="localeSelect" class="locale-bar-select" aria-label="Idioma das traduções">
+                <option value="pt-BR">pt-BR</option>
+              </select>
+            </div>
+          </header>
+
+          <section class="dm-section" aria-labelledby="dmInitTitle">
+            <h2 id="dmInitTitle" class="dm-section-title">Ordem de iniciativa</h2>
+            <p class="dm-section-hint">
+              Personagens e monstros na mesma lista, do maior para o menor. ☠ marca personagem eliminado (fora do XP, pode reviver).
+            </p>
+            <form id="dmPartyForm" class="dm-party-form">
+              <label class="sheet-inline-field">
+                <span class="sheet-name-label">Nome</span>
+                <input
+                  type="text"
+                  id="dmPartyNameInput"
+                  class="sheet-name-input dm-party-name-input"
+                  placeholder="Ex.: Aelindra"
+                  maxlength="120"
+                  required
+                />
+              </label>
+              <label class="sheet-inline-field">
+                <span class="sheet-name-label">Iniciativa</span>
+                <input
+                  type="number"
+                  id="dmPartyInitInput"
+                  class="sheet-number-input"
+                  placeholder="—"
+                  inputmode="numeric"
+                />
+              </label>
+              <button type="submit" class="sheet-dice-btn">Adicionar</button>
+            </form>
+            <p id="dmInitEmpty" class="sheet-empty" hidden>Ninguém na iniciativa ainda.</p>
+            <ol id="dmInitiativeList" class="dm-initiative-list" aria-live="polite"></ol>
+          </section>
+
+          <section class="dm-section" aria-labelledby="dmEncounterTitle">
+            <h2 id="dmEncounterTitle" class="dm-section-title">Criaturas na mesa</h2>
+            <p class="dm-section-hint">
+              Monstros com PV a zero vão para a lista de eliminados. Marca quem participou — o XP divide-se entre os vivos.
+            </p>
+            <p id="dmEncounterEmpty" class="sheet-empty">Nenhum monstro na mesa. Usa a barra lateral.</p>
+            <div id="dmEncounterList" class="dm-encounter-list" aria-live="polite"></div>
+
+            <div id="dmEncounterDeadWrap" class="dm-encounter-dead-wrap" hidden>
+              <h3 id="dmEncounterDeadTitle" class="dm-encounter-dead-title">Monstros eliminados</h3>
+              <div id="dmEncounterDeadList" class="dm-encounter-list dm-encounter-list--dead" aria-live="polite"></div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script src="shared.js"></script>
+    <script src="dm.js"></script>
+  </body>
+</html>

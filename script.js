@@ -572,10 +572,30 @@ function renderResultsPage() {
   updateFavoritesCountHint();
 }
 
+const PSEUDO_LIST_SKIP_KEYS = new Set([
+  "url",
+  "image",
+  "updated_at",
+  "desc",
+  "name",
+  "index",
+  "size",
+  "type",
+  "subtype",
+  "alignment",
+]);
+
 function resultsFromPayload(data) {
   if (data && Array.isArray(data.results)) return data.results;
+  if (data && typeof data === "object" && data.index != null && data.url) return null;
   if (data && typeof data === "object" && !Array.isArray(data)) {
-    const entries = Object.entries(data).filter(([, v]) => typeof v === "string" && v.startsWith("/api/"));
+    const entries = Object.entries(data).filter(
+      ([key, v]) =>
+        !PSEUDO_LIST_SKIP_KEYS.has(key) &&
+        typeof v === "string" &&
+        v.startsWith("/api/2014/") &&
+        !v.includes("/api/images/")
+    );
     if (entries.length > 0) {
       return entries.map(([key, url]) => ({
         index: key,
@@ -1081,9 +1101,9 @@ function renderDetail(data) {
   }
 
   if (data.image) {
-    html += `<figure class="detail-image"><img src="${escapeHtml(apiUrl(data.image))}" alt="${escapeHtml(
+    html += `<figure class="detail-image"><img src="${escapeHtml(apiAssetUrl(data.image))}" alt="${escapeHtml(
       String(title)
-    )}" loading="lazy" /></figure>`;
+    )}" loading="lazy" decoding="async" /></figure>`;
   }
   html += `<h3 class="detail-title">${escapeHtml(String(title))}</h3>`;
 

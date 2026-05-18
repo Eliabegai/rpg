@@ -6,21 +6,295 @@ const STORAGE_LIST_SCOPE = "dnd5eapi.listScope";
 const STORAGE_SESSION = "dnd5eapi.session";
 const STORAGE_SHEET = "dnd5eapi.sheet";
 const STORAGE_GAME_TOOLS = "dnd5eapi.gameTools";
+const STORAGE_DM_BATTLE = "dnd5eapi.dmBattle";
+const STORAGE_DM_VISITED = "dnd5eapi.dmVisited";
+const STORAGE_IMAGE_CACHE = "dnd5eapi.imageCache";
+const IMAGE_CACHE_MAX_ENTRIES = 96;
 
-/** Abas do painel de ferramentas (mesa). `dm` = futuro painel do mestre (monstros, iniciativa). */
+/** Abas do painel de ferramentas (mesa). `dm` → página dedicada do mestre. */
 const GAME_TOOLS_TABS = ["combat", "character", "dm"];
 
 /**
- * Esquema previsto para a aba Mestre (não implementado).
- * @typedef {object} PlannedDmMonster
+ * @typedef {object} DmPartyMember
  * @property {string} id
  * @property {string} name
- * @property {number} hpMax
- * @property {number} hpCurrent
- * @property {number|null} initiative
- * @property {string} [attackFormula] ex. "2d6+3"
- * @property {string} [actionsNote]
+ * @property {string} initiative
+ * @property {boolean} downed fora do XP (mantido no registo para reviver)
  */
+
+/**
+ * @typedef {object} DmEncounter
+ * @property {string} id
+ * @property {string} sourceKey favorito monsters:index
+ * @property {string} sourceIndex
+ * @property {string} sourceName
+ * @property {string} label identificador na mesa
+ * @property {string} hpMax
+ * @property {string} hpCurrent
+ * @property {string} initiative
+ * @property {string} initiativeMod modificador d20 iniciativa
+ * @property {string} actionMod modificador d20 ação
+ * @property {{ modifier: string, pool: Array<{ id: string, sides: number }> }} damageRoll
+ * @property {string[]} killedBy ids dos personagens que eliminaram (XP dividido)
+ * @property {number} xp experiência do monstro (API)
+ * @property {string} imageUrl retrato do monstro (API)
+ */
+
+function normalizeKilledBy(raw) {
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  if (raw != null && raw !== "") return [String(raw)];
+  return [];
+}
+
+function isPartyMemberDowned(member) {
+  return Boolean(member?.downed);
+}
+
+function activePartyMembers(party) {
+  return (party || []).filter((p) => p && !isPartyMemberDowned(p));
+}
+
+function filterKilledByForXp(killerIds, party) {
+  const activeIds = new Set(activePartyMembers(party).map((p) => p.id));
+  return normalizeKilledBy(killerIds).filter((id) => activeIds.has(id));
+}
+
+function monsterXpFromApiData(data) {
+  const xp = Number(data?.xp);
+  return Number.isFinite(xp) && xp >= 0 ? Math.floor(xp) : 0;
+}
+
+function splitXpAmongParty(totalXp, partyIds) {
+  const ids = [...new Set(partyIds)].filter(Boolean);
+  const n = ids.length;
+  const map = new Map();
+  if (!n || totalXp <= 0) return map;
+  const base = Math.floor(totalXp / n);
+  let rem = totalXp % n;
+  ids.forEach((id, i) => {
+    map.set(id, base + (i < rem ? 1 : 0));
+  });
+  return map;
+}
+
+/** URL de imagens e outros assets estáticos — sem parâmetro `lang` (a API devolve 400). */
+function apiAssetUrl(pathOrUrl) {
+  if (!pathOrUrl) return "";
+  const raw = String(pathOrUrl).trim();
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    try {
+      const u = new URL(raw);
+      if (u.hostname.replace(/^www\./, "") === "dnd5eapi.co") {
+        u.search = "";
+        return u.toString();
+      }
+      return raw;
+    } catch {
+      return raw;
+    }
+  }
+  const path = raw.startsWith("/") ? raw : `/${raw}`;
+  return `${API_BASE}${path}`;
+}
+
+function entryImageUrl(data) {
+  if (!data?.image) return "";
+  return apiAssetUrl(data.image);
+}
+
+function imageCacheKey(resourceKey, index) {
+  return `${resourceKey}:${String(index)}`;
+}
+
+function loadImageCache() {
+  try {
+    const raw = localStorage.getItem(STORAGE_IMAGE_CACHE);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function getCachedImageDataUrl(resourceKey, index) {
+  const key = imageCacheKey(resourceKey, index);
+  const hit = loadImageCache()[key];
+  return typeof hit === "string" && hit.startsWith("data:") ? hit : "";
+}
+
+function saveImageCacheEntry(key, dataUrl) {
+  if (!dataUrl || !key) return false;
+  const cache = loadImageCache();
+  cache[key] = dataUrl;
+  const keys = Object.keys(cache);
+  while (keys.length > IMAGE_CACHE_MAX_ENTRIES) {
+    const oldest = keys.shift();
+    delete cache[oldest];
+  }
+  try {
+    localStorage.setItem(STORAGE_IMAGE_CACHE, JSON.stringify(cache));
+    return true;
+  } catch {
+    try {
+      const trimmed = { ...cache };
+      delete trimmed[keys[0]];
+      localStorage.setItem(STORAGE_IMAGE_CACHE, JSON.stringify(trimmed));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/** Guarda PNG dos monstros favoritos em data URL para carregamento offline/rápido. */
+async function ensureMonsterImageCached(resourceKey, index, imagePath) {
+  if (!imagePath || resourceKey !== "monsters") return entryImageUrl({ image: imagePath });
+  const ix = String(index);
+  const cached = getCachedImageDataUrl(resourceKey, ix);
+  if (cached) return cached;
+
+  const url = apiAssetUrl(imagePath);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return url;
+    const blob = await res.blob();
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+    if (typeof dataUrl === "string" && dataUrl.length > 0 && dataUrl.length < 500_000) {
+      saveImageCacheEntry(imageCacheKey(resourceKey, ix), dataUrl);
+      return dataUrl;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
+function resolveEntryImageUrl(entry) {
+  const resourceKey = entry?.resourceKey;
+  const index = entry?.index != null ? String(entry.index) : "";
+  if (resourceKey && index) {
+    const imgHit = getCachedImageDataUrl(resourceKey, index);
+    if (imgHit) return imgHit;
+  }
+  const cached = getCachedEntryData(entry);
+  if (cached?.image) return entryImageUrl(cached);
+  if (entry?.imageUrl && String(entry.imageUrl).includes("/api/images/")) {
+    return apiAssetUrl(entry.imageUrl);
+  }
+  return "";
+}
+
+function openMonstersInExplorer() {
+  try {
+    const session = {
+      resourceKey: "monsters",
+      resourcePath: "/api/2014/monsters",
+      itemIndex: "",
+      itemPath: "",
+      filter: "",
+      spellLevel: "",
+      spellSchool: "",
+      spellClass: "",
+      spellSubclass: "",
+      page: 1,
+      listScope: "all",
+    };
+    localStorage.setItem(STORAGE_SESSION, JSON.stringify(session));
+  } catch {
+    /* quota */
+  }
+  window.location.href = "index.html";
+}
+
+function markDmPageVisited() {
+  try {
+    localStorage.setItem(STORAGE_DM_VISITED, "1");
+  } catch {
+    /* quota */
+  }
+}
+
+function isDmFirstVisit() {
+  try {
+    return !localStorage.getItem(STORAGE_DM_VISITED);
+  } catch {
+    return false;
+  }
+}
+
+function openEntryInExplorer(entry) {
+  const path = cleanApiPath(entry.path || "");
+  const resourcePath = resourcePathFromItemPath(path);
+  try {
+    const session = {
+      resourceKey: entry.resourceKey,
+      resourcePath,
+      itemIndex: String(entry.index),
+      itemPath: path,
+      filter: "",
+      spellLevel: "",
+      spellSchool: "",
+      spellClass: "",
+      spellSubclass: "",
+      page: 1,
+      listScope: "all",
+    };
+    localStorage.setItem(STORAGE_SESSION, JSON.stringify(session));
+  } catch {
+    /* quota */
+  }
+  window.location.href = "index.html";
+}
+
+function formatArmorClass(ac) {
+  if (ac == null) return "—";
+  if (typeof ac === "number") return String(ac);
+  if (Array.isArray(ac)) {
+    return ac
+      .map((row) => {
+        const v = row?.value ?? row;
+        const t = row?.type ? ` (${row.type})` : "";
+        return `${v}${t}`;
+      })
+      .join(", ");
+  }
+  return String(ac);
+}
+
+function formatMonsterBrief(data) {
+  if (!data || typeof data !== "object") return "";
+  const rows = [];
+  if (data.size || data.type) {
+    rows.push(["Tipo", [data.size, data.type, data.subtype].filter(Boolean).join(" ")]);
+  }
+  if (data.alignment) rows.push(["Alinhamento", data.alignment]);
+  rows.push(["CA", formatArmorClass(data.armor_class)]);
+  if (data.hit_points != null) rows.push(["PV", String(data.hit_points)]);
+  if (data.hit_dice) rows.push(["Dados de vida", data.hit_dice]);
+  if (data.challenge_rating != null) rows.push(["ND", String(data.challenge_rating)]);
+  if (data.xp != null) rows.push(["XP", String(data.xp)]);
+  if (data.proficiency_bonus != null) rows.push(["Bónus prof.", `+${data.proficiency_bonus}`]);
+  if (data.speed && typeof data.speed === "object") {
+    rows.push(["Deslocamento", Object.entries(data.speed).map(([k, v]) => `${k} ${v}`).join(", ")]);
+  }
+  if (data.senses?.passive_perception != null) {
+    rows.push(["Percepção passiva", String(data.senses.passive_perception)]);
+  }
+  if (data.languages) rows.push(["Idiomas", data.languages]);
+  return rows
+    .map(
+      ([label, val]) =>
+        `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(String(val))}</td></tr>`
+    )
+    .join("");
+}
 
 const DEFAULT_GAME_TOOLS = {
   open: false,
@@ -31,8 +305,143 @@ function normalizeGameTools(raw) {
   const tab = GAME_TOOLS_TABS.includes(raw?.tab) ? raw.tab : "combat";
   return {
     open: Boolean(raw?.open),
-    tab: tab === "dm" ? "combat" : tab,
+    tab,
   };
+}
+
+function newEntityId(prefix = "id") {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function rollDie(sides) {
+  const n = Number(sides);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return 1 + Math.floor(Math.random() * n);
+}
+
+function clampInt(n, min, max, fallback = 0) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(v)));
+}
+
+function formatRollModifier(mod) {
+  const n = clampInt(mod, -99, 99, 0);
+  if (n === 0) return "+0";
+  return n > 0 ? `+ ${n}` : String(n);
+}
+
+function formatDamageFormula(pool, modifier = 0) {
+  if (!pool?.length) return "—";
+  const counts = {};
+  for (const die of pool) {
+    counts[die.sides] = (counts[die.sides] || 0) + 1;
+  }
+  const parts = DAMAGE_DIE_SIDES.filter((s) => counts[s]).map((s) =>
+    counts[s] === 1 ? `d${s}` : `${counts[s]}d${s}`
+  );
+  const mod = clampInt(modifier, -99, 99, 0);
+  let formula = parts.join(" + ");
+  if (mod !== 0) formula += ` ${formatRollModifier(mod)}`;
+  return formula;
+}
+
+function newDamageDieId() {
+  return newEntityId("dmg");
+}
+
+const DEFAULT_DM_BATTLE = {
+  party: [],
+  encounters: [],
+};
+
+function normalizeDmPartyMember(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const name = raw.name != null ? String(raw.name).trim() : "";
+  if (!name) return null;
+  return {
+    id: raw.id != null ? String(raw.id) : newEntityId("party"),
+    name: name.slice(0, 120),
+    initiative: raw.initiative != null ? String(raw.initiative) : "",
+    downed: Boolean(raw.downed),
+  };
+}
+
+function normalizeDmEncounter(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const sourceKey = raw.sourceKey != null ? String(raw.sourceKey) : "monsters";
+  const sourceIndex = raw.sourceIndex != null ? String(raw.sourceIndex) : "";
+  if (!sourceIndex) return null;
+  const label =
+    raw.label != null && String(raw.label).trim()
+      ? String(raw.label).trim().slice(0, 120)
+      : raw.sourceName != null
+        ? String(raw.sourceName).slice(0, 120)
+        : sourceIndex;
+  return {
+    id: raw.id != null ? String(raw.id) : newEntityId("enc"),
+    sourceKey,
+    sourceIndex,
+    sourceName: raw.sourceName != null ? String(raw.sourceName) : sourceIndex,
+    label,
+    hpMax: raw.hpMax != null ? String(raw.hpMax) : "10",
+    hpCurrent: raw.hpCurrent != null ? String(raw.hpCurrent) : raw.hpMax != null ? String(raw.hpMax) : "10",
+    initiative: raw.initiative != null ? String(raw.initiative) : "",
+    initiativeMod: raw.initiativeMod != null ? String(raw.initiativeMod) : "0",
+    actionMod: raw.actionMod != null ? String(raw.actionMod) : "0",
+    damageRoll: normalizeDamageRoll(raw.damageRoll),
+    killedBy: normalizeKilledBy(raw.killedBy),
+    xp: monsterXpFromApiData({ xp: raw.xp }),
+    imageUrl: typeof raw.imageUrl === "string" ? raw.imageUrl : "",
+  };
+}
+
+function normalizeDmBattle(parsed) {
+  const base = {
+    party: [],
+    encounters: [],
+  };
+  if (!parsed || typeof parsed !== "object") return base;
+  const party = Array.isArray(parsed.party)
+    ? parsed.party.map(normalizeDmPartyMember).filter(Boolean)
+    : [];
+  const encounters = Array.isArray(parsed.encounters)
+    ? parsed.encounters.map(normalizeDmEncounter).filter(Boolean)
+    : [];
+  return { party, encounters };
+}
+
+function loadDmBattle() {
+  try {
+    const raw = localStorage.getItem(STORAGE_DM_BATTLE);
+    if (!raw) return normalizeDmBattle(null);
+    return normalizeDmBattle(JSON.parse(raw));
+  } catch {
+    return normalizeDmBattle(null);
+  }
+}
+
+function saveDmBattle(battle) {
+  try {
+    localStorage.setItem(STORAGE_DM_BATTLE, JSON.stringify(normalizeDmBattle(battle)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** PV médios a partir do JSON do monstro na API 2014. */
+function monsterHpFromApiData(data) {
+  if (!data || typeof data !== "object") return 10;
+  if (typeof data.hit_points === "number" && data.hit_points > 0) {
+    return Math.floor(data.hit_points);
+  }
+  const hp = data.hit_points;
+  if (hp && typeof hp === "object") {
+    const avg = Number(hp.average ?? hp.hit_points_average);
+    if (Number.isFinite(avg) && avg > 0) return Math.floor(avg);
+  }
+  return 10;
 }
 
 function loadGameToolsPrefs() {
@@ -232,6 +641,7 @@ function apiUrl(pathOrUrl) {
     const u = new URL(absolute);
     const host = u.hostname.replace(/^www\./, "");
     if (host !== "dnd5eapi.co") return absolute;
+    if (u.pathname.startsWith("/api/images/")) return absolute;
     u.searchParams.set("lang", currentLocale);
     return u.toString();
   } catch {
@@ -340,7 +750,11 @@ function updateFavoriteCache(resourceKey, index, data) {
   if (i < 0) return false;
   applyCacheToEntry(favs[i], data);
   if (data.name) favs[i].name = String(data.name);
-  return saveFavorites(favs);
+  const ok = saveFavorites(favs);
+  if (ok && resourceKey === "monsters" && data?.image) {
+    void ensureMonsterImageCached(resourceKey, index, data.image);
+  }
+  return ok;
 }
 
 function updateSheetItemCache(resourceKey, index, data) {
@@ -425,10 +839,16 @@ function saveSheet(sheet) {
   }
 }
 
+/** `/api/2014/monsters/foo` → lista `/api/2014/monsters` */
 function resourcePathFromItemPath(path) {
   const parts = cleanApiPath(path).split("/").filter(Boolean);
-  if (parts.length >= 4) return `/${parts.slice(0, 4).join("/")}`;
-  return "";
+  if (parts.length >= 4 && parts[0] === "api" && parts[1] === "2014") {
+    return `/${parts.slice(0, 3).join("/")}`;
+  }
+  if (parts.length === 3 && parts[0] === "api" && parts[1] === "2014") {
+    return `/${parts.join("/")}`;
+  }
+  return cleanApiPath(path);
 }
 
 async function populateLocalesDropdown(selectEl, { onChange } = {}) {
