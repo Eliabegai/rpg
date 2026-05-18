@@ -15,6 +15,7 @@ const dmEncounterEmpty = document.getElementById("dmEncounterEmpty");
 const dmEncounterDeadWrap = document.getElementById("dmEncounterDeadWrap");
 const dmEncounterDeadList = document.getElementById("dmEncounterDeadList");
 const dmXpLedger = document.getElementById("dmXpLedger");
+const dmEncounterDiff = document.getElementById("dmEncounterDiff");
 const localeSelect = document.getElementById("localeSelect");
 
 const DM_DAMAGE_TICK_MS = [45, 48, 52, 58, 68, 82, 100, 125, 160, 200];
@@ -150,6 +151,82 @@ function renderXpPhbReferenceTable() {
   </table>`;
 }
 
+function renderXpProgressBar(p) {
+  const prog = characterXpProgress(p.xpTotal, p.level);
+  if (prog.nextAt == null) {
+    return `<div class="dm-xp-progress dm-xp-progress--max" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"><span class="dm-xp-progress-fill" style="width:100%"></span></div>`;
+  }
+  const label = `${prog.inLevel.toLocaleString("pt-BR")} / ${prog.span.toLocaleString("pt-BR")} XP`;
+  return `<div class="dm-xp-progress" role="progressbar" aria-valuenow="${prog.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progresso para o nível ${p.level + 1}">
+    <span class="dm-xp-progress-fill" style="width:${prog.pct}%"></span>
+  </div><span class="dm-xp-progress-label">${label}</span>`;
+}
+
+function applySessionXpToParty() {
+  const battle = loadDmBattle();
+  const ledger = computePartyXpLedger(battle);
+  let credited = 0;
+  patchBattle((b) => {
+    for (const p of b.party) {
+      const gain = ledger.get(p.id) || 0;
+      if (!gain) continue;
+      p.xpTotal = normalizeXpTotal(p.xpTotal) + gain;
+      p.level = levelFromXpTotal(p.xpTotal);
+      credited += gain;
+    }
+    for (const enc of b.encounters) {
+      if (isEncounterDead(enc)) enc.killedBy = [];
+    }
+  });
+  if (credited > 0) {
+    setCampaignStatus(`+${credited} XP creditado ao grupo.`);
+  } else {
+    setCampaignStatus("Nada a creditar — elimina monstros e marca participantes.");
+  }
+}
+
+function renderEncounterDifficulty() {
+  if (!dmEncounterDiff) return;
+  const battle = loadDmBattle();
+  const active = activePartyMembers(battle.party);
+  const living = battle.encounters.filter((e) => !isEncounterDead(e));
+
+  if (!active.length) {
+    dmEncounterDiff.innerHTML = '<p class="dm-diff-empty">Adiciona personagens vivos para calcular o orçamento.</p>';
+    return;
+  }
+  if (!living.length) {
+    dmEncounterDiff.innerHTML = '<p class="dm-diff-empty">Sem criaturas vivas na mesa.</p>';
+    return;
+  }
+
+  const diff = computeEncounterDifficulty(battle.party, battle.encounters);
+  const multLabel = diff.multiplier % 1 === 0 ? String(diff.multiplier) : String(diff.multiplier).replace(".", ",");
+
+  const budgetRows = ["easy", "medium", "hard", "deadly"]
+    .map(
+      (tier) =>
+        `<tr><th scope="row">${escapeHtml(ENCOUNTER_DIFFICULTY_LABELS[tier])}</th><td>${diff.budget[tier].toLocaleString("pt-BR")}</td></tr>`
+    )
+    .join("");
+
+  dmEncounterDiff.innerHTML = `<div class="dm-diff-card dm-diff-card--${escapeHtml(diff.difficulty)}">
+    <p class="dm-diff-verdict"><span class="dm-diff-badge">${escapeHtml(diff.difficultyLabel)}</span></p>
+    <dl class="dm-diff-stats">
+      <div><dt>Criaturas</dt><dd>${diff.monsterCount}</dd></div>
+      <div><dt>XP base</dt><dd>${diff.rawXp.toLocaleString("pt-BR")}</dd></div>
+      <div><dt>Multiplicador</dt><dd>×${multLabel}</dd></div>
+      <div><dt>XP ajustado</dt><dd class="dm-diff-adjusted">${diff.adjustedXp.toLocaleString("pt-BR")}</dd></div>
+    </dl>
+    <details class="dm-diff-budget-collapse">
+      <summary>Orçamento do grupo (DMG)</summary>
+      <table class="dm-xp-table dm-diff-budget-table">
+        <tbody>${budgetRows}</tbody>
+      </table>
+    </details>
+  </div>`;
+}
+
 function renderXpSidebar() {
   if (!dmXpLedger) return;
   const battle = loadDmBattle();
@@ -164,31 +241,34 @@ function renderXpSidebar() {
     return;
   }
 
-  let grand = 0;
+  let grandSession = 0;
   const rows = active
     .map((p) => {
-      const xp = totals.get(p.id) || 0;
-      grand += xp;
-      const threshold = xpThresholdForLevel(p.level);
-      const nextDelta = xpToNextLevel(p.level);
-      const meta =
-        nextDelta != null
-          ? `<span class="dm-xp-meta">${threshold.toLocaleString("pt-BR")} XP · +${nextDelta.toLocaleString("pt-BR")} p/ ${p.level + 1}</span>`
-          : `<span class="dm-xp-meta">${threshold.toLocaleString("pt-BR")} XP · máx.</span>`;
-      return `<tr>
-        <td class="dm-xp-name">${escapeHtml(p.name)}<span class="dm-xp-level">Nív. ${p.level}</span>${meta}</td>
-        <td class="dm-xp-value">${xp}</td>
+      const sessionXp = totals.get(p.id) || 0;
+      grandSession += sessionXp;
+      const total = normalizeXpTotal(p.xpTotal);
+      return `<tr class="dm-xp-row">
+        <td class="dm-xp-name">
+          ${escapeHtml(p.name)}
+          <span class="dm-xp-level">Nív. ${p.level}</span>
+          <span class="dm-xp-meta">${total.toLocaleString("pt-BR")} XP total</span>
+          ${renderXpProgressBar(p)}
+        </td>
+        <td class="dm-xp-value">${sessionXp}</td>
       </tr>`;
     })
     .join("");
 
-  dmXpLedger.innerHTML = `<table class="dm-xp-table">
+  const grandTotal = active.reduce((s, p) => s + normalizeXpTotal(p.xpTotal), 0);
+
+  dmXpLedger.innerHTML = `<table class="dm-xp-table dm-xp-table--progress">
     <thead>
-      <tr><th scope="col">Personagem</th><th scope="col">XP sessão</th></tr>
+      <tr><th scope="col">Personagem</th><th scope="col">Sessão</th></tr>
     </thead>
     <tbody>${rows}</tbody>
     <tfoot>
-      <tr><th scope="row">Total</th><td class="dm-xp-value dm-xp-total">${grand}</td></tr>
+      <tr><th scope="row">Sessão</th><td class="dm-xp-value dm-xp-total">${grandSession}</td></tr>
+      <tr><th scope="row">Total acum.</th><td class="dm-xp-value">${grandTotal.toLocaleString("pt-BR")}</td></tr>
     </tfoot>
   </table>`;
 }
@@ -446,13 +526,19 @@ function renderInitiative() {
 
       const levelInput =
         row.kind === "party"
-          ? `<input type="number" class="sheet-number-input dm-init-level-input" value="${row.level}" data-field="level" min="1" max="20" inputmode="numeric" aria-label="Nível" />`
+          ? `<label class="dm-init-field dm-init-field--level">
+              <span class="dm-init-field-label">Nív.</span>
+              <input type="number" class="sheet-number-input dm-init-level-input" value="${row.level}" data-field="level" min="1" max="20" inputmode="numeric" />
+            </label>`
           : "";
 
       const initInput =
         row.kind === "party"
-          ? `<input type="number" class="sheet-number-input dm-init-input" value="${row.initiative !== "" ? escapeHtml(row.initiative) : ""}" data-field="initiative" placeholder="—" inputmode="numeric" aria-label="Iniciativa" />`
-          : `<span class="dm-init-readonly">${init}</span>`;
+          ? `<label class="dm-init-field dm-init-field--init">
+              <span class="dm-init-field-label">Inic.</span>
+              <input type="number" class="sheet-number-input dm-init-input" value="${row.initiative !== "" ? escapeHtml(row.initiative) : ""}" data-field="initiative" placeholder="—" inputmode="numeric" />
+            </label>`
+          : `<span class="dm-init-readonly" title="Iniciativa">${init}</span>`;
 
       const nameCell =
         row.kind === "party"
@@ -469,8 +555,8 @@ function renderInitiative() {
         <span class="dm-init-badge" title="Iniciativa">${init}</span>
         ${thumb}
         <div class="dm-init-body">${nameCell}</div>
-        ${levelInput ? `<div class="dm-init-level">${levelInput}</div>` : ""}
-        <div class="dm-init-edit">${initInput}</div>
+        ${levelInput || `<span class="dm-init-field-spacer" aria-hidden="true"></span>`}
+        ${row.kind === "party" ? initInput : `<div class="dm-init-field dm-init-field--readonly">${initInput}</div>`}
         ${partyActions}
       </li>`;
     })
@@ -703,6 +789,7 @@ function renderAll() {
   renderCampaignUi();
   renderMonsterLibrary();
   renderInitiative();
+  renderEncounterDifficulty();
   renderEncounters();
   restoreEncounterUiState(encUi);
   renderXpSidebar();
@@ -711,6 +798,7 @@ function renderAll() {
 function refreshEncountersUi() {
   const encUi = captureEncounterUiState();
   renderInitiative();
+  renderEncounterDifficulty();
   renderEncounters();
   restoreEncounterUiState(encUi);
   renderXpSidebar();
@@ -1060,6 +1148,11 @@ function handleDocumentClick(e) {
 
   if (action === "dm-export-campaign") {
     exportCampaignJson();
+    return;
+  }
+
+  if (action === "dm-apply-session-xp") {
+    applySessionXpToParty();
     return;
   }
 

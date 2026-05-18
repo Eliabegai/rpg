@@ -16,6 +16,39 @@ const XP_THRESHOLDS = [
   0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000,
   165000, 195000, 225000, 265000, 305000, 355000,
 ];
+
+/** DMG 2014 — orçamento de XP por personagem [fácil, médio, difícil, mortal]. Índice = nível−1. */
+const ENCOUNTER_XP_BUDGET = [
+  [25, 50, 75, 100],
+  [50, 100, 150, 200],
+  [75, 150, 225, 400],
+  [125, 250, 375, 500],
+  [250, 500, 750, 1100],
+  [300, 600, 900, 1400],
+  [350, 750, 1100, 1700],
+  [450, 900, 1400, 2100],
+  [550, 1100, 1600, 2400],
+  [600, 1200, 1900, 2800],
+  [800, 1600, 2400, 3600],
+  [1000, 2000, 3000, 4500],
+  [1100, 2200, 3400, 5100],
+  [1250, 2500, 3800, 5700],
+  [1400, 2800, 4300, 6400],
+  [1600, 3200, 4800, 7200],
+  [2000, 3900, 5900, 8800],
+  [2100, 4200, 6300, 9500],
+  [2400, 4900, 7300, 10900],
+  [2800, 5700, 8500, 12700],
+];
+
+const ENCOUNTER_DIFFICULTY_LABELS = {
+  trivial: "Trivial",
+  easy: "Fácil",
+  medium: "Médio",
+  hard: "Difícil",
+  deadly: "Mortal",
+  beyond: "Além do mortal",
+};
 const STORAGE_IMAGE_CACHE = "dnd5eapi.imageCache";
 const IMAGE_CACHE_MAX_ENTRIES = 96;
 
@@ -28,6 +61,7 @@ const GAME_TOOLS_TABS = ["combat", "character", "dm"];
  * @property {string} name
  * @property {string} initiative
  * @property {number} level nível de personagem (1–20)
+ * @property {number} xpTotal XP acumulado (PHB)
  * @property {boolean} downed fora do XP (mantido no registo para reviver)
  */
 
@@ -88,6 +122,112 @@ function xpToNextLevel(level) {
   const lv = clampCharacterLevel(level);
   if (lv >= 20) return null;
   return XP_THRESHOLDS[lv] - XP_THRESHOLDS[lv - 1];
+}
+
+function normalizeXpTotal(raw) {
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+}
+
+/** Progresso de XP dentro do nível atual (0–100). */
+function characterXpProgress(xpTotal, level) {
+  const lv = clampCharacterLevel(level);
+  const total = normalizeXpTotal(xpTotal);
+  const floor = xpThresholdForLevel(lv);
+  if (lv >= 20) {
+    return { level: lv, xpTotal: total, floor, nextAt: null, inLevel: 0, span: 0, pct: 100 };
+  }
+  const nextAt = XP_THRESHOLDS[lv];
+  const span = nextAt - floor;
+  const inLevel = Math.max(0, total - floor);
+  const pct = span > 0 ? Math.min(100, Math.round((inLevel / span) * 100)) : 0;
+  return { level: lv, xpTotal: total, floor, nextAt, inLevel, span, pct };
+}
+
+function levelFromXpTotal(xpTotal) {
+  const total = normalizeXpTotal(xpTotal);
+  let lv = 1;
+  for (let i = XP_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (total >= XP_THRESHOLDS[i]) {
+      lv = i + 1;
+      break;
+    }
+  }
+  return clampCharacterLevel(lv);
+}
+
+function encounterMonsterMultiplier(count) {
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  if (n <= 1) return 1;
+  if (n === 2) return 1.5;
+  if (n <= 6) return 2;
+  if (n <= 10) return 2.5;
+  if (n <= 14) return 3;
+  return 4;
+}
+
+/** Orçamento de encontro somado para o grupo (DMG, grupos 3–5; ajuste simples fora disso). */
+function partyEncounterBudget(party) {
+  const members = activePartyMembers(party);
+  const tiers = ["easy", "medium", "hard", "deadly"];
+  const budget = { easy: 0, medium: 0, hard: 0, deadly: 0 };
+  if (!members.length) return budget;
+
+  for (const m of members) {
+    const row = ENCOUNTER_XP_BUDGET[clampCharacterLevel(m.level) - 1];
+    if (!row) continue;
+    budget.easy += row[0];
+    budget.medium += row[1];
+    budget.hard += row[2];
+    budget.deadly += row[3];
+  }
+
+  const n = members.length;
+  let factor = 1;
+  if (n < 3) factor = 1.5;
+  else if (n > 5) factor = 5 / n;
+
+  if (factor !== 1) {
+    for (const t of tiers) budget[t] = Math.floor(budget[t] * factor);
+  }
+  return budget;
+}
+
+function classifyEncounterDifficulty(adjustedXp, budget) {
+  if (!budget || adjustedXp <= 0) return "trivial";
+  if (adjustedXp <= budget.easy) return "easy";
+  if (adjustedXp <= budget.medium) return "medium";
+  if (adjustedXp <= budget.hard) return "hard";
+  if (adjustedXp <= budget.deadly) return "deadly";
+  return "beyond";
+}
+
+/**
+ * @param {DmPartyMember[]} party
+ * @param {DmEncounter[]} encounters criaturas vivas na mesa
+ */
+function computeEncounterDifficulty(party, encounters) {
+  const living = (encounters || []).filter((e) => {
+    const cur = Number(e?.hpCurrent);
+    const max = Number(e?.hpMax);
+    if (!Number.isFinite(cur)) return true;
+    return cur > 0 && (!Number.isFinite(max) || cur <= max);
+  });
+  const monsterCount = living.length;
+  const rawXp = living.reduce((s, e) => s + (Number(e.xp) || 0), 0);
+  const multiplier = encounterMonsterMultiplier(monsterCount);
+  const adjustedXp = Math.floor(rawXp * multiplier);
+  const budget = partyEncounterBudget(party);
+  const difficulty = classifyEncounterDifficulty(adjustedXp, budget);
+  return {
+    monsterCount,
+    rawXp,
+    multiplier,
+    adjustedXp,
+    budget,
+    difficulty,
+    difficultyLabel: ENCOUNTER_DIFFICULTY_LABELS[difficulty] || difficulty,
+  };
 }
 
 function splitXpAmongParty(totalXp, partyIds) {
@@ -414,6 +554,7 @@ function normalizeDmPartyMember(raw) {
     name: name.slice(0, 120),
     initiative: raw.initiative != null ? String(raw.initiative) : "",
     level: clampCharacterLevel(raw.level),
+    xpTotal: normalizeXpTotal(raw.xpTotal),
     downed: Boolean(raw.downed),
   };
 }
@@ -566,6 +707,8 @@ const ABILITY_KEYS = ["str", "dex", "con", "int", "wis", "cha"];
 
 const DEFAULT_SHEET = {
   characterName: "",
+  characterLevel: 1,
+  xpTotal: 0,
   portraitImage: "",
   armorClass: "",
   alignment: "",
@@ -618,6 +761,8 @@ function normalizeSheet(parsed) {
 
   return {
     characterName: parsed.characterName != null ? String(parsed.characterName) : "",
+    characterLevel: clampCharacterLevel(parsed.characterLevel),
+    xpTotal: normalizeXpTotal(parsed.xpTotal),
     portraitImage: typeof parsed.portraitImage === "string" ? parsed.portraitImage : "",
     armorClass: parsed.armorClass != null ? String(parsed.armorClass) : "",
     alignment: parsed.alignment != null ? String(parsed.alignment) : "",

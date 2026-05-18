@@ -83,6 +83,9 @@
           <h2 id="dmXpTitle" class="dm-sidebar-xp-title">XP da sessão</h2>
           <p class="dm-sidebar-xp-hint">Dividido entre quem eliminou cada monstro (só personagens vivos).</p>
           <div id="dmXpLedger" class="dm-xp-ledger" aria-live="polite"></div>
+          <button type="button" class="sheet-dice-btn dm-xp-apply-btn" data-action="dm-apply-session-xp">
+            Creditar XP da sessão
+          </button>
           <details class="dm-xp-phb-collapse">
             <summary>Tabela XP por nível (PHB)</summary>
             <div id="dmXpPhbTable" class="dm-xp-phb-table-wrap"></div>
@@ -113,7 +116,7 @@
               Personagens e monstros na mesma lista, do maior para o menor. ☠ marca personagem eliminado (fora do XP, pode reviver).
             </p>
             <form id="dmPartyForm" class="dm-party-form">
-              <label class="sheet-inline-field">
+              <label class="dm-party-field dm-party-field--name">
                 <span class="sheet-name-label">Nome</span>
                 <input
                   type="text"
@@ -124,33 +127,40 @@
                   required
                 />
               </label>
-              <label class="sheet-inline-field">
-                <span class="sheet-name-label">Nível</span>
-                <input
-                  type="number"
-                  id="dmPartyLevelInput"
-                  class="sheet-number-input dm-party-level-input"
-                  value="1"
-                  min="1"
-                  max="20"
-                  inputmode="numeric"
-                  aria-label="Nível de personagem"
-                />
-              </label>
-              <label class="sheet-inline-field">
-                <span class="sheet-name-label">Iniciativa</span>
-                <input
-                  type="number"
-                  id="dmPartyInitInput"
-                  class="sheet-number-input"
-                  placeholder="—"
-                  inputmode="numeric"
-                />
-              </label>
-              <button type="submit" class="sheet-dice-btn">Adicionar</button>
+              <div class="dm-party-stats">
+                <label class="dm-party-field dm-party-field--level">
+                  <span class="sheet-name-label">Nível</span>
+                  <input
+                    type="number"
+                    id="dmPartyLevelInput"
+                    class="sheet-number-input dm-party-level-input"
+                    value="1"
+                    min="1"
+                    max="20"
+                    inputmode="numeric"
+                  />
+                </label>
+                <label class="dm-party-field dm-party-field--init">
+                  <span class="sheet-name-label">Iniciativa</span>
+                  <input
+                    type="number"
+                    id="dmPartyInitInput"
+                    class="sheet-number-input dm-party-init-input"
+                    placeholder="—"
+                    inputmode="numeric"
+                  />
+                </label>
+              </div>
+              <button type="submit" class="sheet-dice-btn dm-party-submit">Adicionar</button>
             </form>
             <p id="dmInitEmpty" class="sheet-empty" hidden>Ninguém na iniciativa ainda.</p>
             <ol id="dmInitiativeList" class="dm-initiative-list" aria-live="polite"></ol>
+          </section>
+
+          <section class="dm-section dm-diff-section" aria-labelledby="dmDiffTitle">
+            <h2 id="dmDiffTitle" class="dm-section-title">Dificuldade do encontro</h2>
+            <p class="dm-section-hint">XP dos monstros vivos × multiplicador DMG vs orçamento do grupo (níveis dos personagens).</p>
+            <div id="dmEncounterDiff" class="dm-encounter-diff" aria-live="polite"></div>
           </section>
 
           <section class="dm-section" aria-labelledby="dmEncounterTitle">

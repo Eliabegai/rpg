@@ -3,6 +3,9 @@ const libraryEmpty = document.getElementById("libraryEmpty");
 const sheetBoard = document.getElementById("sheetBoard");
 const sheetEmpty = document.getElementById("sheetEmpty");
 const characterNameInput = document.getElementById("characterName");
+const characterLevelInput = document.getElementById("characterLevelInput");
+const characterXpInput = document.getElementById("characterXpInput");
+const characterXpProgressEl = document.getElementById("characterXpProgress");
 const localeSelect = document.getElementById("localeSelect");
 const abilityScoresGrid = document.getElementById("abilityScoresGrid");
 const armorClassInput = document.getElementById("armorClassInput");
@@ -1513,6 +1516,38 @@ function onCharacterNameInput() {
   });
 }
 
+function renderCharacterXpProgress() {
+  if (!characterXpProgressEl) return;
+  const sheet = loadSheet();
+  const level = clampCharacterLevel(sheet.characterLevel);
+  const prog = characterXpProgress(sheet.xpTotal, level);
+  if (prog.nextAt == null) {
+    characterXpProgressEl.innerHTML = `<p class="sheet-xp-progress-note">Nível máximo — ${prog.xpTotal.toLocaleString("pt-BR")} XP total.</p>`;
+    return;
+  }
+  const label = `${prog.inLevel.toLocaleString("pt-BR")} / ${prog.span.toLocaleString("pt-BR")} XP para o nível ${level + 1}`;
+  characterXpProgressEl.innerHTML = `<div class="sheet-xp-progress" role="progressbar" aria-valuenow="${prog.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${escapeHtml(label)}">
+      <span class="sheet-xp-progress-fill" style="width:${prog.pct}%"></span>
+    </div>
+    <p class="sheet-xp-progress-note">${escapeHtml(label)}</p>`;
+}
+
+function onCharacterLevelInput() {
+  patchSheet((sheet) => {
+    sheet.characterLevel = clampCharacterLevel(characterLevelInput?.value);
+  });
+  renderCharacterXpProgress();
+}
+
+function onCharacterXpInput() {
+  patchSheet((sheet) => {
+    sheet.xpTotal = normalizeXpTotal(characterXpInput?.value);
+    sheet.characterLevel = levelFromXpTotal(sheet.xpTotal);
+  });
+  syncCharacterCoreFromSheet();
+  renderCharacterXpProgress();
+}
+
 function buildAbilityScoresGrid() {
   if (!abilityScoresGrid) return;
   abilityScoresGrid.innerHTML = ABILITY_KEYS.map(
@@ -1537,6 +1572,12 @@ function syncCharacterCoreFromSheet() {
   if (armorClassInput && document.activeElement !== armorClassInput) {
     armorClassInput.value = sheet.armorClass;
   }
+  if (characterLevelInput && document.activeElement !== characterLevelInput) {
+    characterLevelInput.value = String(clampCharacterLevel(sheet.characterLevel));
+  }
+  if (characterXpInput && document.activeElement !== characterXpInput) {
+    characterXpInput.value = String(normalizeXpTotal(sheet.xpTotal));
+  }
   if (alignmentSelect && document.activeElement !== alignmentSelect) {
     alignmentSelect.value = sheet.alignment;
   }
@@ -1557,6 +1598,7 @@ function syncCharacterCoreFromSheet() {
   syncD20Fields();
   syncDamageFields();
   renderDeathSaves();
+  renderCharacterXpProgress();
 }
 
 async function syncAlignmentSummary() {
@@ -2000,6 +2042,14 @@ async function boot() {
   if (characterNameInput) {
     characterNameInput.addEventListener("input", onCharacterNameInput);
     characterNameInput.addEventListener("change", onCharacterNameInput);
+  }
+  if (characterLevelInput) {
+    characterLevelInput.addEventListener("input", onCharacterLevelInput);
+    characterLevelInput.addEventListener("change", onCharacterLevelInput);
+  }
+  if (characterXpInput) {
+    characterXpInput.addEventListener("input", onCharacterXpInput);
+    characterXpInput.addEventListener("change", onCharacterXpInput);
   }
   if (abilityScoresGrid) {
     abilityScoresGrid.addEventListener("input", onAbilityInput);

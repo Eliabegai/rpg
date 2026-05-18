@@ -1,7 +1,25 @@
 /**
- * Painéis de detalhe por tipo de recurso (Fase A — estilo livro).
+ * Painéis de detalhe por tipo de recurso (estilo livro).
  * Depende de shared.js (escapeHtml, formatArmorClass, formatResourceLabel).
  */
+
+function layoutRefNames(items) {
+  if (!Array.isArray(items)) return "";
+  return items
+    .map((i) => i?.name || i?.index || "")
+    .filter(Boolean)
+    .join(", ");
+}
+
+function layoutAbilityBonuses(bonuses) {
+  if (!Array.isArray(bonuses)) return "";
+  return bonuses
+    .map((b) => {
+      const ab = b?.ability_score?.name || b?.ability_score?.index || "?";
+      return `${ab} +${b.bonus}`;
+    })
+    .join(", ");
+}
 
 function layoutFormatDesc(desc) {
   if (desc == null) return "";
@@ -240,6 +258,138 @@ function renderEquipmentDetailLayout(data) {
   return { html, skip };
 }
 
+function renderClassDetailLayout(data) {
+  const rows = [];
+  if (data.hit_die != null) rows.push(["Dado de vida", `d${data.hit_die}`]);
+  const saves = layoutRefNames(data.saving_throws);
+  if (saves) rows.push(["Salvaguardas", saves]);
+  const profs = layoutRefNames(data.proficiencies);
+  if (profs) rows.push(["Proficiências", profs]);
+  if (data.spellcasting) {
+    const sc = data.spellcasting;
+    const ability = sc.spellcasting_ability?.name || sc.spellcasting_ability?.index || "";
+    rows.push(["Conjuração", `A partir do nível ${sc.level ?? 1} · ${ability}`]);
+  }
+
+  let html = `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`;
+
+  if (data.spellcasting?.info?.length) {
+    const spellBody = data.spellcasting.info
+      .map(
+        (block) =>
+          `<article class="detail-action-card"><h5 class="detail-action-name">${escapeHtml(block.name || "")}</h5>${layoutFormatDesc(block.desc)}</article>`
+      )
+      .join("");
+    html += layoutSection("Magias (resumo)", `<div class="detail-action-list">${spellBody}</div>`);
+  }
+
+  const choices = Array.isArray(data.proficiency_choices) ? data.proficiency_choices : [];
+  if (choices.length) {
+    const choiceHtml = choices
+      .map((c) => `<p class="detail-text">${escapeHtml(c.desc || "")}</p>`)
+      .join("");
+    html += layoutSection("Escolhas de proficiência", choiceHtml);
+  }
+
+  const skip = new Set([
+    "url",
+    "updated_at",
+    "image",
+    "name",
+    "index",
+    "hit_die",
+    "saving_throws",
+    "proficiencies",
+    "proficiency_choices",
+    "spellcasting",
+    "starting_equipment",
+    "starting_equipment_options",
+    "class_levels",
+    "multi_classing",
+    "subclasses",
+  ]);
+
+  return { html, skip };
+}
+
+function renderRaceDetailLayout(data) {
+  const rows = [];
+  if (data.size) rows.push(["Tamanho", data.size]);
+  if (data.speed != null) rows.push(["Deslocamento", `${data.speed} pés`]);
+  const bonuses = layoutAbilityBonuses(data.ability_bonuses);
+  if (bonuses) rows.push(["Bónus de atributos", bonuses]);
+  const langs = layoutRefNames(data.languages);
+  if (langs) rows.push(["Idiomas", langs]);
+
+  let html = `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`;
+
+  if (data.alignment) {
+    html += `<p class="detail-text"><strong>Alinhamento típico:</strong> ${escapeHtml(data.alignment)}</p>`;
+  }
+  if (data.age) html += layoutSection("Idade", layoutFormatDesc(data.age));
+  if (data.size_description) html += layoutSection("Tamanho e porte", layoutFormatDesc(data.size_description));
+  if (data.language_desc) html += layoutSection("Idiomas", layoutFormatDesc(data.language_desc));
+
+  if (Array.isArray(data.traits) && data.traits.length) {
+    const traits = data.traits
+      .map((t) => `<li>${escapeHtml(t.name || t.index || "")}</li>`)
+      .join("");
+    html += layoutSection("Traços raciais", `<ul class="detail-chip-list">${traits}</ul>`);
+  }
+
+  if (Array.isArray(data.subraces) && data.subraces.length) {
+    const subs = data.subraces
+      .map((s) => `<li>${escapeHtml(s.name || s.index || "")}</li>`)
+      .join("");
+    html += layoutSection("Sub-raças", `<ul class="detail-chip-list">${subs}</ul>`);
+  }
+
+  const skip = new Set([
+    "url",
+    "updated_at",
+    "image",
+    "name",
+    "index",
+    "size",
+    "speed",
+    "ability_bonuses",
+    "age",
+    "alignment",
+    "size_description",
+    "languages",
+    "language_desc",
+    "traits",
+    "subraces",
+  ]);
+
+  return { html, skip };
+}
+
+function renderSubclassDetailLayout(data) {
+  const rows = [];
+  if (data.class?.name) rows.push(["Classe", data.class.name]);
+  else if (data.class?.index) rows.push(["Classe", formatResourceLabel(data.class.index)]);
+  if (data.subclass_flavor) rows.push(["Tipo", data.subclass_flavor]);
+
+  let html = `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`;
+  html += layoutFormatDesc(data.desc);
+
+  const skip = new Set([
+    "url",
+    "updated_at",
+    "image",
+    "name",
+    "index",
+    "class",
+    "subclass_flavor",
+    "desc",
+    "subclass_levels",
+    "spells",
+  ]);
+
+  return { html, skip };
+}
+
 /**
  * @returns {{ html: string, skip: Set<string> } | null}
  */
@@ -248,5 +398,8 @@ function getSpecializedDetailLayout(resourceKey, data) {
   if (resourceKey === "monsters") return renderMonsterDetailLayout(data);
   if (resourceKey === "spells") return renderSpellDetailLayout(data);
   if (resourceKey === "equipment") return renderEquipmentDetailLayout(data);
+  if (resourceKey === "classes") return renderClassDetailLayout(data);
+  if (resourceKey === "races") return renderRaceDetailLayout(data);
+  if (resourceKey === "subclasses") return renderSubclassDetailLayout(data);
   return null;
 }

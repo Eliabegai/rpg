@@ -1410,6 +1410,55 @@ body.game-tools-open .game-tools-fab {
   min-width: 10rem;
 }
 
+.sheet-character-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin: 0.35rem 0 0.25rem;
+  max-width: 36rem;
+}
+
+.sheet-inline-field--level .sheet-number-input--compact {
+  width: 4rem;
+}
+
+.sheet-inline-field--xp {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.sheet-number-input--wide {
+  width: 100%;
+  max-width: 11rem;
+}
+
+.sheet-xp-progress-wrap {
+  max-width: 36rem;
+  margin: 0 0 0.85rem;
+}
+
+.sheet-xp-progress {
+  display: block;
+  height: 0.4rem;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.sheet-xp-progress-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.sheet-xp-progress-note {
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
 .sheet-number-input,
 .sheet-select {
   padding: 0.45rem 0.55rem;
@@ -3146,19 +3195,71 @@ body.game-tools-open .game-tools-fab {
 }
 
 .dm-party-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.65rem 0.85rem;
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) auto;
+  gap: 0.55rem 0.75rem;
+  align-items: end;
   margin-bottom: 0.85rem;
 }
 
-.dm-party-name-input {
-  max-width: 14rem;
+.dm-party-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
+.dm-party-field--name {
+  grid-column: 1 / -1;
+}
+
+.dm-party-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 0.85rem;
+  grid-column: 1;
+}
+
+.dm-party-field--level .sheet-number-input,
 .dm-party-level-input {
-  width: 3.25rem;
+  width: 4rem;
+  min-width: 4rem;
+}
+
+.dm-party-field--init .sheet-number-input,
+.dm-party-init-input {
+  width: 4.5rem;
+  min-width: 4.5rem;
+}
+
+.dm-party-submit {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+}
+
+@media (min-width: 520px) {
+  .dm-party-form {
+    grid-template-columns: minmax(8rem, 1fr) auto auto auto;
+  }
+
+  .dm-party-field--name {
+    grid-column: auto;
+  }
+
+  .dm-party-stats {
+    grid-column: auto;
+  }
+
+  .dm-party-submit {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
+.dm-party-name-input {
+  max-width: none;
+  width: 100%;
 }
 
 .dm-initiative-list {
@@ -3172,20 +3273,53 @@ body.game-tools-open .game-tools-fab {
 
 .dm-init-row {
   display: grid;
-  grid-template-columns: 2.25rem auto 1fr 3rem 4.25rem auto auto;
-  align-items: center;
-  gap: 0.45rem;
+  grid-template-columns: 2.25rem auto minmax(0, 1fr) 3.5rem 3.75rem auto auto;
+  align-items: end;
+  gap: 0.4rem 0.5rem;
   padding: 0.4rem 0.5rem;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
 }
 
-.dm-init-level-input {
-  width: 100%;
-  max-width: 3rem;
-  padding: 0.25rem 0.35rem;
+.dm-init-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.dm-init-field-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  line-height: 1;
   text-align: center;
+}
+
+.dm-init-field .sheet-number-input,
+.dm-init-level-input,
+.dm-init-input {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding: 0.28rem 0.35rem;
+  text-align: center;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.dm-init-field--readonly {
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 0.28rem;
+}
+
+.dm-init-field-spacer {
+  display: block;
 }
 
 .dm-init-row--party.is-downed {
@@ -3200,7 +3334,8 @@ body.game-tools-open .game-tools-fab {
 }
 
 .dm-init-row--monster {
-  grid-template-columns: 2.25rem auto 1fr 4.25rem;
+  grid-template-columns: 2.25rem auto minmax(0, 1fr) 3.75rem auto;
+  align-items: center;
   cursor: pointer;
 }
 
@@ -3272,13 +3407,6 @@ body.game-tools-open .game-tools-fab {
 .dm-init-name-btn:hover {
   color: #92400e;
   text-decoration: underline;
-}
-
-.dm-init-input {
-  width: 100%;
-  padding: 0.3rem;
-  text-align: center;
-  font-size: 0.85rem;
 }
 
 .dm-init-readonly {
@@ -3779,6 +3907,172 @@ body.game-tools-open .game-tools-fab {
   margin: 0;
   font-size: 0.78rem;
   color: #94a3b8;
+}
+
+.dm-xp-apply-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.55rem;
+  font-size: 0.78rem;
+}
+
+.dm-xp-table--progress .dm-xp-name {
+  min-width: 0;
+}
+
+.dm-xp-progress {
+  display: block;
+  height: 0.35rem;
+  margin-top: 0.35rem;
+  background: #334155;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.dm-xp-progress-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.dm-xp-progress--max .dm-xp-progress-fill {
+  background: #64748b;
+}
+
+.dm-xp-progress-label {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.62rem;
+  color: #64748b;
+}
+
+.dm-diff-section {
+  margin-bottom: 0.25rem;
+}
+
+.dm-encounter-diff {
+  margin-bottom: 0.5rem;
+}
+
+.dm-diff-empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.dm-diff-card {
+  padding: 0.75rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.dm-diff-card--trivial {
+  border-color: #cbd5e1;
+}
+
+.dm-diff-card--easy {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.dm-diff-card--medium {
+  border-color: #fde047;
+  background: #fefce8;
+}
+
+.dm-diff-card--hard {
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.dm-diff-card--deadly,
+.dm-diff-card--beyond {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.dm-diff-verdict {
+  margin: 0 0 0.55rem;
+}
+
+.dm-diff-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.dm-diff-card--easy .dm-diff-badge {
+  background: #166534;
+}
+
+.dm-diff-card--medium .dm-diff-badge {
+  background: #854d0e;
+}
+
+.dm-diff-card--hard .dm-diff-badge {
+  background: #9a3412;
+}
+
+.dm-diff-card--deadly .dm-diff-badge,
+.dm-diff-card--beyond .dm-diff-badge {
+  background: #991b1b;
+}
+
+.dm-diff-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.85rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+}
+
+.dm-diff-stats > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dm-diff-stats dt {
+  margin: 0;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.dm-diff-stats dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dm-diff-adjusted {
+  color: #b45309;
+}
+
+.dm-diff-budget-collapse {
+  font-size: 0.78rem;
+  color: #475569;
+}
+
+.dm-diff-budget-collapse summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.dm-diff-budget-table {
+  margin-top: 0.4rem;
+}
+
+.dm-diff-budget-table th,
+.dm-diff-budget-table td {
+  border-color: #e2e8f0;
+  color: #334155;
 }
 
 .dm-encounter-top {

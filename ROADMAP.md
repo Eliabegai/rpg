@@ -93,9 +93,9 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 - [x] Campanha: nome + export/import JSON
 
 ### Fase B — Mesa forte
-- [ ] Perfis classe / raça / subclasse
-- [ ] Calculadora de dificuldade de encontro
-- [ ] XP acumulado + barra de progressão
+- [x] Perfis classe / raça / subclasse
+- [x] Calculadora de dificuldade de encontro
+- [x] XP acumulado + barra de progressão
 
 ### Fase C — Ficha completa
 - [ ] Slots de magia (v1)
