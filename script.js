@@ -49,6 +49,8 @@ let currentPage = 1;
 let selectedItemUrl = null;
 let selectedItemIndex = "";
 let selectedItemPath = "";
+/** JSON do detalhe aberto (para cache ao favoritar). */
+let selectedItemData = null;
 
 let filterDebounceId = 0;
 
@@ -263,8 +265,8 @@ function isFavorite(resourceKey, index) {
   return loadFavorites().some((f) => f.resourceKey === resourceKey && String(f.index) === ix);
 }
 
-/** Alterna favorito e grava em localStorage. Devolve true se ficou marcado. */
-function toggleFavoriteForItem({ resourceKey, index, name, path }) {
+/** Alterna favorito e grava em localStorage. Com `data`, guarda cópia do JSON (sem novo pedido na ficha). */
+function toggleFavoriteForItem({ resourceKey, index, name, path, data }) {
   const ix = String(index ?? "");
   if (!resourceKey || ix === "") return false;
   const favs = loadFavorites();
@@ -275,8 +277,17 @@ function toggleFavoriteForItem({ resourceKey, index, name, path }) {
     name: name != null ? String(name) : ix,
     path: cleanApiPath(path || ""),
   };
-  if (i >= 0) favs.splice(i, 1);
-  else favs.push(entry);
+  if (i >= 0) {
+    favs.splice(i, 1);
+  } else {
+    if (data && typeof data === "object") {
+      applyCacheToEntry(entry, data);
+    }
+    favs.push(entry);
+    if (!entry.cachedData && entry.path) {
+      fetchAndCacheFavoriteEntry(entry);
+    }
+  }
   if (!saveFavorites(favs)) return isFavorite(resourceKey, ix);
   updateFavoritesCountHint();
   return i < 0;
@@ -364,7 +375,17 @@ function onDetailPanelClick(e) {
   const index = btn.getAttribute("data-index");
   const name = btn.getAttribute("data-name") || "";
   const path = btn.getAttribute("data-path") || "";
-  toggleFavoriteForItem({ resourceKey, index, name, path });
+  const useDetailData =
+    selectedItemData &&
+    currentResourceLabel === resourceKey &&
+    String(selectedItemIndex) === String(index);
+  toggleFavoriteForItem({
+    resourceKey,
+    index,
+    name,
+    path,
+    data: useDetailData ? selectedItemData : undefined,
+  });
   setDetailFavoriteButtonState(btn, isFavorite(resourceKey, index));
   afterFavoriteChange(resourceKey, index);
 }
@@ -1119,6 +1140,7 @@ function renderDetailFallback(data) {
 
 async function loadItemDetail(url, rowBtn) {
   detailPanel.innerHTML = '<p class="detail-placeholder">A carregar detalhe…</p>';
+  selectedItemData = null;
   selectedItemUrl = url;
   selectedItemPath = cleanApiPath(url);
 
@@ -1129,15 +1151,20 @@ async function loadItemDetail(url, rowBtn) {
     const res = await apiFetch(url);
     if (!res.ok) throw new Error("detail");
     const data = await res.json();
+    selectedItemData = data;
     selectedItemIndex =
       data.index != null ? String(data.index) : rowBtn?.dataset.index ?? itemStableIndex({ url: selectedItemPath });
     selectedItemPath = cleanApiPath(data.url || url);
+    if (currentResourceLabel && selectedItemIndex && isFavorite(currentResourceLabel, selectedItemIndex)) {
+      updateFavoriteCache(currentResourceLabel, selectedItemIndex, data);
+    }
     renderDetail(data);
     persistUiSession();
   } catch {
     selectedItemUrl = null;
     selectedItemIndex = "";
     selectedItemPath = "";
+    selectedItemData = null;
     if (rowBtn) rowBtn.classList.remove("is-selected");
     detailPanel.innerHTML =
       '<p class="detail-placeholder">Erro ao carregar o detalhe deste item.</p>';

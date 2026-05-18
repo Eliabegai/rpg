@@ -7,6 +7,7 @@ const localeSelect = document.getElementById("localeSelect");
 const abilityScoresGrid = document.getElementById("abilityScoresGrid");
 const armorClassInput = document.getElementById("armorClassInput");
 const alignmentSelect = document.getElementById("alignmentSelect");
+const alignmentSummary = document.getElementById("alignmentSummary");
 const portraitInput = document.getElementById("portraitInput");
 const portraitPreview = document.getElementById("portraitPreview");
 const portraitPlaceholder = document.getElementById("portraitPlaceholder");
@@ -25,6 +26,8 @@ const ABILITY_LABELS = {
 };
 
 const detailCache = new Map();
+/** index → { name, abbreviation, desc, … } */
+const alignmentsCache = new Map();
 let alignmentsLoaded = false;
 
 function patchSheet(mutator) {
@@ -69,12 +72,17 @@ function toggleSheetItem(entry) {
   if (ix >= 0) {
     sheet.items.splice(ix, 1);
   } else {
-    sheet.items.push({
+    const fav = findFavorite(entry.resourceKey, entry.index);
+    const item = {
       resourceKey: entry.resourceKey,
       index: String(entry.index),
       name: entry.name != null ? String(entry.name) : String(entry.index),
       path: cleanApiPath(entry.path || ""),
-    });
+    };
+    if (fav?.cachedData) {
+      applyCacheToEntry(item, fav.cachedData, fav.dataLocale || currentLocale);
+    }
+    sheet.items.push(item);
   }
   saveSheet(sheet);
   renderAll();
@@ -206,20 +214,154 @@ function renderSheetSummary(resourceKey, data) {
     if (data.school?.name) rows.push(["Escola", data.school.name]);
     if (data.casting_time) rows.push(["Conjuração", data.casting_time]);
     if (data.range) rows.push(["Alcance", data.range]);
-  } else if (resourceKey === "feats" && Array.isArray(data.desc)) {
-    rows.push(["Descrição", data.desc[0].slice(0, 220) + (data.desc[0].length > 220 ? "…" : "")]);
+  } else if (resourceKey === "feats") {
+    const featDesc = formatDescText(data.desc, 220);
+    if (featDesc) rows.push(["Descrição", featDesc]);
+  } else if (resourceKey === "alignments") {
+    if (data.abbreviation) rows.push(["Abrev.", data.abbreviation]);
+    const alignDesc = formatDescText(data.desc, 500);
+    if (alignDesc) rows.push(["Descrição", alignDesc]);
   }
 
-  if (Array.isArray(data.desc) && data.desc[0] && rows.length < 3) {
-    const t = String(data.desc[0]);
-    rows.push(["Resumo", t.slice(0, 240) + (t.length > 240 ? "…" : "")]);
+  const hasDescRow = rows.some(([k]) => k === "Descrição" || k === "Resumo");
+  if (!hasDescRow && rows.length < 3) {
+    const extra = formatDescText(data.desc, 240);
+    if (extra) rows.push(["Resumo", extra]);
   }
 
   if (!rows.length) return "";
 
+  return renderKeyValueRows(rows);
+}
+
+function formatDescText(desc, maxLen = 0) {
+  let text = "";
+  if (typeof desc === "string") text = desc;
+  else if (Array.isArray(desc)) text = desc.map((d) => String(d)).join(" ").trim();
+  if (!text) return "";
+  if (maxLen > 0 && text.length > maxLen) return `${text.slice(0, maxLen)}…`;
+  return text;
+}
+
+function renderAlignmentDetail(data) {
+  const rows = [];
+  if (data.abbreviation) rows.push(["Abrev.", data.abbreviation]);
+  let html = renderKeyValueRows(rows);
+  const desc = formatDescText(data.desc, 0);
+  if (desc) {
+    html += `<p class="detail-text sheet-alignment-desc">${escapeHtml(desc)}</p>`;
+  }
+  if (!html) return '<p class="sheet-card-muted">Sem descrição para este alinhamento.</p>';
+  return html;
+}
+
+function renderKeyValueRows(rows) {
+  if (!rows.length) return "";
   return `<dl class="detail-kv sheet-card-kv">${rows
     .map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd>`)
     .join("")}</dl>`;
+}
+
+function formatEquipmentCost(cost) {
+  if (!cost || cost.quantity == null) return "";
+  const unit = cost.unit ? String(cost.unit) : "";
+  return `${cost.quantity}${unit ? ` ${unit}` : ""}`.trim();
+}
+
+function formatArmorClass(ac) {
+  if (!ac || ac.base == null) return "";
+  let text = String(ac.base);
+  if (ac.dex_bonus) {
+    text += " + modificador de DES";
+    if (ac.max_bonus != null) text += ` (máx. +${ac.max_bonus})`;
+  } else {
+    text += " (CA fixa)";
+  }
+  return text;
+}
+
+function formatDamage(dmg) {
+  if (!dmg?.damage_dice) return "";
+  const type = dmg.damage_type?.name ?? dmg.damage_type?.index ?? "";
+  return type ? `${dmg.damage_dice} ${type}` : String(dmg.damage_dice);
+}
+
+function isEquipmentLike(data) {
+  return Boolean(
+    data?.equipment_category ||
+      data?.damage ||
+      data?.armor_class ||
+      data?.weapon_category ||
+      data?.armor_category ||
+      (Array.isArray(data?.contents) && data.contents.length > 0)
+  );
+}
+
+function renderEquipmentDetail(data) {
+  const rows = [];
+
+  const cat = data.equipment_category?.name ?? data.equipment_category?.index;
+  if (cat) rows.push(["Categoria", cat]);
+  if (data.gear_category?.name) rows.push(["Tipo", data.gear_category.name]);
+  if (data.weapon_category) {
+    const range = data.weapon_range ? ` · ${data.weapon_range}` : "";
+    rows.push(["Arma", `${data.weapon_category}${range}`]);
+  }
+  if (data.armor_category) rows.push(["Armadura", data.armor_category]);
+
+  const acText = formatArmorClass(data.armor_class);
+  if (acText) rows.push(["Defesa (CA)", acText]);
+
+  const dmg = formatDamage(data.damage);
+  if (dmg) rows.push(["Dano", dmg]);
+
+  const twoHand = formatDamage(data.two_handed_damage);
+  if (twoHand) rows.push(["Dano (duas mãos)", twoHand]);
+
+  if (data.range?.normal != null) {
+    const normal = data.range.normal;
+    const long = data.range.long;
+    rows.push(["Alcance", long != null ? `${normal} / ${long} pés` : `${normal} pés`]);
+  }
+
+  if (Array.isArray(data.properties) && data.properties.length) {
+    rows.push(["Propriedades", data.properties.map((p) => p.name ?? p.index).join(", ")]);
+  }
+
+  if (data.str_minimum) rows.push(["FOR mínima", String(data.str_minimum)]);
+  if (data.stealth_disadvantage) rows.push(["Furtividade", "Desvantagem"]);
+
+  if (data.rarity?.name) rows.push(["Raridade", data.rarity.name]);
+
+  const cost = formatEquipmentCost(data.cost);
+  if (cost) rows.push(["Custo", cost]);
+  if (data.weight != null) rows.push(["Peso", `${data.weight} lb`]);
+
+  let html = renderKeyValueRows(rows);
+
+  if (Array.isArray(data.contents) && data.contents.length) {
+    const items = data.contents
+      .map((c) => {
+        const qty = c.quantity != null && c.quantity !== 1 ? `${c.quantity}× ` : "";
+        const name = c.item?.name ?? c.item?.index ?? "—";
+        return `${qty}${name}`;
+      })
+      .join(", ");
+    html += `<h4 class="sheet-card-subtitle">Conteúdo</h4><p class="detail-text">${escapeHtml(items)}</p>`;
+  }
+
+  if (Array.isArray(data.desc) && data.desc.length) {
+    const text = data.desc.map((d) => String(d)).join(" ").trim();
+    if (text) {
+      const short = text.length > 420 ? `${text.slice(0, 420)}…` : text;
+      html += `<h4 class="sheet-card-subtitle">Descrição</h4><p class="detail-text">${escapeHtml(short)}</p>`;
+    }
+  }
+
+  if (!html) {
+    return '<p class="sheet-card-muted">Sem dados de dano ou defesa para este item.</p>';
+  }
+  return html;
 }
 
 function proficiencyOptionLabel(opt) {
@@ -304,12 +446,20 @@ async function fetchSheetDetail(entry) {
   const path = cleanApiPath(entry.path);
   if (!path) return null;
   const cacheKey = `${currentLocale}:${path}`;
+
+  const stored = getCachedEntryData(entry);
+  if (stored) {
+    detailCache.set(cacheKey, stored);
+    return stored;
+  }
+
   if (detailCache.has(cacheKey)) return detailCache.get(cacheKey);
 
   const res = await apiFetch(path);
   if (!res.ok) return null;
   const data = await res.json();
   detailCache.set(cacheKey, data);
+  persistItemCacheForEntry(entry, data);
   return data;
 }
 
@@ -398,8 +548,17 @@ async function loadCardBody(cardEl) {
       body.innerHTML = '<p class="sheet-card-muted">Não foi possível carregar.</p>';
     } else if (entry.resourceKey === "classes") {
       body.innerHTML = renderClassDetail(entry, data);
+    } else if (
+      entry.resourceKey === "equipment" ||
+      entry.resourceKey === "magic-items" ||
+      isEquipmentLike(data)
+    ) {
+      body.innerHTML = renderEquipmentDetail(data);
+    } else if (entry.resourceKey === "alignments") {
+      body.innerHTML = renderAlignmentDetail(data);
     } else {
-      body.innerHTML = renderSheetSummary(entry.resourceKey, data);
+      const html = renderSheetSummary(entry.resourceKey, data);
+      body.innerHTML = html || '<p class="sheet-card-muted">Sem resumo para este item.</p>';
     }
   } catch {
     body.innerHTML = '<p class="sheet-card-muted">Erro de rede.</p>';
@@ -478,6 +637,60 @@ function syncCharacterCoreFromSheet() {
   });
 
   syncPortraitUi(sheet.portraitImage);
+  syncAlignmentSummary();
+}
+
+async function syncAlignmentSummary() {
+  if (!alignmentSummary) return;
+  const sheet = loadSheet();
+  const index = sheet.alignment;
+  if (!index) {
+    alignmentSummary.hidden = true;
+    alignmentSummary.textContent = "";
+    return;
+  }
+
+  let data = alignmentsCache.get(index);
+  if (!data?.desc) {
+    const fav = findFavorite("alignments", index);
+    if (fav?.cachedData?.desc) {
+      data = fav.cachedData;
+      alignmentsCache.set(index, data);
+    }
+  }
+  if (!data?.desc) {
+    const cached = getCachedEntryData({
+      resourceKey: "alignments",
+      index,
+      path: `/api/2014/alignments/${index}`,
+    });
+    if (cached?.desc) {
+      data = cached;
+      alignmentsCache.set(index, data);
+    }
+  }
+  if (!data?.desc) {
+    try {
+      const res = await apiFetch(`/api/2014/alignments/${index}`);
+      if (res.ok) {
+        data = await res.json();
+        alignmentsCache.set(index, data);
+      }
+    } catch {
+      /* rede */
+    }
+  }
+
+  const desc = formatDescText(data?.desc, 0);
+  if (desc) {
+    const name = data?.name ?? alignmentSelect?.selectedOptions?.[0]?.textContent ?? index;
+    alignmentSummary.textContent = desc;
+    alignmentSummary.hidden = false;
+    alignmentSummary.setAttribute("aria-label", `Descrição: ${name}`);
+  } else {
+    alignmentSummary.hidden = true;
+    alignmentSummary.textContent = "";
+  }
 }
 
 function syncPortraitUi(dataUrl) {
@@ -565,6 +778,7 @@ function onAlignmentChange() {
   patchSheet((sheet) => {
     sheet.alignment = alignmentSelect ? alignmentSelect.value : "";
   });
+  syncAlignmentSummary();
 }
 
 async function loadAlignmentsDropdown() {
@@ -574,14 +788,38 @@ async function loadAlignmentsDropdown() {
     if (!res.ok) return;
     const data = await res.json();
     const sheet = loadSheet();
-    for (const row of data.results || []) {
+    const rows = data.results || [];
+    for (const row of rows) {
       const o = document.createElement("option");
       o.value = row.index;
       o.textContent = row.name ?? row.index;
       alignmentSelect.appendChild(o);
+      alignmentsCache.set(row.index, { index: row.index, name: row.name });
     }
     alignmentSelect.value = sheet.alignment;
+
+    await Promise.all(
+      rows.map(async (row) => {
+        const fav = loadFavorites().find(
+          (f) => f.resourceKey === "alignments" && String(f.index) === String(row.index)
+        );
+        if (fav?.cachedData?.desc) {
+          alignmentsCache.set(row.index, fav.cachedData);
+          return;
+        }
+        try {
+          const detailRes = await apiFetch(row.url || `/api/2014/alignments/${row.index}`);
+          if (detailRes.ok) {
+            alignmentsCache.set(row.index, await detailRes.json());
+          }
+        } catch {
+          /* ignora falha individual */
+        }
+      })
+    );
+
     alignmentsLoaded = true;
+    await syncAlignmentSummary();
   } catch {
     /* rede */
   }
@@ -621,6 +859,16 @@ function onClassProficiencyChange(e) {
 
 function onLocaleReload() {
   detailCache.clear();
+  alignmentsCache.clear();
+  alignmentsLoaded = false;
+  if (alignmentSelect) {
+    alignmentSelect.replaceChildren();
+    const o = document.createElement("option");
+    o.value = "";
+    o.textContent = "— Escolher —";
+    alignmentSelect.appendChild(o);
+  }
+  loadAlignmentsDropdown();
   sheetBoard?.querySelectorAll(".sheet-card-body").forEach((body) => {
     body.dataset.loaded = "0";
     body.innerHTML = '<p class="sheet-card-loading">A carregar…</p>';

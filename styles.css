@@ -1061,6 +1061,21 @@ body {
   width: 100%;
 }
 
+.sheet-alignment-summary {
+  margin: 0.45rem 0 0;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #475569;
+  background: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.sheet-alignment-desc {
+  margin: 0.5rem 0 0;
+}
+
 .sheet-card-subtitle {
   margin: 0.75rem 0 0.4rem;
   font-size: 0.82rem;

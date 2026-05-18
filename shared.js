@@ -60,7 +60,9 @@ function normalizeSheet(parsed) {
     alignment: parsed.alignment != null ? String(parsed.alignment) : "",
     abilityScores,
     classProficiencyPicks,
-    items: Array.isArray(parsed.items) ? parsed.items : [],
+    items: Array.isArray(parsed.items)
+      ? parsed.items.map(normalizeSheetItem).filter(Boolean)
+      : [],
   };
 }
 
@@ -150,12 +152,109 @@ function favoriteEntryId(entry) {
   return `${entry.resourceKey}:${String(entry.index)}`;
 }
 
+function normalizeFavoriteEntry(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const resourceKey = raw.resourceKey;
+  const index = raw.index != null ? String(raw.index) : "";
+  if (!resourceKey || !index) return null;
+  const entry = {
+    resourceKey: String(resourceKey),
+    index,
+    name: raw.name != null ? String(raw.name) : index,
+    path: cleanApiPath(raw.path || ""),
+  };
+  if (raw.cachedData && typeof raw.cachedData === "object") {
+    entry.cachedData = raw.cachedData;
+    entry.dataLocale = raw.dataLocale != null ? String(raw.dataLocale) : "";
+  }
+  return entry;
+}
+
+function normalizeSheetItem(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const resourceKey = raw.resourceKey;
+  const index = raw.index != null ? String(raw.index) : "";
+  if (!resourceKey || !index) return null;
+  const entry = {
+    resourceKey: String(resourceKey),
+    index,
+    name: raw.name != null ? String(raw.name) : index,
+    path: cleanApiPath(raw.path || ""),
+  };
+  if (raw.cachedData && typeof raw.cachedData === "object") {
+    entry.cachedData = raw.cachedData;
+    entry.dataLocale = raw.dataLocale != null ? String(raw.dataLocale) : "";
+  }
+  return entry;
+}
+
+function findFavorite(resourceKey, index) {
+  const ix = String(index);
+  return loadFavorites().find((f) => f.resourceKey === resourceKey && String(f.index) === ix) ?? null;
+}
+
+/** Dados em cache do favorito/ficha para o idioma atual (evita novo pedido à API). */
+function getCachedEntryData(entry) {
+  if (entry?.cachedData && entry.dataLocale === currentLocale) {
+    return entry.cachedData;
+  }
+  const fav = findFavorite(entry.resourceKey, entry.index);
+  if (fav?.cachedData && fav.dataLocale === currentLocale) {
+    return fav.cachedData;
+  }
+  return null;
+}
+
+function applyCacheToEntry(entry, data, locale = currentLocale) {
+  if (!entry || !data || typeof data !== "object") return entry;
+  entry.cachedData = data;
+  entry.dataLocale = locale;
+  return entry;
+}
+
+function updateFavoriteCache(resourceKey, index, data) {
+  const favs = loadFavorites();
+  const i = favs.findIndex((f) => f.resourceKey === resourceKey && String(f.index) === String(index));
+  if (i < 0) return false;
+  applyCacheToEntry(favs[i], data);
+  if (data.name) favs[i].name = String(data.name);
+  return saveFavorites(favs);
+}
+
+function updateSheetItemCache(resourceKey, index, data) {
+  const sheet = loadSheet();
+  const i = sheet.items.findIndex((it) => it.resourceKey === resourceKey && String(it.index) === String(index));
+  if (i < 0) return false;
+  applyCacheToEntry(sheet.items[i], data);
+  return saveSheet(sheet);
+}
+
+function persistItemCacheForEntry(entry, data) {
+  updateFavoriteCache(entry.resourceKey, entry.index, data);
+  updateSheetItemCache(entry.resourceKey, entry.index, data);
+}
+
+async function fetchAndCacheFavoriteEntry(entry) {
+  const path = cleanApiPath(entry.path);
+  if (!path) return null;
+  try {
+    const res = await apiFetch(path);
+    if (!res.ok) return null;
+    const data = await res.json();
+    updateFavoriteCache(entry.resourceKey, entry.index, data);
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 function loadFavorites() {
   try {
     const raw = localStorage.getItem(STORAGE_FAVORITES);
     if (!raw) return [];
     const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
+    if (!Array.isArray(arr)) return [];
+    return arr.map(normalizeFavoriteEntry).filter(Boolean);
   } catch {
     return [];
   }
@@ -166,7 +265,13 @@ function saveFavorites(entries) {
     localStorage.setItem(STORAGE_FAVORITES, JSON.stringify(entries));
     return true;
   } catch {
-    return false;
+    try {
+      const slim = entries.map(({ cachedData, dataLocale, ...rest }) => rest);
+      localStorage.setItem(STORAGE_FAVORITES, JSON.stringify(slim));
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -185,7 +290,16 @@ function saveSheet(sheet) {
     localStorage.setItem(STORAGE_SHEET, JSON.stringify(sheet));
     return true;
   } catch {
-    return false;
+    try {
+      const slim = {
+        ...sheet,
+        items: (sheet.items || []).map(({ cachedData, dataLocale, ...rest }) => rest),
+      };
+      localStorage.setItem(STORAGE_SHEET, JSON.stringify(slim));
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
