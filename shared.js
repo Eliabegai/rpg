@@ -191,6 +191,30 @@ function resolveEntryImageUrl(entry) {
   return "";
 }
 
+/** Caminho base da app (ex.: `/rpg/` no GitHub Pages). */
+function getAppBasePath() {
+  const baseEl = document.querySelector("base[data-app-base]");
+  if (baseEl?.href) {
+    try {
+      const path = new URL(baseEl.href, window.location.origin).pathname;
+      return path.endsWith("/") ? path : `${path}/`;
+    } catch {
+      /* ignore */
+    }
+  }
+  return "/";
+}
+
+function appHref(relativePath) {
+  const rel = String(relativePath || "").replace(/^\//, "");
+  const base = getAppBasePath();
+  return `${base}${rel}`;
+}
+
+function navigateToAppPage(relativePath) {
+  window.location.assign(appHref(relativePath));
+}
+
 function openMonstersInExplorer() {
   try {
     const session = {
@@ -210,7 +234,7 @@ function openMonstersInExplorer() {
   } catch {
     /* quota */
   }
-  window.location.href = "index.html";
+  navigateToAppPage("index.html");
 }
 
 function markDmPageVisited() {
@@ -250,7 +274,7 @@ function openEntryInExplorer(entry) {
   } catch {
     /* quota */
   }
-  window.location.href = "index.html";
+  navigateToAppPage("index.html");
 }
 
 function formatArmorClass(ac) {
