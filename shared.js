@@ -8,7 +8,10 @@ const STORAGE_SHEET = "dnd5eapi.sheet";
 const STORAGE_GAME_TOOLS = "dnd5eapi.gameTools";
 const STORAGE_DM_BATTLE = "dnd5eapi.dmBattle";
 const STORAGE_CAMPAIGN = "dnd5eapi.campaign";
+const STORAGE_SESSION_HISTORY = "dnd5eapi.sessionHistory";
+const STORAGE_TABLE_MODE = "dnd5eapi.tableMode";
 const STORAGE_DM_VISITED = "dnd5eapi.dmVisited";
+const SESSION_HISTORY_MAX = 48;
 const CAMPAIGN_EXPORT_VERSION = 1;
 
 /** XP acumulado mínimo por nível (PHB 2014). Índice = nível (1–20). */
@@ -658,6 +661,7 @@ function buildCampaignExportBundle() {
     dmBattle: loadDmBattle(),
     favorites: loadFavorites(),
     sheet: loadSheet(),
+    sessionHistory: loadSessionHistory(),
   };
 }
 
@@ -671,6 +675,7 @@ function importCampaignBundle(raw) {
   if (raw.dmBattle != null) saveDmBattle(raw.dmBattle);
   if (Array.isArray(raw.favorites)) saveFavorites(raw.favorites);
   if (raw.sheet != null) saveSheet(normalizeSheet(raw.sheet));
+  if (Array.isArray(raw.sessionHistory)) saveSessionHistory(raw.sessionHistory);
   return { ok: true };
 }
 
@@ -731,7 +736,78 @@ const DEFAULT_SHEET = {
 };
 
 function normalizeCasterType(raw) {
-  return raw === "full" || raw === "half" ? raw : "none";
+  if (raw === "full" || raw === "half" || raw === "warlock" || raw === "third") return raw;
+  return "none";
+}
+
+function isTableModeEnabled() {
+  try {
+    return localStorage.getItem(STORAGE_TABLE_MODE) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setTableModeEnabled(on) {
+  try {
+    localStorage.setItem(STORAGE_TABLE_MODE, on ? "1" : "0");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function applyTableModeClass() {
+  document.documentElement.classList.toggle("table-mode", isTableModeEnabled());
+}
+
+function loadSessionHistory() {
+  try {
+    const raw = localStorage.getItem(STORAGE_SESSION_HISTORY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSessionHistory(entries) {
+  try {
+    localStorage.setItem(STORAGE_SESSION_HISTORY, JSON.stringify(entries.slice(0, SESSION_HISTORY_MAX)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function appendSessionHistory(entry) {
+  if (!entry || typeof entry !== "object") return false;
+  const list = loadSessionHistory();
+  list.unshift({
+    id: entry.id != null ? String(entry.id) : newEntityId("hist"),
+    at: entry.at || new Date().toISOString(),
+    campaignName: entry.campaignName != null ? String(entry.campaignName).slice(0, 120) : "",
+    totalXp: Number(entry.totalXp) || 0,
+    monstersDefeated: Number(entry.monstersDefeated) || 0,
+    members: Array.isArray(entry.members)
+      ? entry.members.map((m) => ({
+          name: String(m?.name || "").slice(0, 120),
+          xp: Number(m?.xp) || 0,
+          level: clampCharacterLevel(m?.level),
+        }))
+      : [],
+  });
+  return saveSessionHistory(list);
+}
+
+function clearSessionHistory() {
+  try {
+    localStorage.removeItem(STORAGE_SESSION_HISTORY);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function normalizeSpellcasting(raw) {

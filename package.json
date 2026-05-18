@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "npx serve .",
-    "start:dev": "npx serve . -l 4000"
+    "start": "npx serve . -c serve.json",
+    "start:dev": "npx serve . -l 4000 -c serve.json"
   },
   "keywords": [],
   "author": "",

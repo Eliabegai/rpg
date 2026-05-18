@@ -57,8 +57,9 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 ## Épico 4 — Contador de magias (PHB)
 
 - Slots por classe/nível (tabelas locais)
-- UI na ficha: grelha de slots, magias conhecidas/preparadas
-- v1: uma full + uma half caster; depois expandir
+- UI na ficha: grelha de slots (v1: pleno, meio-conjurador)
+- **Próximo — magias por nível:** registar magias conhecidas/preparadas agrupadas por nível de slot (truques + 1º–9º), com indicação do que ainda podes conjurar (slot disponível vs. magias na lista). Integração com favoritos da API (`spells`) e estado «preparada/conhecida».
+- Multiclasse / pacto / 1/3 — expandir tabelas (Fase D+)
 
 ---
 
@@ -102,9 +103,16 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 - [x] Descanso curto/longo + ambientes
 - [x] Sync ficha ↔ mesa
 
+### Fase C+ — Slots de magia (próximo)
+- [ ] Magias registadas por nível de slot (lista + «posso usar?» vs slots gastos)
+- [ ] Ligar magias favoritas da API à lista por nível
+- [ ] Truques separados dos slots de nível
+
 ### Fase D — Polimento
-- [ ] PWA, modo mesa, histórico de sessão
-- [ ] Multiclasse e classes exóticas
+- [x] PWA (manifest + service worker offline para assets estáticos)
+- [x] Modo mesa (UI amplificada para telemóvel/tablet na ficha e no mestre)
+- [x] Histórico de sessões de combate (XP creditado, data, resumo)
+- [x] Conjurador pacto (bruxo) e progressão 1/3 (ex.: EK)
 
 ---
 

@@ -16,6 +16,7 @@ const dmEncounterDeadWrap = document.getElementById("dmEncounterDeadWrap");
 const dmEncounterDeadList = document.getElementById("dmEncounterDeadList");
 const dmXpLedger = document.getElementById("dmXpLedger");
 const dmEncounterDiff = document.getElementById("dmEncounterDiff");
+const dmSessionHistory = document.getElementById("dmSessionHistory");
 const localeSelect = document.getElementById("localeSelect");
 
 const DM_DAMAGE_TICK_MS = [45, 48, 52, 58, 68, 82, 100, 125, 160, 200];
@@ -229,6 +230,49 @@ function syncAllPartyFromSheet() {
   setCampaignStatus(result.created ? "Personagem criado na mesa a partir da ficha." : "Mesa atualizada a partir da ficha.");
 }
 
+function buildSessionHistoryEntry(battle, ledger, totalXp) {
+  const campaign = loadCampaign();
+  const members = activePartyMembers(battle.party).map((p) => ({
+    name: p.name,
+    xp: ledger.get(p.id) || 0,
+    level: p.level,
+  }));
+  const monstersDefeated = battle.encounters.filter((e) => isEncounterDead(e)).length;
+  return {
+    campaignName: campaign.name || "",
+    totalXp,
+    monstersDefeated,
+    members,
+  };
+}
+
+function renderSessionHistory() {
+  if (!dmSessionHistory) return;
+  const entries = loadSessionHistory();
+  if (!entries.length) {
+    dmSessionHistory.innerHTML = '<p class="dm-history-empty">Ainda sem sessões registadas.</p>';
+    return;
+  }
+  dmSessionHistory.innerHTML = `<ul class="dm-history-list">${entries
+    .map((e) => {
+      const when = new Date(e.at);
+      const dateStr = Number.isFinite(when.getTime())
+        ? when.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+        : e.at;
+      const camp = e.campaignName ? ` · ${escapeHtml(e.campaignName)}` : "";
+      const memberRows = (e.members || [])
+        .filter((m) => m.xp > 0)
+        .map((m) => `<li>${escapeHtml(m.name)} +${m.xp} XP (nív. ${m.level})</li>`)
+        .join("");
+      return `<li class="dm-history-item">
+        <p class="dm-history-meta"><time datetime="${escapeHtml(e.at)}">${escapeHtml(dateStr)}</time>${camp}</p>
+        <p class="dm-history-summary">${e.totalXp} XP · ${e.monstersDefeated} monstro(s)</p>
+        ${memberRows ? `<ul class="dm-history-members">${memberRows}</ul>` : ""}
+      </li>`;
+    })
+    .join("")}</ul>`;
+}
+
 function applySessionXpToParty() {
   const battle = loadDmBattle();
   const ledger = computePartyXpLedger(battle);
@@ -246,6 +290,8 @@ function applySessionXpToParty() {
     }
   });
   if (credited > 0) {
+    appendSessionHistory(buildSessionHistoryEntry(battle, ledger, credited));
+    renderSessionHistory();
     setCampaignStatus(`+${credited} XP creditado ao grupo.`);
   } else {
     setCampaignStatus("Nada a creditar — elimina monstros e marca participantes.");
@@ -864,6 +910,7 @@ function renderAll() {
   renderEncounters();
   restoreEncounterUiState(encUi);
   renderXpSidebar();
+  renderSessionHistory();
 }
 
 function refreshEncountersUi() {
@@ -1241,6 +1288,15 @@ function handleDocumentClick(e) {
 
   if (action === "dm-sync-all-from-sheet") {
     syncAllPartyFromSheet();
+    return;
+  }
+
+  if (action === "dm-clear-session-history") {
+    if (window.confirm("Apagar todo o histórico de sessões?")) {
+      clearSessionHistory();
+      renderSessionHistory();
+      setCampaignStatus("Histórico limpo.");
+    }
     return;
   }
 

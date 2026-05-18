@@ -1,0 +1,20 @@
+{
+  "name": "Grimório 5e",
+  "short_name": "Grimório 5e",
+  "description": "Explorador, ficha e mesa do mestre para D&D 5e (2014).",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1e3a5f",
+  "lang": "pt-BR",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

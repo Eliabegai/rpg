@@ -15,8 +15,13 @@
       return "/";
     }
 
-    // Local (serve na raiz): assets em /styles.css, não em /dm/styles.css
+    // Local: raiz ou subpasta de projeto (ex. /rpg/), não o nome da página (/dm, /sheet)
     if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]") {
+      const PAGE_SLUGS = new Set(["index", "sheet", "dm"]);
+      const segment = pathname.split("/").filter(Boolean)[0];
+      if (segment && !segment.includes(".") && !PAGE_SLUGS.has(segment)) {
+        return `/${segment}/`;
+      }
       return "/";
     }
 
@@ -37,4 +42,16 @@
     document.head.prepend(baseEl);
   }
   baseEl.href = basePath;
+
+  function appPageHref(page) {
+    const file = String(page || "").replace(/^\//, "");
+    return `${basePath}${file}`;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll("a[data-app-page]").forEach((a) => {
+      const page = a.getAttribute("data-app-page");
+      if (page) a.href = appPageHref(page);
+    });
+  });
 })();

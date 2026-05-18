@@ -83,12 +83,40 @@ function slotsArrayToMap(arr) {
   return map;
 }
 
-function getMaxSpellSlotsMap(casterType, characterLevel) {
-  const type = casterType === "full" || casterType === "half" ? casterType : "none";
-  if (type === "none") return {};
+/** Progressão 1/3 (ex.: Campeão arcano) — slots esparsos por nível de personagem. */
+const THIRD_CASTER_SLOTS_BY_LEVEL = (() => {
+  const rows = Array.from({ length: 20 }, () => [0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  rows[2] = [2, 0, 0, 0, 0, 0, 0, 0, 0];
+  rows[6] = [0, 1, 0, 0, 0, 0, 0, 0, 0];
+  rows[9] = [0, 0, 1, 0, 0, 0, 0, 0, 0];
+  rows[12] = [0, 0, 0, 1, 0, 0, 0, 0, 0];
+  rows[17] = [0, 0, 0, 0, 1, 0, 0, 0, 0];
+  rows[18] = [0, 0, 0, 0, 2, 0, 0, 0, 0];
+  rows[19] = [0, 0, 0, 0, 2, 0, 0, 0, 0];
+  return rows;
+})();
+
+/** Bruxo: todos os slots ao mesmo nível (pacto). */
+function warlockPactSlotsMap(characterLevel) {
   const lv = Math.min(20, Math.max(1, Math.floor(Number(characterLevel) || 1)));
-  const table = type === "full" ? FULL_CASTER_SLOTS_BY_LEVEL : HALF_CASTER_SLOTS_BY_LEVEL;
-  return slotsArrayToMap(table[lv - 1] || []);
+  if (lv === 1) return { 1: 1 };
+  if (lv === 2) return { 1: 2 };
+  if (lv <= 4) return { 2: 2 };
+  if (lv <= 6) return { 3: 2 };
+  if (lv <= 8) return { 4: 2 };
+  if (lv <= 10) return { 5: 2 };
+  if (lv <= 16) return { 5: 3 };
+  return { 5: 4 };
+}
+
+function getMaxSpellSlotsMap(casterType, characterLevel) {
+  const type = casterType;
+  const lv = Math.min(20, Math.max(1, Math.floor(Number(characterLevel) || 1)));
+  if (type === "full") return slotsArrayToMap(FULL_CASTER_SLOTS_BY_LEVEL[lv - 1] || []);
+  if (type === "half") return slotsArrayToMap(HALF_CASTER_SLOTS_BY_LEVEL[lv - 1] || []);
+  if (type === "third") return slotsArrayToMap(THIRD_CASTER_SLOTS_BY_LEVEL[lv - 1] || []);
+  if (type === "warlock") return warlockPactSlotsMap(lv);
+  return {};
 }
 
 function getSpellSlotsUsedMap(raw) {
