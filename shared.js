@@ -18,6 +18,13 @@ const DEFAULT_SHEET = {
   abilityScores: { str: "", dex: "", con: "", int: "", wis: "", cha: "" },
   /** { "classes:fighter": { "0": ["skill-acrobatics", ...] } } */
   classProficiencyPicks: {},
+  /** 7× 4d6 (descarta menor dado); um conjunto fica inactive */
+  abilityGeneration: { sets: [], assignment: {} },
+  hitDie: "d10",
+  hpMax: "",
+  hpCurrent: "",
+  hpTemp: "0",
+  deathSaves: { successes: 0, failures: 0 },
   items: [],
 };
 
@@ -60,10 +67,59 @@ function normalizeSheet(parsed) {
     alignment: parsed.alignment != null ? String(parsed.alignment) : "",
     abilityScores,
     classProficiencyPicks,
+    abilityGeneration: normalizeAbilityGeneration(parsed.abilityGeneration),
+    hitDie: parsed.hitDie != null ? String(parsed.hitDie) : "d10",
+    hpMax: parsed.hpMax != null ? String(parsed.hpMax) : "",
+    hpCurrent: parsed.hpCurrent != null ? String(parsed.hpCurrent) : "",
+    hpTemp: parsed.hpTemp != null ? String(parsed.hpTemp) : "0",
+    deathSaves: normalizeDeathSaves(parsed.deathSaves),
     items: Array.isArray(parsed.items)
       ? parsed.items.map(normalizeSheetItem).filter(Boolean)
       : [],
   };
+}
+
+function normalizeAbilityGeneration(raw) {
+  if (!raw || typeof raw !== "object") return { sets: [], assignment: {} };
+  const sets = Array.isArray(raw.sets)
+    ? raw.sets.map((s, i) => {
+        const rolls = Array.isArray(s.rolls) ? s.rolls.map(Number) : [];
+        let droppedIndex =
+          s.droppedIndex != null && s.droppedIndex !== "" ? Number(s.droppedIndex) : null;
+        if ((droppedIndex == null || Number.isNaN(droppedIndex)) && rolls.length) {
+          let minIdx = 0;
+          for (let j = 1; j < rolls.length; j++) {
+            if (rolls[j] < rolls[minIdx]) minIdx = j;
+          }
+          droppedIndex = minIdx;
+        }
+        const dropped =
+          s.dropped != null ? Number(s.dropped) : rolls[droppedIndex ?? 0];
+        return {
+          id: s.id != null ? String(s.id) : String(i),
+          rolls,
+          dropped,
+          droppedIndex: droppedIndex ?? 0,
+          total: s.total != null ? Number(s.total) : 0,
+          inactive: Boolean(s.inactive),
+        };
+      })
+    : [];
+  const assignment = {};
+  if (raw.assignment && typeof raw.assignment === "object") {
+    for (const key of ABILITY_KEYS) {
+      if (raw.assignment[key] != null && raw.assignment[key] !== "") {
+        assignment[key] = String(raw.assignment[key]);
+      }
+    }
+  }
+  return { sets, assignment };
+}
+
+function normalizeDeathSaves(raw) {
+  const successes = Math.min(3, Math.max(0, Number(raw?.successes) || 0));
+  const failures = Math.min(3, Math.max(0, Number(raw?.failures) || 0));
+  return { successes, failures };
 }
 
 const SHEET_RESOURCE_ORDER = [

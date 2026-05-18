@@ -44,6 +44,323 @@ function abilityModifier(score) {
   return mod >= 0 ? `+${mod}` : String(mod);
 }
 
+const rollAbilitiesBtn = document.getElementById("rollAbilitiesBtn");
+const clearAbilitiesRollBtn = document.getElementById("clearAbilitiesRollBtn");
+const abilityRollSets = document.getElementById("abilityRollSets");
+const abilityRollLegend = document.getElementById("abilityRollLegend");
+const hitDieSelect = document.getElementById("hitDieSelect");
+const rollHitDieBtn = document.getElementById("rollHitDieBtn");
+const hitDieRollResult = document.getElementById("hitDieRollResult");
+const hpMaxInput = document.getElementById("hpMaxInput");
+const hpCurrentInput = document.getElementById("hpCurrentInput");
+const hpTempInput = document.getElementById("hpTempInput");
+const hpFullHealBtn = document.getElementById("hpFullHealBtn");
+const hpHealAmount = document.getElementById("hpHealAmount");
+const hpHealBtn = document.getElementById("hpHealBtn");
+const deathSaveSuccess = document.getElementById("deathSaveSuccess");
+const deathSaveFailure = document.getElementById("deathSaveFailure");
+const deathSaveResetBtn = document.getElementById("deathSaveResetBtn");
+
+function rollD6() {
+  return 1 + Math.floor(Math.random() * 6);
+}
+
+function roll4d6DropLowest() {
+  const rolls = [rollD6(), rollD6(), rollD6(), rollD6()];
+  let minIdx = 0;
+  for (let i = 1; i < rolls.length; i++) {
+    if (rolls[i] < rolls[minIdx]) minIdx = i;
+  }
+  const dropped = rolls[minIdx];
+  const total = rolls.reduce((sum, v) => sum + v, 0) - dropped;
+  return { rolls, dropped, droppedIndex: minIdx, total };
+}
+
+let abilityRollTicker = null;
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function prefersReducedMotion() {
+  return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function buildRollingDiceHtml() {
+  return [0, 1, 2, 3]
+    .map(() => `<span class="sheet-die sheet-die--rolling" aria-hidden="true">–</span>`)
+    .join("");
+}
+
+function ensureSetDroppedIndex(set) {
+  if (set.droppedIndex != null && set.droppedIndex >= 0 && set.droppedIndex < set.rolls.length) {
+    return set.droppedIndex;
+  }
+  if (!set.rolls?.length) return 0;
+  let minIdx = 0;
+  for (let i = 1; i < set.rolls.length; i++) {
+    if (set.rolls[i] < set.rolls[minIdx]) minIdx = i;
+  }
+  return minIdx;
+}
+
+function renderDieFacesHtml(set) {
+  const droppedIndex = ensureSetDroppedIndex(set);
+  return set.rolls
+    .map((d, di) => {
+      const dropped = di === droppedIndex;
+      const cls = dropped ? " sheet-die--dropped" : " sheet-die--kept";
+      const title = dropped ? "Descartado" : "Conta para o total";
+      return `<span class="sheet-die${cls}" title="${title}">${d}</span>`;
+    })
+    .join("");
+}
+
+function renderAbilityRollAnimationPlaceholder() {
+  if (!abilityRollSets) return;
+  abilityRollSets.classList.add("is-rolling");
+  abilityRollSets.innerHTML = Array.from(
+    { length: 7 },
+    (_, i) => `<li class="sheet-ability-roll sheet-ability-roll--rolling-row" style="--roll-row-delay:${i * 0.05}s">
+      <span class="sheet-ability-roll-num">#${i + 1}</span>
+      <span class="sheet-ability-roll-dice">${buildRollingDiceHtml()}</span>
+      <span class="sheet-ability-roll-total sheet-ability-roll-total--pending" aria-hidden="true">…</span>
+    </li>`
+  ).join("");
+}
+
+function startAbilityRollAnimation() {
+  renderAbilityRollAnimationPlaceholder();
+  if (abilityRollTicker) clearInterval(abilityRollTicker);
+  abilityRollTicker = setInterval(() => {
+    abilityRollSets?.querySelectorAll(".sheet-die--rolling").forEach((die) => {
+      die.textContent = String(rollD6());
+    });
+  }, 70);
+  return () => {
+    if (abilityRollTicker) {
+      clearInterval(abilityRollTicker);
+      abilityRollTicker = null;
+    }
+  };
+}
+
+function setAbilityRollControlsBusy(busy) {
+  if (rollAbilitiesBtn) {
+    rollAbilitiesBtn.disabled = busy;
+    rollAbilitiesBtn.setAttribute("aria-busy", String(busy));
+  }
+  if (clearAbilitiesRollBtn) clearAbilitiesRollBtn.disabled = busy;
+}
+
+async function rollAbilityGeneration() {
+  if (rollAbilitiesBtn?.disabled) return;
+
+  const reducedMotion = prefersReducedMotion();
+  setAbilityRollControlsBusy(true);
+
+  if (!reducedMotion) {
+    const stopTicker = startAbilityRollAnimation();
+    await delay(1650);
+    stopTicker();
+  }
+
+  const sets = [];
+  for (let i = 0; i < 7; i++) {
+    const r = roll4d6DropLowest();
+    sets.push({
+      id: String(i),
+      rolls: r.rolls,
+      dropped: r.dropped,
+      droppedIndex: r.droppedIndex,
+      total: r.total,
+      inactive: false,
+    });
+  }
+  let minIdx = 0;
+  for (let i = 1; i < sets.length; i++) {
+    if (sets[i].total < sets[minIdx].total) minIdx = i;
+  }
+  sets[minIdx].inactive = true;
+  patchSheet((sheet) => {
+    sheet.abilityGeneration = { sets, assignment: {} };
+  });
+  renderAbilityRollSets({ reveal: !reducedMotion });
+  syncAbilityAssignDropdowns();
+  setAbilityRollControlsBusy(false);
+}
+
+function clearAbilityGeneration() {
+  if (abilityRollTicker) {
+    clearInterval(abilityRollTicker);
+    abilityRollTicker = null;
+  }
+  patchSheet((sheet) => {
+    sheet.abilityGeneration = { sets: [], assignment: {} };
+  });
+  renderAbilityRollSets();
+  syncAbilityAssignDropdowns();
+  setAbilityRollControlsBusy(false);
+}
+
+function getActiveAbilitySets(sheet) {
+  return (sheet.abilityGeneration?.sets || []).filter((s) => !s.inactive);
+}
+
+function renderAbilityRollSets({ reveal = false } = {}) {
+  if (!abilityRollSets) return;
+  const sheet = loadSheet();
+  const sets = sheet.abilityGeneration?.sets || [];
+  if (clearAbilitiesRollBtn) clearAbilitiesRollBtn.hidden = sets.length === 0;
+
+  abilityRollSets.classList.remove("is-rolling");
+
+  if (abilityRollLegend) abilityRollLegend.hidden = sets.length === 0;
+
+  if (!sets.length) {
+    abilityRollSets.innerHTML = "";
+    return;
+  }
+
+  abilityRollSets.innerHTML = sets
+    .map((set, i) => {
+      const diceHtml = renderDieFacesHtml(set);
+      const inactive = set.inactive ? " sheet-ability-roll--inactive" : "";
+      const revealCls = reveal ? " sheet-ability-roll--reveal" : "";
+      const note = set.inactive
+        ? '<span class="sheet-ability-roll-note sheet-ability-roll-note--struck">menor — referência (descartado)</span>'
+        : "";
+      const delayStyle = reveal ? ` style="--reveal-delay:${i * 0.07}s"` : "";
+      return `<li class="sheet-ability-roll${inactive}${revealCls}"${delayStyle}>
+        <span class="sheet-ability-roll-num">#${i + 1}</span>
+        <span class="sheet-ability-roll-dice">${diceHtml}</span>
+        <strong class="sheet-ability-roll-total${set.inactive ? " sheet-ability-roll-total--discarded" : ""}">${set.total}</strong>
+        ${note}
+      </li>`;
+    })
+    .join("");
+}
+
+function syncAbilityAssignDropdowns() {
+  if (!abilityScoresGrid) return;
+  const sheet = loadSheet();
+  const sets = sheet.abilityGeneration?.sets || [];
+  const hasRolls = getActiveAbilitySets(sheet).length > 0;
+
+  abilityScoresGrid.querySelectorAll(".sheet-ability-assign").forEach((sel) => {
+    const key = sel.dataset.ability;
+    if (!key) return;
+    sel.hidden = !hasRolls;
+    const current = sheet.abilityGeneration?.assignment?.[key] || "";
+    const assignedElsewhere = new Set(
+      ABILITY_KEYS.filter((k) => k !== key && sheet.abilityGeneration?.assignment?.[k]).map(
+        (k) => sheet.abilityGeneration.assignment[k]
+      )
+    );
+
+    let html = '<option value="">— manual —</option>';
+    for (const set of sets) {
+      if (set.inactive) continue;
+      if (assignedElsewhere.has(set.id) && current !== set.id) continue;
+      const selected = current === set.id ? " selected" : "";
+      html += `<option value="${escapeHtml(set.id)}"${selected}>${set.total}</option>`;
+    }
+    sel.innerHTML = html;
+    if (document.activeElement !== sel) sel.value = current;
+  });
+}
+
+function parseDieSides(die) {
+  const m = String(die || "d10").match(/^d(\d+)$/i);
+  return m ? Number(m[1]) : 10;
+}
+
+function rollDie(sides) {
+  return 1 + Math.floor(Math.random() * sides);
+}
+
+let hitDieRollTicker = null;
+
+async function rollHitDie() {
+  const sides = parseDieSides(hitDieSelect?.value);
+  if (!hitDieRollResult) return rollDie(sides);
+
+  if (rollHitDieBtn) rollHitDieBtn.disabled = true;
+
+  hitDieRollResult.classList.add("is-rolling");
+  if (!prefersReducedMotion()) {
+    if (hitDieRollTicker) clearInterval(hitDieRollTicker);
+    hitDieRollTicker = setInterval(() => {
+      hitDieRollResult.textContent = String(rollDie(sides));
+    }, 65);
+    await delay(850);
+    if (hitDieRollTicker) {
+      clearInterval(hitDieRollTicker);
+      hitDieRollTicker = null;
+    }
+  }
+
+  const result = rollDie(sides);
+  hitDieRollResult.classList.remove("is-rolling");
+  hitDieRollResult.textContent = `Rolou ${result} (d${sides})`;
+  hitDieRollResult.dataset.lastRoll = String(result);
+
+  if (rollHitDieBtn) rollHitDieBtn.disabled = false;
+  return result;
+}
+
+function clampHpValue(n) {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(999, Math.floor(n)));
+}
+
+function readHpFromInputs() {
+  return {
+    max: hpMaxInput?.value ?? "",
+    current: hpCurrentInput?.value ?? "",
+    temp: hpTempInput?.value ?? "0",
+  };
+}
+
+function syncHpFields() {
+  const sheet = loadSheet();
+  if (hitDieSelect && document.activeElement !== hitDieSelect) {
+    hitDieSelect.value = sheet.hitDie || "d10";
+  }
+  if (hpMaxInput && document.activeElement !== hpMaxInput) hpMaxInput.value = sheet.hpMax;
+  if (hpCurrentInput && document.activeElement !== hpCurrentInput) hpCurrentInput.value = sheet.hpCurrent;
+  if (hpTempInput && document.activeElement !== hpTempInput) hpTempInput.value = sheet.hpTemp ?? "0";
+}
+
+function buildDeathSaveDots() {
+  const mk = (container, type) => {
+    if (!container) return;
+    container.innerHTML = [1, 2, 3]
+      .map(
+        (n) =>
+          `<button type="button" class="sheet-death-dot" data-save-type="${type}" data-level="${n}" aria-label="${type === "success" ? "Sucesso" : "Falha"} ${n}"></button>`
+      )
+      .join("");
+  };
+  mk(deathSaveSuccess, "success");
+  mk(deathSaveFailure, "failure");
+}
+
+function renderDeathSaves() {
+  const sheet = loadSheet();
+  const { successes, failures } = sheet.deathSaves || { successes: 0, failures: 0 };
+  deathSaveSuccess?.querySelectorAll(".sheet-death-dot").forEach((btn) => {
+    const level = Number(btn.dataset.level);
+    btn.classList.toggle("is-filled", level <= successes);
+    btn.setAttribute("aria-pressed", String(level <= successes));
+  });
+  deathSaveFailure?.querySelectorAll(".sheet-death-dot").forEach((btn) => {
+    const level = Number(btn.dataset.level);
+    btn.classList.toggle("is-filled", level <= failures);
+    btn.setAttribute("aria-pressed", String(level <= failures));
+  });
+}
+
 function getClassProficiencyPicks(sheet, entryId, blockIndex) {
   const byEntry = sheet.classProficiencyPicks[entryId];
   if (!byEntry) return [];
@@ -573,6 +890,11 @@ function renderAll() {
 }
 
 function onSheetClick(e) {
+  if (e.target.closest(".sheet-death-dot")) {
+    onDeathSaveClick(e);
+    return;
+  }
+
   const btn = e.target.closest("[data-action]");
   if (!btn) return;
 
@@ -594,6 +916,30 @@ function onSheetClick(e) {
   }
   if (action === "open-explorer") {
     openInExplorer(entry);
+    return;
+  }
+  if (action === "roll-abilities") {
+    rollAbilityGeneration();
+    return;
+  }
+  if (action === "clear-abilities") {
+    clearAbilityGeneration();
+    return;
+  }
+  if (action === "roll-hit-die") {
+    rollHitDie();
+    return;
+  }
+  if (action === "hp-full-heal") {
+    onHpFullHeal();
+    return;
+  }
+  if (action === "hp-heal") {
+    onHpHeal();
+    return;
+  }
+  if (action === "death-save-reset") {
+    onDeathSaveReset();
   }
 }
 
@@ -608,6 +954,9 @@ function buildAbilityScoresGrid() {
   abilityScoresGrid.innerHTML = ABILITY_KEYS.map(
     (key) => `<label class="sheet-ability-cell">
       <span class="sheet-ability-abbr">${ABILITY_LABELS[key]}</span>
+      <select class="sheet-ability-assign sheet-select" data-ability="${key}" hidden aria-label="Atribuir ${ABILITY_LABELS[key]}">
+        <option value="">— manual —</option>
+      </select>
       <input type="number" class="sheet-ability-input" data-ability="${key}"
         min="1" max="30" inputmode="numeric" placeholder="10" />
       <span class="sheet-ability-mod" data-mod-for="${key}" aria-label="Modificador">—</span>
@@ -638,6 +987,10 @@ function syncCharacterCoreFromSheet() {
 
   syncPortraitUi(sheet.portraitImage);
   syncAlignmentSummary();
+  renderAbilityRollSets();
+  syncAbilityAssignDropdowns();
+  syncHpFields();
+  renderDeathSaves();
 }
 
 async function syncAlignmentSummary() {
@@ -763,9 +1116,108 @@ function onAbilityInput(e) {
   if (!key) return;
   patchSheet((sheet) => {
     sheet.abilityScores[key] = input.value;
+    if (sheet.abilityGeneration?.assignment?.[key]) {
+      delete sheet.abilityGeneration.assignment[key];
+    }
   });
   const modEl = abilityScoresGrid?.querySelector(`[data-mod-for="${key}"]`);
   if (modEl) modEl.textContent = abilityModifier(input.value);
+  syncAbilityAssignDropdowns();
+}
+
+function onAbilityAssignChange(e) {
+  const sel = e.target.closest(".sheet-ability-assign");
+  if (!sel) return;
+  const key = sel.dataset.ability;
+  if (!key) return;
+  const setId = sel.value;
+
+  patchSheet((sheet) => {
+    if (!sheet.abilityGeneration) sheet.abilityGeneration = { sets: [], assignment: {} };
+    for (const k of ABILITY_KEYS) {
+      if (k !== key && sheet.abilityGeneration.assignment[k] === setId) {
+        delete sheet.abilityGeneration.assignment[k];
+      }
+    }
+    if (setId) {
+      const set = sheet.abilityGeneration.sets.find((s) => s.id === setId && !s.inactive);
+      if (set) {
+        sheet.abilityGeneration.assignment[key] = setId;
+        sheet.abilityScores[key] = String(set.total);
+      }
+    } else {
+      delete sheet.abilityGeneration.assignment[key];
+    }
+  });
+
+  const input = abilityScoresGrid?.querySelector(`.sheet-ability-input[data-ability="${key}"]`);
+  if (input) input.value = loadSheet().abilityScores[key] ?? "";
+  const modEl = abilityScoresGrid?.querySelector(`[data-mod-for="${key}"]`);
+  if (modEl) modEl.textContent = abilityModifier(input?.value);
+  syncAbilityAssignDropdowns();
+}
+
+function onHitDieSelectChange() {
+  patchSheet((sheet) => {
+    sheet.hitDie = hitDieSelect ? hitDieSelect.value : "d10";
+  });
+}
+
+function onHpFieldChange() {
+  const hp = readHpFromInputs();
+  patchSheet((sheet) => {
+    sheet.hpMax = hp.max;
+    sheet.hpCurrent = hp.current;
+    sheet.hpTemp = hp.temp;
+  });
+}
+
+function onHpFullHeal() {
+  const hp = readHpFromInputs();
+  const max = clampHpValue(Number(hp.max));
+  patchSheet((sheet) => {
+    sheet.hpMax = hp.max;
+    sheet.hpTemp = hp.temp;
+    sheet.hpCurrent = max > 0 ? String(max) : hp.max;
+  });
+  syncHpFields();
+}
+
+function onHpHeal() {
+  const amount = clampHpValue(Number(hpHealAmount?.value || 0));
+  if (amount <= 0) return;
+  const hp = readHpFromInputs();
+  const max = clampHpValue(Number(hp.max));
+  let cur = clampHpValue(Number(hp.current) || 0);
+  const next = max > 0 ? Math.min(max, cur + amount) : cur + amount;
+  patchSheet((sheet) => {
+    sheet.hpMax = hp.max;
+    sheet.hpTemp = hp.temp;
+    sheet.hpCurrent = String(next);
+  });
+  syncHpFields();
+}
+
+function onDeathSaveClick(e) {
+  const btn = e.target.closest(".sheet-death-dot");
+  if (!btn) return;
+  const type = btn.dataset.saveType;
+  const level = Number(btn.dataset.level);
+  if (!type || !level) return;
+
+  patchSheet((sheet) => {
+    if (!sheet.deathSaves) sheet.deathSaves = { successes: 0, failures: 0 };
+    const key = type === "success" ? "successes" : "failures";
+    sheet.deathSaves[key] = sheet.deathSaves[key] === level ? level - 1 : level;
+  });
+  renderDeathSaves();
+}
+
+function onDeathSaveReset() {
+  patchSheet((sheet) => {
+    sheet.deathSaves = { successes: 0, failures: 0 };
+  });
+  renderDeathSaves();
 }
 
 function onArmorClassInput() {
@@ -881,10 +1333,16 @@ async function boot() {
   await loadAlignmentsDropdown();
 
   buildAbilityScoresGrid();
+  buildDeathSaveDots();
   syncCharacterCoreFromSheet();
 
   document.body.addEventListener("click", onSheetClick);
-  document.body.addEventListener("change", onClassProficiencyChange);
+  document.body.addEventListener("change", (e) => {
+    onClassProficiencyChange(e);
+    onAbilityAssignChange(e);
+    if (e.target === hitDieSelect) onHitDieSelectChange();
+    if (e.target === hpMaxInput || e.target === hpCurrentInput || e.target === hpTempInput) onHpFieldChange();
+  });
 
   if (characterNameInput) {
     characterNameInput.addEventListener("input", onCharacterNameInput);
@@ -893,6 +1351,36 @@ async function boot() {
   if (abilityScoresGrid) {
     abilityScoresGrid.addEventListener("input", onAbilityInput);
     abilityScoresGrid.addEventListener("change", onAbilityInput);
+  }
+  if (hpMaxInput) {
+    hpMaxInput.addEventListener("input", onHpFieldChange);
+    hpMaxInput.addEventListener("change", onHpFieldChange);
+  }
+  if (hpCurrentInput) {
+    hpCurrentInput.addEventListener("input", onHpFieldChange);
+    hpCurrentInput.addEventListener("change", onHpFieldChange);
+  }
+  if (hpTempInput) {
+    hpTempInput.addEventListener("input", onHpFieldChange);
+    hpTempInput.addEventListener("change", onHpFieldChange);
+  }
+  if (hpFullHealBtn) {
+    hpFullHealBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      onHpFullHeal();
+    });
+  }
+  if (hpHealBtn) {
+    hpHealBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      onHpHeal();
+    });
+  }
+  if (rollHitDieBtn) {
+    rollHitDieBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      rollHitDie();
+    });
   }
   if (armorClassInput) {
     armorClassInput.addEventListener("input", onArmorClassInput);

@@ -108,6 +108,85 @@
             </div>
           </section>
 
+          <section class="sheet-dice" id="sheetDice" aria-labelledby="sheetDiceTitle">
+            <h2 id="sheetDiceTitle" class="sheet-core-title">Dados e combate</h2>
+
+            <div class="sheet-dice-block">
+              <h3 class="sheet-dice-subtitle">Geração de atributos (4d6)</h3>
+              <p class="sheet-dice-hint">
+                Rola 4d6 sete vezes, descarta o menor dado de cada rolagem e depois o menor total (fica inativo para conferência).
+              </p>
+              <div class="sheet-dice-actions">
+                <button type="button" id="rollAbilitiesBtn" class="sheet-dice-btn" data-action="roll-abilities">Rolar 7× 4d6</button>
+                <button type="button" id="clearAbilitiesRollBtn" class="sheet-dice-btn sheet-dice-btn--muted" data-action="clear-abilities" hidden>
+                  Limpar rolagens
+                </button>
+              </div>
+              <p class="sheet-dice-legend" id="abilityRollLegend" hidden>
+                <span class="sheet-dice-legend-kept">Azul</span> = conta no total ·
+                <span class="sheet-dice-legend-dropped">Riscado</span> = descartado
+              </p>
+              <ul id="abilityRollSets" class="sheet-ability-rolls" aria-live="polite"></ul>
+            </div>
+
+            <div class="sheet-dice-block">
+              <h3 class="sheet-dice-subtitle">Pontos de vida</h3>
+              <div class="sheet-hp-row">
+                <label class="sheet-inline-field">
+                  <span class="sheet-name-label">Dado de vida</span>
+                  <select id="hitDieSelect" class="sheet-select">
+                    <option value="d4">d4</option>
+                    <option value="d6">d6</option>
+                    <option value="d8">d8</option>
+                    <option value="d10" selected>d10</option>
+                    <option value="d12">d12</option>
+                    <option value="d20">d20</option>
+                  </select>
+                </label>
+                <button type="button" id="rollHitDieBtn" class="sheet-dice-btn" data-action="roll-hit-die">Rolar dado de vida</button>
+                <span id="hitDieRollResult" class="sheet-roll-result" aria-live="polite"></span>
+              </div>
+              <div class="sheet-hp-grid">
+                <label class="sheet-inline-field">
+                  <span class="sheet-name-label">Vida máxima</span>
+                  <input type="number" id="hpMaxInput" class="sheet-number-input" min="0" max="999" inputmode="numeric" />
+                </label>
+                <label class="sheet-inline-field">
+                  <span class="sheet-name-label">Vida atual</span>
+                  <input type="number" id="hpCurrentInput" class="sheet-number-input" min="0" max="999" inputmode="numeric" />
+                </label>
+                <label class="sheet-inline-field">
+                  <span class="sheet-name-label">Vida temporária</span>
+                  <input type="number" id="hpTempInput" class="sheet-number-input" min="0" max="999" value="0" inputmode="numeric" />
+                </label>
+              </div>
+              <div class="sheet-hp-actions">
+                <button type="button" id="hpFullHealBtn" class="sheet-dice-btn" data-action="hp-full-heal">Recuperar toda a vida</button>
+                <label class="sheet-hp-heal-inline">
+                  <span class="visually-hidden">Quantidade a curar</span>
+                  <input type="number" id="hpHealAmount" class="sheet-number-input" min="1" max="999" value="5" inputmode="numeric" />
+                  <button type="button" id="hpHealBtn" class="sheet-dice-btn" data-action="hp-heal">Curar (+)</button>
+                </label>
+              </div>
+            </div>
+
+            <div class="sheet-dice-block">
+              <h3 class="sheet-dice-subtitle">Salvaguardas de morte</h3>
+              <p class="sheet-dice-hint">Marca sucessos e falhas (máx. 3 de cada).</p>
+              <div class="sheet-death-saves">
+                <div class="sheet-death-save-group">
+                  <span class="sheet-death-save-label">Sucessos</span>
+                  <div id="deathSaveSuccess" class="sheet-death-dots" role="group" aria-label="Sucessos"></div>
+                </div>
+                <div class="sheet-death-save-group">
+                  <span class="sheet-death-save-label">Falhas</span>
+                  <div id="deathSaveFailure" class="sheet-death-dots" role="group" aria-label="Falhas"></div>
+                </div>
+                <button type="button" id="deathSaveResetBtn" class="sheet-dice-btn sheet-dice-btn--muted" data-action="death-save-reset">Repor</button>
+              </div>
+            </div>
+          </section>
+
           <p id="sheetEmpty" class="sheet-empty" hidden>
             Nenhum item na ficha. Marca favoritos à esquerda com «Na ficha».
           </p>
