@@ -849,6 +849,262 @@ body {
   margin-bottom: 1rem;
 }
 
+.sheet-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 0.85rem;
+}
+
+.sheet-tools-open-btn {
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid #1d4ed8;
+  background: linear-gradient(180deg, #3b82f6, #2563eb);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sheet-tools-open-btn:hover {
+  background: linear-gradient(180deg, #60a5fa, #3b82f6);
+}
+
+.sheet-tools-teaser {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.88rem;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.sheet-tools-teaser-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #1d4ed8;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sheet-tools-teaser-link:hover {
+  color: #1e40af;
+}
+
+/* —— Mesa de dados (painel lateral) —— */
+.game-tools-fab {
+  position: fixed;
+  right: 1.15rem;
+  bottom: 1.15rem;
+  z-index: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid #b45309;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fbbf24, #d97706);
+  color: #1c1917;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(180, 83, 9, 0.45);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.game-tools-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(180, 83, 9, 0.5);
+}
+
+body.game-tools-open .game-tools-fab {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.9);
+}
+
+.game-tools-fab-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.game-tools-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.game-tools-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 960;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 26.5rem);
+  max-width: 26.5rem;
+  height: 100%;
+  max-height: 100dvh;
+  background: #f8fafc;
+  border-left: 1px solid #cbd5e1;
+  box-shadow: -12px 0 40px rgba(15, 23, 42, 0.2);
+  transform: translateX(100%);
+  pointer-events: none;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.game-tools-panel.is-open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.game-tools-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1rem 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.game-tools-title {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.game-tools-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.game-tools-close {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #64748b;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.game-tools-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.game-tools-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.65rem 1rem 0;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.game-tools-tab {
+  flex: 1;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.game-tools-tab:hover:not(:disabled) {
+  color: #334155;
+  background: #f8fafc;
+}
+
+.game-tools-tab.is-active {
+  color: #1d4ed8;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  border-bottom-color: #f8fafc;
+  margin-bottom: -1px;
+}
+
+.game-tools-tab--planned:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.game-tools-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.85rem 1rem 1.25rem;
+  background: #e8ecf1;
+}
+
+.game-tools-pane {
+  display: none;
+}
+
+.game-tools-pane.is-active {
+  display: block;
+}
+
+.sheet-dice--nested {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.sheet-dice--nested .sheet-core-title {
+  margin-top: 0;
+}
+
+.game-tools-planned {
+  padding: 1rem;
+  background: #fff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}
+
+.game-tools-planned-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: #334155;
+}
+
+.game-tools-planned-text {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.game-tools-planned-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
 .sheet-title {
   margin: 0 0 0.25rem;
   font-size: 1.45rem;
@@ -1029,6 +1285,38 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem 1rem;
+}
+
+.sheet-core-vitals {
+  margin: 0.85rem 0 0;
+  padding: 0.85rem 0 0;
+  border: 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.sheet-core-vitals--death {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+}
+
+.sheet-core-vitals .sheet-name-label {
+  margin-bottom: 0.5rem;
+}
+
+.sheet-core-vitals-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.sheet-core-vitals .sheet-hp-actions {
+  margin-bottom: 0;
+}
+
+.sheet-dice-btn--compact {
+  padding: 0.32rem 0.6rem;
+  font-size: 0.8rem;
 }
 
 .sheet-inline-field {
@@ -2548,5 +2836,14 @@ body {
 
   .sheet-hp-grid {
     grid-template-columns: 1fr;
+  }
+
+  .game-tools-panel {
+    width: 100%;
+    max-width: none;
+  }
+
+  .game-tools-fab .game-tools-fab-label {
+    display: none;
   }
 }

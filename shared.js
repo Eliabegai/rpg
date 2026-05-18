@@ -5,6 +5,48 @@ const STORAGE_FAVORITES = "dnd5eapi.favorites";
 const STORAGE_LIST_SCOPE = "dnd5eapi.listScope";
 const STORAGE_SESSION = "dnd5eapi.session";
 const STORAGE_SHEET = "dnd5eapi.sheet";
+const STORAGE_GAME_TOOLS = "dnd5eapi.gameTools";
+
+/** Abas do painel de ferramentas (mesa). `dm` = futuro painel do mestre (monstros, iniciativa). */
+const GAME_TOOLS_TABS = ["combat", "character", "dm"];
+
+/**
+ * Esquema previsto para a aba Mestre (não implementado).
+ * @typedef {object} PlannedDmMonster
+ * @property {string} id
+ * @property {string} name
+ * @property {number} hpMax
+ * @property {number} hpCurrent
+ * @property {number|null} initiative
+ * @property {string} [attackFormula] ex. "2d6+3"
+ * @property {string} [actionsNote]
+ */
+
+const DEFAULT_GAME_TOOLS = {
+  open: false,
+  tab: "combat",
+};
+
+function normalizeGameTools(raw) {
+  const tab = GAME_TOOLS_TABS.includes(raw?.tab) ? raw.tab : "combat";
+  return {
+    open: Boolean(raw?.open),
+    tab: tab === "dm" ? "combat" : tab,
+  };
+}
+
+function loadGameToolsPrefs() {
+  try {
+    const raw = localStorage.getItem(STORAGE_GAME_TOOLS);
+    return normalizeGameTools(raw ? JSON.parse(raw) : null);
+  } catch {
+    return { ...DEFAULT_GAME_TOOLS };
+  }
+}
+
+function saveGameToolsPrefs(prefs) {
+  localStorage.setItem(STORAGE_GAME_TOOLS, JSON.stringify(normalizeGameTools(prefs)));
+}
 
 let currentLocale = "pt-BR";
 

@@ -36,11 +36,22 @@
               <h1 class="sheet-title">Ficha de personagem</h1>
               <p class="sheet-subtitle">Resumo dos itens que escolheste a partir dos favoritos.</p>
             </div>
-            <div class="locale-bar sheet-locale-bar" aria-label="Idioma da API">
-              <label for="localeSelect" class="locale-bar-label">Idioma</label>
-              <select id="localeSelect" class="locale-bar-select" aria-label="Idioma das traduções">
-                <option value="pt-BR">pt-BR</option>
-              </select>
+            <div class="sheet-header-actions">
+              <button
+                type="button"
+                id="gameToolsOpenHeader"
+                class="sheet-tools-open-btn"
+                aria-expanded="false"
+                aria-controls="gameToolsPanel"
+              >
+                Mesa de dados
+              </button>
+              <div class="locale-bar sheet-locale-bar" aria-label="Idioma da API">
+                <label for="localeSelect" class="locale-bar-label">Idioma</label>
+                <select id="localeSelect" class="locale-bar-select" aria-label="Idioma das traduções">
+                  <option value="pt-BR">pt-BR</option>
+                </select>
+              </div>
             </div>
           </header>
 
@@ -104,14 +115,124 @@
                     <p id="alignmentSummary" class="sheet-alignment-summary" hidden></p>
                   </label>
                 </div>
+
+                <fieldset class="sheet-core-vitals" aria-labelledby="sheetVitalsHpTitle">
+                  <legend id="sheetVitalsHpTitle" class="sheet-name-label">Pontos de vida</legend>
+                  <div class="sheet-hp-row">
+                    <label class="sheet-inline-field">
+                      <span class="sheet-name-label">Dado de vida</span>
+                      <select id="hitDieSelect" class="sheet-select">
+                        <option value="d4">d4</option>
+                        <option value="d6">d6</option>
+                        <option value="d8">d8</option>
+                        <option value="d10" selected>d10</option>
+                        <option value="d12">d12</option>
+                        <option value="d20">d20</option>
+                      </select>
+                    </label>
+                    <button type="button" id="rollHitDieBtn" class="sheet-dice-btn sheet-dice-btn--compact" data-action="roll-hit-die">
+                      Rolar dado de vida
+                    </button>
+                    <span id="hitDieRollResult" class="sheet-roll-result" aria-live="polite"></span>
+                  </div>
+                  <div class="sheet-hp-grid">
+                    <label class="sheet-inline-field">
+                      <span class="sheet-name-label">Vida máxima</span>
+                      <input type="number" id="hpMaxInput" class="sheet-number-input" min="0" max="999" inputmode="numeric" />
+                    </label>
+                    <label class="sheet-inline-field">
+                      <span class="sheet-name-label">Vida atual</span>
+                      <input type="number" id="hpCurrentInput" class="sheet-number-input" min="0" max="999" inputmode="numeric" />
+                    </label>
+                    <label class="sheet-inline-field">
+                      <span class="sheet-name-label">Vida temporária</span>
+                      <input type="number" id="hpTempInput" class="sheet-number-input" min="0" max="999" value="0" inputmode="numeric" />
+                    </label>
+                  </div>
+                  <div class="sheet-hp-actions">
+                    <button type="button" id="hpFullHealBtn" class="sheet-dice-btn sheet-dice-btn--compact" data-action="hp-full-heal">
+                      Recuperar toda a vida
+                    </button>
+                    <label class="sheet-hp-heal-inline">
+                      <span class="visually-hidden">Quantidade a curar</span>
+                      <input type="number" id="hpHealAmount" class="sheet-number-input" min="1" max="999" value="5" inputmode="numeric" />
+                      <button type="button" id="hpHealBtn" class="sheet-dice-btn sheet-dice-btn--compact" data-action="hp-heal">Curar (+)</button>
+                    </label>
+                  </div>
+                </fieldset>
+
+                <fieldset class="sheet-core-vitals sheet-core-vitals--death" aria-labelledby="sheetVitalsDeathTitle">
+                  <legend id="sheetVitalsDeathTitle" class="sheet-name-label">Salvaguardas de morte</legend>
+                  <p class="sheet-core-vitals-hint">Marca sucessos e falhas (máx. 3 de cada).</p>
+                  <div class="sheet-death-saves">
+                    <div class="sheet-death-save-group">
+                      <span class="sheet-death-save-label">Sucessos</span>
+                      <div id="deathSaveSuccess" class="sheet-death-dots" role="group" aria-label="Sucessos"></div>
+                    </div>
+                    <div class="sheet-death-save-group">
+                      <span class="sheet-death-save-label">Falhas</span>
+                      <div id="deathSaveFailure" class="sheet-death-dots" role="group" aria-label="Falhas"></div>
+                    </div>
+                    <button type="button" id="deathSaveResetBtn" class="sheet-dice-btn sheet-dice-btn--muted sheet-dice-btn--compact" data-action="death-save-reset">
+                      Repor
+                    </button>
+                  </div>
+                </fieldset>
               </div>
             </div>
           </section>
 
-          <section class="sheet-dice" id="sheetDice" aria-labelledby="sheetDiceTitle">
-            <h2 id="sheetDiceTitle" class="sheet-core-title">Dados e combate</h2>
+          <p class="sheet-tools-teaser">
+            Rolagens d20 e de dano estão na
+            <button type="button" class="sheet-tools-teaser-link" data-action="open-game-tools">mesa de dados</button>.
+          </p>
 
-            <div class="sheet-dice-block sheet-dice-block--d20">
+
+          <p id="sheetEmpty" class="sheet-empty" hidden>
+            Nenhum item na ficha. Marca favoritos à esquerda com «Na ficha».
+          </p>
+
+          <div id="sheetBoard" class="sheet-board" aria-live="polite"></div>
+        </div>
+      </main>
+    </div>
+    <button
+      type="button"
+      id="gameToolsFab"
+      class="game-tools-fab"
+      aria-expanded="false"
+      aria-controls="gameToolsPanel"
+      title="Mesa de dados"
+    >
+      <span class="game-tools-fab-icon" aria-hidden="true">🎲</span>
+      <span class="game-tools-fab-label">Dados</span>
+    </button>
+    <div id="gameToolsBackdrop" class="game-tools-backdrop" hidden aria-hidden="true"></div>
+    <aside
+      id="gameToolsPanel"
+      class="game-tools-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="gameToolsTitle"
+      aria-hidden="true"
+    >
+      <header class="game-tools-header">
+        <div class="game-tools-header-text">
+          <h2 id="gameToolsTitle" class="game-tools-title">Mesa de dados</h2>
+          <p class="game-tools-subtitle">Rolagens d20, dano e geração de atributos — fora da ficha principal</p>
+        </div>
+        <button type="button" id="gameToolsClose" class="game-tools-close" aria-label="Fechar mesa de dados">×</button>
+      </header>
+      <nav class="game-tools-tabs" role="tablist" aria-label="Secções da mesa">
+        <button type="button" class="game-tools-tab is-active" role="tab" id="gameToolsTabCombat" data-tools-tab="combat" aria-selected="true" aria-controls="gameToolsPanelCombat">Combate</button>
+        <button type="button" class="game-tools-tab" role="tab" id="gameToolsTabCharacter" data-tools-tab="character" aria-selected="false" aria-controls="gameToolsPanelCharacter">Personagem</button>
+        <button type="button" class="game-tools-tab game-tools-tab--planned" role="tab" id="gameToolsTabDm" data-tools-tab="dm" aria-selected="false" aria-controls="gameToolsPanelDm" disabled title="Em breve">Mestre</button>
+      </nav>
+      <div class="game-tools-body">
+        <section id="gameToolsPanelCombat" class="game-tools-pane is-active" data-tools-pane="combat" role="tabpanel" aria-labelledby="gameToolsTabCombat">
+          <section class="sheet-dice sheet-dice--nested" id="sheetDice" aria-labelledby="sheetDiceTitle">
+            <h2 id="sheetDiceTitle" class="sheet-core-title">Rolagens</h2>
+<div class="sheet-dice-block sheet-dice-block--d20">
               <h3 class="sheet-dice-subtitle">Rolagem d20</h3>
               <p class="sheet-dice-hint">Ataques, perícias, iniciativa e testes de resistência.</p>
               <div class="sheet-d20-panel" id="d20Panel">
@@ -211,8 +332,11 @@
                 <p class="sheet-dmg-result" id="dmgResultText" aria-live="polite"></p>
               </div>
             </div>
-
-            <div class="sheet-dice-block">
+          </section>
+        </section>
+        <section id="gameToolsPanelCharacter" class="game-tools-pane" data-tools-pane="character" role="tabpanel" aria-labelledby="gameToolsTabCharacter" hidden>
+          <section class="sheet-dice sheet-dice--nested" id="sheetDiceCharacter" aria-label="Geração de atributos">
+<div class="sheet-dice-block">
               <h3 class="sheet-dice-subtitle">Geração de atributos (4d6)</h3>
               <p class="sheet-dice-hint">
                 Rola 4d6 sete vezes, descarta o menor dado de cada rolagem e depois o menor total (fica inativo para conferência).
@@ -229,73 +353,22 @@
               </p>
               <ul id="abilityRollSets" class="sheet-ability-rolls" aria-live="polite"></ul>
             </div>
-
-            <div class="sheet-dice-block">
-              <h3 class="sheet-dice-subtitle">Pontos de vida</h3>
-              <div class="sheet-hp-row">
-                <label class="sheet-inline-field">
-                  <span class="sheet-name-label">Dado de vida</span>
-                  <select id="hitDieSelect" class="sheet-select">
-                    <option value="d4">d4</option>
-                    <option value="d6">d6</option>
-                    <option value="d8">d8</option>
-                    <option value="d10" selected>d10</option>
-                    <option value="d12">d12</option>
-                    <option value="d20">d20</option>
-                  </select>
-                </label>
-                <button type="button" id="rollHitDieBtn" class="sheet-dice-btn" data-action="roll-hit-die">Rolar dado de vida</button>
-                <span id="hitDieRollResult" class="sheet-roll-result" aria-live="polite"></span>
-              </div>
-              <div class="sheet-hp-grid">
-                <label class="sheet-inline-field">
-                  <span class="sheet-name-label">Vida máxima</span>
-                  <input type="number" id="hpMaxInput" class="sheet-number-input" min="0" max="999" inputmode="numeric" />
-                </label>
-                <label class="sheet-inline-field">
-                  <span class="sheet-name-label">Vida atual</span>
-                  <input type="number" id="hpCurrentInput" class="sheet-number-input" min="0" max="999" inputmode="numeric" />
-                </label>
-                <label class="sheet-inline-field">
-                  <span class="sheet-name-label">Vida temporária</span>
-                  <input type="number" id="hpTempInput" class="sheet-number-input" min="0" max="999" value="0" inputmode="numeric" />
-                </label>
-              </div>
-              <div class="sheet-hp-actions">
-                <button type="button" id="hpFullHealBtn" class="sheet-dice-btn" data-action="hp-full-heal">Recuperar toda a vida</button>
-                <label class="sheet-hp-heal-inline">
-                  <span class="visually-hidden">Quantidade a curar</span>
-                  <input type="number" id="hpHealAmount" class="sheet-number-input" min="1" max="999" value="5" inputmode="numeric" />
-                  <button type="button" id="hpHealBtn" class="sheet-dice-btn" data-action="hp-heal">Curar (+)</button>
-                </label>
-              </div>
-            </div>
-
-            <div class="sheet-dice-block">
-              <h3 class="sheet-dice-subtitle">Salvaguardas de morte</h3>
-              <p class="sheet-dice-hint">Marca sucessos e falhas (máx. 3 de cada).</p>
-              <div class="sheet-death-saves">
-                <div class="sheet-death-save-group">
-                  <span class="sheet-death-save-label">Sucessos</span>
-                  <div id="deathSaveSuccess" class="sheet-death-dots" role="group" aria-label="Sucessos"></div>
-                </div>
-                <div class="sheet-death-save-group">
-                  <span class="sheet-death-save-label">Falhas</span>
-                  <div id="deathSaveFailure" class="sheet-death-dots" role="group" aria-label="Falhas"></div>
-                </div>
-                <button type="button" id="deathSaveResetBtn" class="sheet-dice-btn sheet-dice-btn--muted" data-action="death-save-reset">Repor</button>
-              </div>
-            </div>
           </section>
+        </section>
+        <section id="gameToolsPanelDm" class="game-tools-pane game-tools-pane--planned" data-tools-pane="dm" role="tabpanel" aria-labelledby="gameToolsTabDm" hidden>
+          <div class="game-tools-planned">
+            <h3 class="game-tools-planned-title">Mesa do mestre</h3>
+            <p class="game-tools-planned-text">Em breve: adicionar monstros à mesa com PV, iniciativa, dados de ataque e ações — sem misturar com a ficha do jogador.</p>
+            <ul class="game-tools-planned-list">
+              <li>Rastrear iniciativa</li>
+              <li>PV por criatura</li>
+              <li>Rolagens de ataque e dano por monstro</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+    </aside>
 
-          <p id="sheetEmpty" class="sheet-empty" hidden>
-            Nenhum item na ficha. Marca favoritos à esquerda com «Na ficha».
-          </p>
-
-          <div id="sheetBoard" class="sheet-board" aria-live="polite"></div>
-        </div>
-      </main>
-    </div>
     <script src="shared.js"></script>
     <script src="sheet.js"></script>
   </body>

@@ -78,6 +78,11 @@ const dmgModifierInput = document.getElementById("dmgModifierInput");
 const rollDmgBtn = document.getElementById("rollDmgBtn");
 const clearDmgBtn = document.getElementById("clearDmgBtn");
 const dmgResultText = document.getElementById("dmgResultText");
+const gameToolsFab = document.getElementById("gameToolsFab");
+const gameToolsOpenHeader = document.getElementById("gameToolsOpenHeader");
+const gameToolsBackdrop = document.getElementById("gameToolsBackdrop");
+const gameToolsPanel = document.getElementById("gameToolsPanel");
+const gameToolsClose = document.getElementById("gameToolsClose");
 
 function rollD6() {
   return 1 + Math.floor(Math.random() * 6);
@@ -1500,6 +1505,14 @@ function onSheetClick(e) {
     clearDamagePool();
     return;
   }
+  if (action === "open-game-tools") {
+    openGameTools();
+    return;
+  }
+  if (action === "game-tools-tab") {
+    setGameToolsTab(btn.dataset.toolsTab);
+    return;
+  }
   if (action === "hp-full-heal") {
     onHpFullHeal();
     return;
@@ -1900,6 +1913,86 @@ function onLocaleReload() {
   renderSheetBoard();
 }
 
+function syncGameToolsUi() {
+  const prefs = loadGameToolsPrefs();
+  const open = prefs.open;
+  const tab = prefs.tab;
+
+  document.body.classList.toggle("game-tools-open", open);
+  if (gameToolsPanel) {
+    gameToolsPanel.classList.toggle("is-open", open);
+    gameToolsPanel.setAttribute("aria-hidden", String(!open));
+  }
+  if (gameToolsBackdrop) gameToolsBackdrop.hidden = !open;
+
+  for (const el of [gameToolsFab, gameToolsOpenHeader]) {
+    if (!el) continue;
+    el.setAttribute("aria-expanded", String(open));
+  }
+
+  setGameToolsTab(tab, { save: false });
+}
+
+function openGameTools(tab) {
+  const prefs = loadGameToolsPrefs();
+  saveGameToolsPrefs({ open: true, tab: tab || prefs.tab || "combat" });
+  syncGameToolsUi();
+  (gameToolsClose || gameToolsPanel)?.focus();
+}
+
+function closeGameTools() {
+  saveGameToolsPrefs({ ...loadGameToolsPrefs(), open: false });
+  syncGameToolsUi();
+  (gameToolsFab || gameToolsOpenHeader)?.focus();
+}
+
+function setGameToolsTab(tab, { save = true } = {}) {
+  const id = GAME_TOOLS_TABS.includes(tab) ? tab : "combat";
+  const activeTab = id === "dm" ? "combat" : id;
+
+  document.querySelectorAll(".game-tools-tab").forEach((btn) => {
+    const on = btn.dataset.toolsTab === activeTab;
+    btn.classList.toggle("is-active", on);
+    btn.setAttribute("aria-selected", String(on));
+  });
+
+  document.querySelectorAll(".game-tools-pane").forEach((pane) => {
+    pane.classList.toggle("is-active", pane.dataset.toolsPane === activeTab);
+    pane.hidden = pane.dataset.toolsPane !== activeTab;
+  });
+
+  if (save) {
+    saveGameToolsPrefs({ ...loadGameToolsPrefs(), tab: activeTab });
+  }
+}
+
+function initGameTools() {
+  syncGameToolsUi();
+
+  gameToolsFab?.addEventListener("click", () => {
+    const prefs = loadGameToolsPrefs();
+    if (prefs.open) closeGameTools();
+    else openGameTools();
+  });
+  gameToolsOpenHeader?.addEventListener("click", () => openGameTools());
+  gameToolsClose?.addEventListener("click", closeGameTools);
+  gameToolsBackdrop?.addEventListener("click", closeGameTools);
+
+  document.querySelectorAll(".game-tools-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.disabled) return;
+      setGameToolsTab(btn.dataset.toolsTab);
+    });
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && loadGameToolsPrefs().open) {
+      e.preventDefault();
+      closeGameTools();
+    }
+  });
+}
+
 async function boot() {
   await populateLocalesDropdown(localeSelect, { onChange: onLocaleReload });
   await loadAlignmentsDropdown();
@@ -1907,6 +2000,7 @@ async function boot() {
   buildAbilityScoresGrid();
   buildDeathSaveDots();
   syncCharacterCoreFromSheet();
+  initGameTools();
 
   document.body.addEventListener("click", onSheetClick);
   document.body.addEventListener("change", (e) => {
