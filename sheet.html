@@ -111,6 +111,46 @@
           <section class="sheet-dice" id="sheetDice" aria-labelledby="sheetDiceTitle">
             <h2 id="sheetDiceTitle" class="sheet-core-title">Dados e combate</h2>
 
+            <div class="sheet-dice-block sheet-dice-block--d20">
+              <h3 class="sheet-dice-subtitle">Rolagem d20</h3>
+              <p class="sheet-dice-hint">Ataques, perícias, iniciativa e testes de resistência.</p>
+              <div class="sheet-d20-panel">
+                <div
+                  class="sheet-d20-stage"
+                  id="d20Stage"
+                  role="status"
+                  aria-live="assertive"
+                  aria-atomic="true"
+                  aria-label="Pronto para rolar"
+                >
+                  <span class="sheet-d20-glow" aria-hidden="true"></span>
+                  <span class="sheet-d20-face" id="d20Face">—</span>
+                  <span class="sheet-d20-badge" aria-hidden="true">d20</span>
+                </div>
+                <span class="sheet-d20-outcome" id="d20Outcome" hidden></span>
+                <div class="sheet-d20-controls">
+                  <label class="sheet-inline-field sheet-d20-mod-field">
+                    <span class="sheet-name-label">Modificador</span>
+                    <input
+                      type="number"
+                      id="d20ModifierInput"
+                      class="sheet-number-input"
+                      value="0"
+                      min="-20"
+                      max="20"
+                      step="1"
+                      inputmode="numeric"
+                      aria-label="Modificador da rolagem"
+                    />
+                  </label>
+                  <button type="button" id="rollD20Btn" class="sheet-dice-btn sheet-dice-btn--d20" data-action="roll-d20">
+                    Rolar d20
+                  </button>
+                </div>
+                <p class="sheet-d20-result" id="d20ResultText" aria-live="polite"></p>
+              </div>
+            </div>
+
             <div class="sheet-dice-block">
               <h3 class="sheet-dice-subtitle">Geração de atributos (4d6)</h3>
               <p class="sheet-dice-hint">

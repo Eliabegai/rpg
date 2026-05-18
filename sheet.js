@@ -60,6 +60,12 @@ const hpHealBtn = document.getElementById("hpHealBtn");
 const deathSaveSuccess = document.getElementById("deathSaveSuccess");
 const deathSaveFailure = document.getElementById("deathSaveFailure");
 const deathSaveResetBtn = document.getElementById("deathSaveResetBtn");
+const d20Stage = document.getElementById("d20Stage");
+const d20Face = document.getElementById("d20Face");
+const d20Outcome = document.getElementById("d20Outcome");
+const d20ModifierInput = document.getElementById("d20ModifierInput");
+const rollD20Btn = document.getElementById("rollD20Btn");
+const d20ResultText = document.getElementById("d20ResultText");
 
 function rollD6() {
   return 1 + Math.floor(Math.random() * 6);
@@ -280,6 +286,147 @@ function rollDie(sides) {
 }
 
 let hitDieRollTicker = null;
+let d20RollActive = false;
+
+const D20_ROLL_TICK_MS = [
+  42, 42, 44, 46, 50, 54, 58, 64, 72, 82, 94, 108, 125, 145, 170, 200, 235, 280, 340, 420, 520,
+];
+
+function clampD20Modifier(n) {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-20, Math.min(20, Math.floor(n)));
+}
+
+function readD20Modifier() {
+  return clampD20Modifier(Number(d20ModifierInput?.value));
+}
+
+function formatRollModifier(mod) {
+  if (mod === 0) return "+0";
+  return mod > 0 ? `+${mod}` : String(mod);
+}
+
+function resetD20StageClasses() {
+  d20Stage?.classList.remove("is-rolling", "is-slowing", "is-landing", "is-landed", "is-crit", "is-fumble");
+}
+
+function setD20Face(value) {
+  if (!d20Face) return;
+  d20Face.textContent = String(value);
+  d20Face.dataset.value = String(value);
+}
+
+async function animateD20Suspense(finalNatural) {
+  if (!d20Face || !d20Stage) return;
+
+  resetD20StageClasses();
+  d20Stage.classList.add("is-rolling");
+
+  const slowAt = Math.floor(D20_ROLL_TICK_MS.length * 0.52);
+  const settleAt = D20_ROLL_TICK_MS.length - 4;
+
+  for (let i = 0; i < D20_ROLL_TICK_MS.length; i++) {
+    if (i === slowAt) {
+      d20Stage.classList.remove("is-rolling");
+      d20Stage.classList.add("is-slowing");
+    }
+    setD20Face(i >= settleAt ? finalNatural : rollDie(20));
+    await delay(D20_ROLL_TICK_MS[i]);
+  }
+
+  d20Stage.classList.remove("is-slowing");
+  d20Stage.classList.add("is-landing");
+  setD20Face(finalNatural);
+  await delay(220);
+
+  d20Stage.classList.remove("is-landing");
+  d20Stage.classList.add("is-landed");
+  if (finalNatural === 20) d20Stage.classList.add("is-crit");
+  if (finalNatural === 1) d20Stage.classList.add("is-fumble");
+}
+
+function presentD20Result(natural, modifier) {
+  const total = natural + modifier;
+  const modLabel = formatRollModifier(modifier);
+
+  if (d20Outcome) {
+    if (natural === 20) {
+      d20Outcome.textContent = "Crítico natural!";
+      d20Outcome.hidden = false;
+    } else if (natural === 1) {
+      d20Outcome.textContent = "Falha crítica";
+      d20Outcome.hidden = false;
+    } else {
+      d20Outcome.hidden = true;
+    }
+  }
+
+  if (d20ResultText) {
+    d20ResultText.textContent =
+      modifier === 0 ? `Total: ${total}` : `${natural} ${modLabel} = ${total}`;
+  }
+
+  const aria =
+    natural === 20
+      ? `Crítico natural! ${natural} ${modLabel}, total ${total}`
+      : natural === 1
+        ? `Falha crítica. ${natural} ${modLabel}, total ${total}`
+        : `Rolou ${natural} ${modLabel}, total ${total}`;
+  if (d20Stage) d20Stage.setAttribute("aria-label", aria);
+
+  return { natural, modifier, total };
+}
+
+async function rollD20Check() {
+  if (d20RollActive) return;
+
+  const modifier = readD20Modifier();
+  const natural = rollDie(20);
+
+  d20RollActive = true;
+  if (rollD20Btn) {
+    rollD20Btn.disabled = true;
+    rollD20Btn.setAttribute("aria-busy", "true");
+  }
+  if (d20ResultText) d20ResultText.textContent = "";
+  if (d20Outcome) d20Outcome.hidden = true;
+  resetD20StageClasses();
+
+  if (prefersReducedMotion()) {
+    setD20Face(natural);
+    if (natural === 20) d20Stage?.classList.add("is-crit", "is-landed");
+    else if (natural === 1) d20Stage?.classList.add("is-fumble", "is-landed");
+    else d20Stage?.classList.add("is-landed");
+  } else {
+    await animateD20Suspense(natural);
+  }
+
+  const result = presentD20Result(natural, modifier);
+
+  d20RollActive = false;
+  if (rollD20Btn) {
+    rollD20Btn.disabled = false;
+    rollD20Btn.setAttribute("aria-busy", "false");
+  }
+  return result;
+}
+
+function onD20ModifierChange() {
+  const mod = readD20Modifier();
+  if (d20ModifierInput && d20ModifierInput.value !== String(mod)) {
+    d20ModifierInput.value = String(mod);
+  }
+  patchSheet((sheet) => {
+    sheet.d20Modifier = String(mod);
+  });
+}
+
+function syncD20Fields() {
+  const sheet = loadSheet();
+  if (d20ModifierInput && document.activeElement !== d20ModifierInput) {
+    d20ModifierInput.value = sheet.d20Modifier ?? "0";
+  }
+}
 
 async function rollHitDie() {
   const sides = parseDieSides(hitDieSelect?.value);
@@ -930,6 +1077,10 @@ function onSheetClick(e) {
     rollHitDie();
     return;
   }
+  if (action === "roll-d20") {
+    rollD20Check();
+    return;
+  }
   if (action === "hp-full-heal") {
     onHpFullHeal();
     return;
@@ -990,6 +1141,7 @@ function syncCharacterCoreFromSheet() {
   renderAbilityRollSets();
   syncAbilityAssignDropdowns();
   syncHpFields();
+  syncD20Fields();
   renderDeathSaves();
 }
 
@@ -1341,6 +1493,7 @@ async function boot() {
     onClassProficiencyChange(e);
     onAbilityAssignChange(e);
     if (e.target === hitDieSelect) onHitDieSelectChange();
+    if (e.target === d20ModifierInput) onD20ModifierChange();
     if (e.target === hpMaxInput || e.target === hpCurrentInput || e.target === hpTempInput) onHpFieldChange();
   });
 
@@ -1381,6 +1534,16 @@ async function boot() {
       e.preventDefault();
       rollHitDie();
     });
+  }
+  if (rollD20Btn) {
+    rollD20Btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      rollD20Check();
+    });
+  }
+  if (d20ModifierInput) {
+    d20ModifierInput.addEventListener("input", onD20ModifierChange);
+    d20ModifierInput.addEventListener("change", onD20ModifierChange);
   }
   if (armorClassInput) {
     armorClassInput.addEventListener("input", onArmorClassInput);

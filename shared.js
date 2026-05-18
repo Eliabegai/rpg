@@ -21,6 +21,7 @@ const DEFAULT_SHEET = {
   /** 7× 4d6 (descarta menor dado); um conjunto fica inactive */
   abilityGeneration: { sets: [], assignment: {} },
   hitDie: "d10",
+  d20Modifier: "0",
   hpMax: "",
   hpCurrent: "",
   hpTemp: "0",
@@ -69,6 +70,7 @@ function normalizeSheet(parsed) {
     classProficiencyPicks,
     abilityGeneration: normalizeAbilityGeneration(parsed.abilityGeneration),
     hitDie: parsed.hitDie != null ? String(parsed.hitDie) : "d10",
+    d20Modifier: parsed.d20Modifier != null ? String(parsed.d20Modifier) : "0",
     hpMax: parsed.hpMax != null ? String(parsed.hpMax) : "",
     hpCurrent: parsed.hpCurrent != null ? String(parsed.hpCurrent) : "",
     hpTemp: parsed.hpTemp != null ? String(parsed.hpTemp) : "0",
