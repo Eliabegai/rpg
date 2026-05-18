@@ -58,7 +58,7 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 
 - Slots por classe/nível (tabelas locais)
 - UI na ficha: grelha de slots (v1: pleno, meio-conjurador)
-- **Próximo — magias por nível:** registar magias conhecidas/preparadas agrupadas por nível de slot (truques + 1º–9º), com indicação do que ainda podes conjurar (slot disponível vs. magias na lista). Integração com favoritos da API (`spells`) e estado «preparada/conhecida».
+- **Magias por nível (Fase C+):** lista por nível de slot (truques + 1º–9º), estado «preparada», indicador «Posso usar» / «Sem slot», importação dos favoritos ★ e ao marcar magia «Na ficha».
 - Multiclasse / pacto / 1/3 — expandir tabelas (Fase D+)
 
 ---
@@ -103,10 +103,10 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 - [x] Descanso curto/longo + ambientes
 - [x] Sync ficha ↔ mesa
 
-### Fase C+ — Slots de magia (próximo)
-- [ ] Magias registadas por nível de slot (lista + «posso usar?» vs slots gastos)
-- [ ] Ligar magias favoritas da API à lista por nível
-- [ ] Truques separados dos slots de nível
+### Fase C+ — Slots de magia
+- [x] Magias registadas por nível de slot (lista + «posso usar?» vs slots gastos)
+- [x] Ligar magias favoritas da API à lista por nível
+- [x] Truques separados dos slots de nível
 
 ### Fase D — Polimento
 - [x] PWA (manifest + service worker offline para assets estáticos)

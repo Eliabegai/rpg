@@ -10,6 +10,7 @@ const sheetSyncStatus = document.getElementById("sheetSyncStatus");
 const gameToolsSyncStatus = document.getElementById("gameToolsSyncStatus");
 const casterTypeSelect = document.getElementById("casterTypeSelect");
 const spellSlotsGrid = document.getElementById("spellSlotsGrid");
+const spellListByLevel = document.getElementById("spellListByLevel");
 const restEnvironmentSelect = document.getElementById("restEnvironmentSelect");
 const restEnvironmentHint = document.getElementById("restEnvironmentHint");
 const hitDiceRemainingInput = document.getElementById("hitDiceRemainingInput");
@@ -45,8 +46,9 @@ let alignmentsLoaded = false;
 function patchSheet(mutator) {
   const sheet = loadSheet();
   mutator(sheet);
-  saveSheet(sheet);
-  return sheet;
+  const normalized = normalizeSheet(sheet);
+  saveSheet(normalized);
+  return normalized;
 }
 
 function abilityModifier(score) {
@@ -966,8 +968,12 @@ function toggleSheetItem(entry) {
       applyCacheToEntry(item, fav.cachedData, fav.dataLocale || currentLocale);
     }
     sheet.items.push(item);
+    if (isSpellResourceKey(entry.resourceKey)) {
+      const level = item.cachedData ? spellLevelFromApiData(item.cachedData) : 0;
+      addSpellToSheetList(sheet, item, { level, prepared: true });
+    }
   }
-  saveSheet(sheet);
+  saveSheet(normalizeSheet(sheet));
   renderAll();
 }
 
@@ -1035,8 +1041,13 @@ function renderLibrary() {
           </li>`;
         })
         .join("");
+      const spellHint =
+        resourceKey === "spells"
+          ? '<p class="sheet-library-spell-hint">Magias «Na ficha» entram na lista por nível (secção Slots).</p>'
+          : "";
       return `<section class="sheet-library-group" aria-labelledby="lib-${escapeHtml(resourceKey)}">
         <h2 class="sheet-library-group-title" id="lib-${escapeHtml(resourceKey)}">${escapeHtml(title)} <span class="sheet-count">(${items.length})</span></h2>
+        ${spellHint}
         <ul class="sheet-library-list">${rows}</ul>
       </section>`;
     })
@@ -1530,6 +1541,14 @@ function onSheetClick(e) {
     onSpellSlotToggle(btn.dataset.slotLevel, btn.dataset.slotIndex);
     return;
   }
+  if (action === "import-spell-favorites") {
+    onImportSpellFavorites();
+    return;
+  }
+  if (action === "remove-spell") {
+    onRemoveSpell(btn.dataset.spellIndex);
+    return;
+  }
   if (action === "short-rest") {
     onShortRest();
     return;
@@ -1570,6 +1589,7 @@ function onCharacterLevelInput() {
   });
   renderCharacterXpProgress();
   renderSpellSlotsGrid();
+  renderSpellListByLevel();
   syncHitDiceUi();
 }
 
@@ -1627,6 +1647,137 @@ function syncHitDiceUi() {
   if (hitDiceMaxHint) hitDiceMaxHint.textContent = max ? ` / ${max}` : "";
 }
 
+function spellLevelGroupLabel(level) {
+  return level === 0 ? "Truques" : `${level}º nível`;
+}
+
+function renderSpellListByLevel() {
+  if (!spellListByLevel) return;
+  const sheet = loadSheet();
+  const spells = sheet.spellcasting?.spells || [];
+
+  if (!spells.length) {
+    const favSpells = loadFavorites().filter((f) => isSpellResourceKey(f.resourceKey)).length;
+    const sheetSpells = (loadSheet().items || []).filter((i) => isSpellResourceKey(i.resourceKey)).length;
+    let hint =
+      "Nenhuma magia na lista. Marca ★ na exploração ou «+ Na ficha» nas magias da biblioteca, depois importa.";
+    if (favSpells === 0 && sheetSpells === 0) {
+      hint = "Sem magias nos favoritos ★ nem na ficha. Explora Magias na API e marca ★ ou «+ Na ficha».";
+    }
+    spellListByLevel.innerHTML = `<p class="sheet-spell-list-empty">${escapeHtml(hint)}</p>`;
+    return;
+  }
+
+  const byLevel = new Map();
+  for (const spell of spells) {
+    const lv = spell.level;
+    if (!byLevel.has(lv)) byLevel.set(lv, []);
+    byLevel.get(lv).push(spell);
+  }
+
+  const levels = [...byLevel.keys()].sort((a, b) => a - b);
+  spellListByLevel.innerHTML = levels
+    .map((level) => {
+      const list = byLevel.get(level);
+      let headerExtra = "";
+      if (level > 0 && sheet.spellcasting?.casterType !== "none") {
+        const { remaining, max } = remainingSlotsSummaryForLevel(sheet, level);
+        if (max > 0) {
+          headerExtra = `<span class="spell-list-slot-hint">${remaining} slot${remaining === 1 ? "" : "s"} disp. (≥${level}º)</span>`;
+        }
+      }
+      const rows = list
+        .map((spell) => {
+          const status = getSpellCastStatus(sheet, spell);
+          return `<li class="spell-list-item">
+            <label class="spell-list-prepared">
+              <input type="checkbox" class="spell-list-prepared-input" data-action="toggle-spell-prepared"
+                data-spell-index="${escapeHtml(spell.index)}" ${spell.prepared ? "checked" : ""} />
+              <span class="spell-list-name">${escapeHtml(spell.name)}</span>
+            </label>
+            <span class="spell-list-status spell-list-status--${escapeHtml(status.key)}">${escapeHtml(status.label)}</span>
+            <button type="button" class="spell-list-remove" data-action="remove-spell"
+              data-spell-index="${escapeHtml(spell.index)}" aria-label="Remover ${escapeHtml(spell.name)}">×</button>
+          </li>`;
+        })
+        .join("");
+      return `<section class="spell-list-group" aria-labelledby="spell-lv-${level}">
+        <h3 class="spell-list-group-title" id="spell-lv-${level}">
+          ${escapeHtml(spellLevelGroupLabel(level))}
+          ${headerExtra}
+        </h3>
+        <ul class="spell-list-items">${rows}</ul>
+      </section>`;
+    })
+    .join("");
+}
+
+async function hydrateSpellListLevels() {
+  const sheet = loadSheet();
+  ensureSpellcastingSpells(sheet);
+  let changed = false;
+  await Promise.all(
+    sheet.spellcasting.spells.map(async (spell) => {
+      const cached = getCachedEntryData(spell);
+      if (cached) {
+        const lv = spellLevelFromApiData(cached);
+        if (lv !== spell.level) {
+          spell.level = lv;
+          changed = true;
+        }
+        return;
+      }
+      const data = await fetchAndCacheFavoriteEntry(spell);
+      if (data) {
+        const lv = spellLevelFromApiData(data);
+        if (lv !== spell.level) {
+          spell.level = lv;
+          changed = true;
+        }
+      }
+    })
+  );
+  if (changed) {
+    sheet.spellcasting.spells.sort(
+      (a, b) =>
+        a.level - b.level || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" })
+    );
+    saveSheet(normalizeSheet(sheet));
+    renderSpellListByLevel();
+  }
+}
+
+function onImportSpellFavorites() {
+  let added = 0;
+  patchSheet((sheet) => {
+    added = importSpellFavoritesToSheet(sheet);
+  });
+  renderSpellListByLevel();
+  void hydrateSpellListLevels();
+  if (added > 0 && restResultMessage) {
+    setRestMessage(
+      `${added} magia${added === 1 ? "" : "s"} importada${added === 1 ? "" : "s"} (favoritos ★ e itens na ficha).`
+    );
+  }
+}
+
+function onToggleSpellPrepared(spellIndex) {
+  const ix = String(spellIndex);
+  patchSheet((sheet) => {
+    const spell = sheet.spellcasting.spells.find((s) => s.index === ix);
+    if (spell) spell.prepared = !spell.prepared;
+  });
+  renderSpellListByLevel();
+}
+
+function onRemoveSpell(spellIndex) {
+  const ix = String(spellIndex);
+  patchSheet((sheet) => {
+    sheet.spellcasting.spells = sheet.spellcasting.spells.filter((s) => s.index !== ix);
+  });
+  renderSpellListByLevel();
+}
+
 function renderSpellSlotsGrid() {
   if (!spellSlotsGrid) return;
   const sheet = loadSheet();
@@ -1670,6 +1821,7 @@ function onCasterTypeChange() {
     sheet.spellcasting.slotsUsed = {};
   });
   renderSpellSlotsGrid();
+  renderSpellListByLevel();
 }
 
 function onSpellSlotToggle(level, index) {
@@ -1686,6 +1838,7 @@ function onSpellSlotToggle(level, index) {
     sheet.spellcasting.slotsUsed = clampSpellSlotsUsed(sheet.spellcasting.slotsUsed, maxMap);
   });
   renderSpellSlotsGrid();
+  renderSpellListByLevel();
 }
 
 function onSpellSlotsReset() {
@@ -1693,6 +1846,7 @@ function onSpellSlotsReset() {
     sheet.spellcasting.slotsUsed = {};
   });
   renderSpellSlotsGrid();
+  renderSpellListByLevel();
 }
 
 function hitDieSidesFromSheet(sheet) {
@@ -1766,6 +1920,7 @@ function onLongRest() {
   syncHitDiceUi();
   renderDeathSaves();
   renderSpellSlotsGrid();
+  renderSpellListByLevel();
   setRestMessage(
     `Descanso longo (${env}): vida reposta, slots de magia repostos, salvaguardas de morte zeradas, +${regained} dados de vida (total ${newRemaining}/${maxHd}).`
   );
@@ -1823,6 +1978,7 @@ function syncCharacterCoreFromSheet() {
   renderDeathSaves();
   renderCharacterXpProgress();
   renderSpellSlotsGrid();
+  renderSpellListByLevel();
   syncHitDiceUi();
   if (casterTypeSelect && document.activeElement !== casterTypeSelect) {
     casterTypeSelect.value = sheet.spellcasting?.casterType || "none";
@@ -2266,6 +2422,10 @@ async function boot() {
   document.body.addEventListener("change", (e) => {
     onClassProficiencyChange(e);
     onAbilityAssignChange(e);
+    if (e.target?.dataset?.action === "toggle-spell-prepared") {
+      onToggleSpellPrepared(e.target.dataset.spellIndex);
+      return;
+    }
     if (e.target === hitDieSelect) onHitDieSelectChange();
     if (e.target === d20ModifierInput) onD20ModifierChange();
     if (e.target === dmgModifierInput) onDamageModifierChange();

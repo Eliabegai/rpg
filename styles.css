@@ -1543,6 +1543,133 @@ body.game-tools-open .game-tools-fab {
   font-variant-numeric: tabular-nums;
 }
 
+.sheet-spell-list {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.sheet-spell-list-actions {
+  margin-bottom: 0.5rem;
+}
+
+.sheet-spell-list-empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.sheet-library-spell-hint {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.spell-list-by-level {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.spell-list-group-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.6rem;
+}
+
+.spell-list-slot-hint {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.spell-list-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.spell-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.35rem;
+  border-radius: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.spell-list-prepared {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.spell-list-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spell-list-status {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.spell-list-status--ready {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.spell-list-status--no-slot {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.spell-list-status--unprepared,
+.spell-list-status--no-caster {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.spell-list-remove {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.spell-list-remove:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .sheet-rest-hint {
   margin: 0.25rem 0 0.5rem;
   font-size: 0.78rem;

@@ -729,7 +729,7 @@ const DEFAULT_SHEET = {
   hpCurrent: "",
   hpTemp: "0",
   deathSaves: { successes: 0, failures: 0 },
-  spellcasting: { casterType: "none", slotsUsed: {} },
+  spellcasting: { casterType: "none", slotsUsed: {}, spells: [] },
   hitDiceRemaining: null,
   restEnvironment: "tavern",
   items: [],
@@ -810,11 +810,178 @@ function clearSessionHistory() {
   }
 }
 
+function spellLevelFromApiData(data) {
+  const n = Number(data?.level);
+  return Number.isFinite(n) ? Math.min(9, Math.max(0, Math.floor(n))) : 0;
+}
+
+function isSpellResourceKey(resourceKey) {
+  const k = String(resourceKey || "").toLowerCase();
+  return k === "spells" || k === "spell";
+}
+
+function spellIndexFromEntry(entry) {
+  if (entry?.index != null && String(entry.index) !== "") return String(entry.index);
+  const parts = cleanApiPath(entry?.path || "").split("/").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "";
+}
+
+function ensureSpellcastingSpells(sheet) {
+  if (!sheet.spellcasting || typeof sheet.spellcasting !== "object") {
+    sheet.spellcasting = { casterType: "none", slotsUsed: {}, spells: [] };
+  }
+  if (!Array.isArray(sheet.spellcasting.spells)) {
+    sheet.spellcasting.spells = [];
+  }
+}
+
+/** Favoritos ★ e magias já marcadas «Na ficha». */
+function gatherSpellEntriesForImport(sheet) {
+  const seen = new Set();
+  const out = [];
+  const add = (entry) => {
+    if (!entry || !isSpellResourceKey(entry.resourceKey)) return;
+    const index = spellIndexFromEntry(entry);
+    if (!index || seen.has(index)) return;
+    seen.add(index);
+    const fav =
+      findFavorite("spells", index) ||
+      (isSpellResourceKey(entry.resourceKey) ? findFavorite(entry.resourceKey, index) : null);
+    const cached = entry.cachedData || fav?.cachedData;
+    out.push({
+      resourceKey: "spells",
+      index,
+      name: entry.name != null ? String(entry.name) : index,
+      path: cleanApiPath(entry.path || fav?.path || ""),
+      cachedData: cached,
+      dataLocale: entry.dataLocale || fav?.dataLocale,
+    });
+  };
+  loadFavorites().forEach(add);
+  (sheet?.items || []).forEach(add);
+  return out;
+}
+
+function normalizeSpellListEntry(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const resourceKey = raw.resourceKey != null ? String(raw.resourceKey) : "spells";
+  if (resourceKey !== "spells") return null;
+  const index = raw.index != null ? String(raw.index) : "";
+  if (!index) return null;
+  const levelRaw = Number(raw.level);
+  const level = Number.isFinite(levelRaw) ? Math.min(9, Math.max(0, Math.floor(levelRaw))) : 0;
+  return {
+    resourceKey: "spells",
+    index,
+    name: raw.name != null ? String(raw.name) : index,
+    path: cleanApiPath(raw.path || ""),
+    level,
+    prepared: raw.prepared !== false,
+  };
+}
+
 function normalizeSpellcasting(raw) {
   const casterType = normalizeCasterType(raw?.casterType);
   const slotsUsed =
     typeof getSpellSlotsUsedMap === "function" ? getSpellSlotsUsedMap(raw?.slotsUsed) : {};
-  return { casterType, slotsUsed };
+  const seen = new Set();
+  const spells = [];
+  if (Array.isArray(raw?.spells)) {
+    for (const entry of raw.spells) {
+      const norm = normalizeSpellListEntry(entry);
+      if (!norm || seen.has(norm.index)) continue;
+      seen.add(norm.index);
+      spells.push(norm);
+    }
+  }
+  spells.sort(
+    (a, b) => a.level - b.level || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" })
+  );
+  return { casterType, slotsUsed, spells };
+}
+
+/** Slots restantes no nível da magia ou acima (PHB; bruxo: qualquer slot de pacto). */
+function hasAvailableSpellSlot(sheet, spellLevel) {
+  const lv = Math.min(9, Math.max(0, Math.floor(Number(spellLevel) || 0)));
+  if (lv === 0) return true;
+  const casterType = sheet?.spellcasting?.casterType;
+  if (!casterType || casterType === "none") return false;
+  const maxMap = getSheetMaxSpellSlots(sheet);
+  const usedMap = clampSpellSlotsUsed(sheet.spellcasting.slotsUsed, maxMap);
+  if (casterType === "warlock") {
+    return Object.keys(maxMap).some((key) => (maxMap[key] || 0) - (usedMap[key] || 0) > 0);
+  }
+  for (const slotLv of SPELL_SLOT_LEVELS) {
+    if (slotLv < lv) continue;
+    const rem = (maxMap[String(slotLv)] || 0) - (usedMap[String(slotLv)] || 0);
+    if (rem > 0) return true;
+  }
+  return false;
+}
+
+function getSpellCastStatus(sheet, spell) {
+  if (!spell?.prepared) return { key: "unprepared", label: "Não preparada" };
+  if (spell.level === 0) return { key: "ready", label: "Truque" };
+  if (sheet?.spellcasting?.casterType === "none") return { key: "no-caster", label: "Sem conjuração" };
+  if (hasAvailableSpellSlot(sheet, spell.level)) return { key: "ready", label: "Posso usar" };
+  return { key: "no-slot", label: "Sem slot" };
+}
+
+function remainingSlotsSummaryForLevel(sheet, spellLevel) {
+  const lv = Math.min(9, Math.max(1, Math.floor(Number(spellLevel) || 1)));
+  const maxMap = getSheetMaxSpellSlots(sheet);
+  const usedMap = clampSpellSlotsUsed(sheet.spellcasting.slotsUsed, maxMap);
+  let rem = 0;
+  let max = 0;
+  for (const slotLv of SPELL_SLOT_LEVELS) {
+    if (slotLv < lv) continue;
+    rem += (maxMap[String(slotLv)] || 0) - (usedMap[String(slotLv)] || 0);
+    max += maxMap[String(slotLv)] || 0;
+  }
+  return { remaining: rem, max };
+}
+
+function importSpellFavoritesToSheet(sheet) {
+  ensureSpellcastingSpells(sheet);
+  const existing = new Set(sheet.spellcasting.spells.map((s) => s.index));
+  let added = 0;
+  for (const src of gatherSpellEntriesForImport(sheet)) {
+    const ix = String(src.index);
+    if (existing.has(ix)) continue;
+    const level = src.cachedData ? spellLevelFromApiData(src.cachedData) : 0;
+    const entry = normalizeSpellListEntry({ ...src, level, prepared: true });
+    if (!entry) continue;
+    sheet.spellcasting.spells.push(entry);
+    existing.add(ix);
+    added += 1;
+  }
+  sheet.spellcasting.spells.sort(
+    (a, b) => a.level - b.level || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" })
+  );
+  return added;
+}
+
+function addSpellToSheetList(sheet, entry, { level, prepared = true } = {}) {
+  const ix = String(entry.index);
+  if ((sheet.spellcasting.spells || []).some((s) => s.index === ix)) return false;
+  const spellLevel =
+    level != null && Number.isFinite(Number(level))
+      ? Math.min(9, Math.max(0, Math.floor(Number(level))))
+      : 0;
+  const norm = normalizeSpellListEntry({
+    resourceKey: "spells",
+    index: ix,
+    name: entry.name,
+    path: entry.path,
+    level: spellLevel,
+    prepared,
+  });
+  if (!norm) return false;
+  sheet.spellcasting.spells.push(norm);
+  sheet.spellcasting.spells.sort(
+    (a, b) => a.level - b.level || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" })
+  );
+  return true;
 }
 
 function normalizeRestEnvironment(raw) {

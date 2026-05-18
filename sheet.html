@@ -258,7 +258,7 @@
 
                 <fieldset class="sheet-spell-slots" aria-labelledby="sheetSpellSlotsTitle">
                   <legend id="sheetSpellSlotsTitle" class="sheet-name-label">Slots de magia</legend>
-                  <p class="sheet-core-vitals-hint">Clica nos círculos para gastar slots. Em breve: lista de magias por nível.</p>
+                  <p class="sheet-core-vitals-hint">Clica nos círculos para gastar slots. A lista abaixo indica o que ainda podes conjurar.</p>
                   <div class="sheet-spell-slots-config">
                     <label class="sheet-inline-field">
                       <span class="sheet-name-label">Tipo</span>
@@ -275,6 +275,19 @@
                     </button>
                   </div>
                   <div id="spellSlotsGrid" class="spell-slots-grid" aria-live="polite"></div>
+                </fieldset>
+
+                <fieldset class="sheet-spell-list" aria-labelledby="sheetSpellListTitle">
+                  <legend id="sheetSpellListTitle" class="sheet-name-label">Magias por nível</legend>
+                  <p class="sheet-core-vitals-hint">
+                    Truques à parte dos slots. Marca «preparada» e vê se ainda tens slot disponível.
+                  </p>
+                  <div class="sheet-spell-list-actions">
+                    <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="import-spell-favorites">
+                      Importar magias (★ e ficha)
+                    </button>
+                  </div>
+                  <div id="spellListByLevel" class="spell-list-by-level" aria-live="polite"></div>
                 </fieldset>
 
                 <fieldset class="sheet-rest" aria-labelledby="sheetRestTitle">
