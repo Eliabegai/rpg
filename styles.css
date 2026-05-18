@@ -575,33 +575,162 @@ body {
   color: #333;
 }
 
-.detail-level-block {
-  margin: 0 0 0.35rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: #fafafa;
+.detail-level-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0 0.35rem;
+  font-size: 0.86rem;
 }
 
-.detail-level-block[open] {
+.detail-level-row {
+  background: #f8fafc;
+}
+
+.detail-level-row:nth-child(even) {
   background: #fff;
 }
 
-.detail-level-summary {
-  padding: 0.4rem 0.55rem;
-  font-size: 0.88rem;
-  font-weight: 600;
+.detail-level-table-lvl {
+  width: 3.5rem;
+  padding: 0.55rem 0.65rem 0.55rem 0;
+  vertical-align: top;
+  border: 0;
+}
+
+.detail-level-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.35rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  background: linear-gradient(165deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #93c5fd;
+  font-size: 0.8rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #1d4ed8;
+  line-height: 1.2;
+}
+
+.detail-level-table-desc {
+  padding: 0.5rem 0.65rem 0.5rem 0;
+  vertical-align: top;
+  line-height: 1.45;
+  color: #1e293b;
+  border: 0;
+}
+
+.detail-level-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.detail-level-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.detail-level-note-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  line-height: 1.2;
+}
+
+.detail-level-note-text {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.detail-level-feature-list {
+  margin: 0;
+  padding: 0 0 0 1.05rem;
+  list-style: disc;
+}
+
+.detail-level-feature-list li {
+  margin: 0.12rem 0;
+  line-height: 1.4;
+}
+
+.detail-level-feature-list li::marker {
+  color: #94a3b8;
+}
+
+.detail-level-spellblock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.detail-level-meta {
+  display: inline-block;
+  font-size: 0.84rem;
   color: #334155;
-  cursor: pointer;
-  list-style: none;
 }
 
-.detail-level-summary::-webkit-details-marker {
-  display: none;
+.detail-level-meta.is-changed,
+.detail-level-note-text.is-changed {
+  color: #0f766e;
+  font-weight: 600;
 }
 
-.detail-level-block .detail-chip-list {
-  margin: 0 0 0.45rem;
-  padding: 0 0.55rem 0.5rem 1.65rem;
+.detail-slot-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.detail-slot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 5px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  color: #475569;
+}
+
+.detail-slot-chip-lvl {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.detail-slot-chip-n {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #1e293b;
+  min-width: 0.85rem;
+  text-align: center;
+}
+
+.detail-slot-chip--changed {
+  border-color: #5eead4;
+  background: #f0fdfa;
+}
+
+.detail-slot-chip--changed .detail-slot-chip-lvl {
+  color: #0f766e;
+}
+
+.detail-slot-chip--changed .detail-slot-chip-n {
+  color: #0d9488;
+}
+
+.detail-level-empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-style: italic;
 }
 
 .detail-enrich-placeholder {

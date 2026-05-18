@@ -242,6 +242,159 @@ async function enrichTraitMount(mountEl) {
   return enrichRefCardsMount(mountEl);
 }
 
+function spellSlotCounts(spellcasting) {
+  if (!spellcasting || typeof spellcasting !== "object") return [];
+  const slots = [];
+  for (let i = 1; i <= 9; i++) {
+    const n = spellcasting[`spell_slots_level_${i}`];
+    if (n > 0) slots.push({ level: i, count: n });
+  }
+  return slots;
+}
+
+function formatClassSpecificLevelSummary(classSpecific) {
+  if (!classSpecific || typeof classSpecific !== "object") return "";
+  const parts = [];
+  if (classSpecific.arcane_recovery_levels > 0) {
+    parts.push(`Recuperação arcana até slot de ${classSpecific.arcane_recovery_levels}º`);
+  }
+  if (classSpecific.action_surges > 0) {
+    parts.push(
+      classSpecific.action_surges === 1
+        ? "1 surto de ação"
+        : `${classSpecific.action_surges} surtos de ação`
+    );
+  }
+  if (classSpecific.extra_attacks > 0) {
+    parts.push(
+      classSpecific.extra_attacks === 1 ? "1 ataque extra" : `${classSpecific.extra_attacks} ataques extra`
+    );
+  }
+  if (classSpecific.indomitable_uses > 0) {
+    parts.push(
+      classSpecific.indomitable_uses === 1
+        ? "1 uso de Indomável"
+        : `${classSpecific.indomitable_uses} usos de Indomável`
+    );
+  }
+  for (const [key, val] of Object.entries(classSpecific)) {
+    if (["arcane_recovery_levels", "action_surges", "extra_attacks", "indomitable_uses"].includes(key)) {
+      continue;
+    }
+    if (val != null && val !== 0 && val !== "") {
+      parts.push(`${formatResourceLabel(key)}: ${val}`);
+    }
+  }
+  return parts.join(" · ");
+}
+
+function renderSpellcastingLevelHtml(spellcasting, prevSpellcasting) {
+  if (!spellcasting || typeof spellcasting !== "object") return "";
+
+  const slots = spellSlotCounts(spellcasting);
+  const prevSlots = prevSpellcasting ? spellSlotCounts(prevSpellcasting) : [];
+  const prevMap = new Map(prevSlots.map((s) => [s.level, s.count]));
+
+  const hasCantrips = spellcasting.cantrips_known != null;
+  const hasSpellsKnown = spellcasting.spells_known != null;
+  if (!hasCantrips && !hasSpellsKnown && !slots.length) return "";
+
+  let html = '<div class="detail-level-spellblock">';
+
+  if (hasCantrips) {
+    const changed =
+      !prevSpellcasting || prevSpellcasting.cantrips_known !== spellcasting.cantrips_known;
+    html += `<span class="detail-level-meta${changed ? " is-changed" : ""}">${escapeHtml(
+      String(spellcasting.cantrips_known)
+    )} truques</span>`;
+  }
+  if (hasSpellsKnown) {
+    const changed =
+      !prevSpellcasting || prevSpellcasting.spells_known !== spellcasting.spells_known;
+    html += `<span class="detail-level-meta${changed ? " is-changed" : ""}">${escapeHtml(
+      String(spellcasting.spells_known)
+    )} magias conhecidas</span>`;
+  }
+
+  if (slots.length) {
+    html += '<div class="detail-slot-chips" aria-label="Espaços de magia por nível">';
+    for (const s of slots) {
+      const prevCount = prevMap.get(s.level);
+      const changed = prevCount === undefined || s.count > prevCount;
+      html += `<span class="detail-slot-chip${changed ? " detail-slot-chip--changed" : ""}" title="Espaços de ${s.level}º nível de magia"><span class="detail-slot-chip-lvl">${s.level}º</span><span class="detail-slot-chip-n">${s.count}</span></span>`;
+    }
+    html += "</div>";
+  }
+
+  html += "</div>";
+  return html;
+}
+
+function renderClassLevelDescHtml(lv, prevLevel) {
+  const blocks = [];
+
+  const features = (Array.isArray(lv.features) ? lv.features : [])
+    .map((f) => f.name || f.index || "")
+    .filter(Boolean);
+  if (features.length) {
+    const items = features.map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+    blocks.push(`<div class="detail-level-note detail-level-note--features">
+      <span class="detail-level-note-label">Capacidades</span>
+      <ul class="detail-level-feature-list">${items}</ul>
+    </div>`);
+  }
+
+  const spellHtml = renderSpellcastingLevelHtml(lv.spellcasting, prevLevel?.spellcasting);
+  if (spellHtml) {
+    blocks.push(`<div class="detail-level-note detail-level-note--spells">
+      <span class="detail-level-note-label">Conjuração</span>
+      ${spellHtml}
+    </div>`);
+  }
+
+  const cs = formatClassSpecificLevelSummary(lv.class_specific);
+  if (cs) {
+    blocks.push(`<div class="detail-level-note">
+      <span class="detail-level-note-label">Classe</span>
+      <p class="detail-level-note-text">${escapeHtml(cs)}</p>
+    </div>`);
+  }
+
+  if (
+    prevLevel &&
+    lv.prof_bonus != null &&
+    prevLevel.prof_bonus != null &&
+    lv.prof_bonus !== prevLevel.prof_bonus
+  ) {
+    blocks.push(`<div class="detail-level-note detail-level-note--prof">
+      <span class="detail-level-note-label">Proficiência</span>
+      <p class="detail-level-note-text is-changed">Bónus de proficiência +${escapeHtml(String(lv.prof_bonus))}</p>
+    </div>`);
+  }
+
+  if (!blocks.length) {
+    return '<p class="detail-level-empty">Sem alterações registadas neste nível.</p>';
+  }
+
+  return `<div class="detail-level-notes">${blocks.join("")}</div>`;
+}
+
+function renderClassLevelsListHtml(levels) {
+  const sorted = [...levels].sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
+  const rows = sorted
+    .map((lv, i) => {
+      const levelNum = lv.level != null ? lv.level : "?";
+      const prev = i > 0 ? sorted[i - 1] : null;
+      const desc = renderClassLevelDescHtml(lv, prev);
+      return `<tr class="detail-level-row">
+        <th scope="row" class="detail-level-table-lvl"><span class="detail-level-badge">${escapeHtml(String(levelNum))}</span></th>
+        <td class="detail-level-table-desc">${desc}</td>
+      </tr>`;
+    })
+    .join("");
+  return `<table class="detail-level-table"><tbody>${rows}</tbody></table>`;
+}
+
 async function enrichClassLevelsMount(mountEl) {
   if (!mountEl || mountEl.dataset.enriched === "1") return;
   const path = mountEl.dataset.levelsPath;
@@ -257,22 +410,7 @@ async function enrichClassLevelsMount(mountEl) {
       return;
     }
 
-    mountEl.innerHTML = levels
-      .map((lv) => {
-        const levelNum = lv.level != null ? lv.level : "?";
-        const features = Array.isArray(lv.features) ? lv.features : [];
-        const featList = features.length
-          ? `<ul class="detail-chip-list">${features
-              .map((f) => `<li>${escapeHtml(f.name || f.index || "")}</li>`)
-              .join("")}</ul>`
-          : '<p class="detail-muted">Sem capacidades novas neste nível.</p>';
-        const open = levelNum === 1 ? " open" : "";
-        return `<details class="detail-level-block"${open}>
-          <summary class="detail-level-summary">Nível ${escapeHtml(String(levelNum))}</summary>
-          ${featList}
-        </details>`;
-      })
-      .join("");
+    mountEl.innerHTML = renderClassLevelsListHtml(levels);
   } catch {
     mountEl.innerHTML = '<p class="detail-muted">Não foi possível carregar os níveis da classe.</p>';
   }
