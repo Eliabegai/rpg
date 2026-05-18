@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Ficha — D&D 5e</title>
+  </head>
+  <body class="sheet-page">
+    <div class="app-shell sheet-shell">
+      <aside class="sheet-library" aria-label="Biblioteca de favoritos">
+        <nav class="app-top-nav" aria-label="Navegação">
+          <a class="app-top-nav-link" href="index.html">← Explorar API</a>
+          <span class="app-top-nav-current" aria-current="page">Ficha</span>
+        </nav>
+        <h1 class="sheet-library-title">Favoritos</h1>
+        <p class="sheet-library-sub">
+          Marca os itens que entram na ficha. Os favoritos são os mesmos guardados na exploração (★).
+        </p>
+        <p id="libraryEmpty" class="sheet-empty" hidden>
+          Ainda não tens favoritos.
+          <a href="index.html">Explora a API</a> e usa ★ nos itens que quiseres.
+        </p>
+        <div id="favoritesLibrary" class="sheet-library-groups"></div>
+      </aside>
+
+      <main class="sheet-main">
+        <div class="sheet-main-inner">
+          <nav class="app-top-nav app-top-nav--mobile" aria-label="Navegação">
+            <a class="app-top-nav-link" href="index.html">← Explorar API</a>
+            <span class="app-top-nav-current" aria-current="page">Ficha</span>
+          </nav>
+
+          <header class="sheet-header">
+            <div class="sheet-header-text">
+              <h1 class="sheet-title">Ficha de personagem</h1>
+              <p class="sheet-subtitle">Resumo dos itens que escolheste a partir dos favoritos.</p>
+            </div>
+            <div class="locale-bar sheet-locale-bar" aria-label="Idioma da API">
+              <label for="localeSelect" class="locale-bar-label">Idioma</label>
+              <select id="localeSelect" class="locale-bar-select" aria-label="Idioma das traduções">
+                <option value="pt-BR">pt-BR</option>
+              </select>
+            </div>
+          </header>
+
+          <label class="sheet-name-field">
+            <span class="sheet-name-label">Nome do personagem</span>
+            <input
+              type="text"
+              id="characterName"
+              class="sheet-name-input"
+              placeholder="Ex.: Aelindra"
+              autocomplete="off"
+              maxlength="120"
+            />
+          </label>
+
+          <section class="sheet-core" id="characterCore" aria-labelledby="sheetCoreTitle">
+            <h2 id="sheetCoreTitle" class="sheet-core-title">Dados do personagem</h2>
+            <div class="sheet-core-layout">
+              <div class="sheet-portrait-block">
+                <div class="sheet-portrait-frame">
+                  <img
+                    id="portraitPreview"
+                    class="sheet-portrait-img"
+                    alt=""
+                    hidden
+                  />
+                  <span id="portraitPlaceholder" class="sheet-portrait-placeholder">Sem imagem</span>
+                </div>
+                <label class="sheet-portrait-upload">
+                  <span class="sheet-name-label">Retrato</span>
+                  <input type="file" id="portraitInput" accept="image/jpeg,image/png,image/webp,image/gif" />
+                </label>
+                <button type="button" id="portraitClear" class="sheet-portrait-clear" hidden>Remover imagem</button>
+                <p id="portraitError" class="sheet-field-error" hidden></p>
+              </div>
+
+              <div class="sheet-core-fields">
+                <fieldset class="sheet-abilities">
+                  <legend class="sheet-name-label">Atributos</legend>
+                  <div class="sheet-abilities-grid" id="abilityScoresGrid"></div>
+                </fieldset>
+
+                <div class="sheet-core-row">
+                  <label class="sheet-inline-field">
+                    <span class="sheet-name-label">CA (classe de armadura)</span>
+                    <input
+                      type="number"
+                      id="armorClassInput"
+                      class="sheet-number-input"
+                      min="1"
+                      max="99"
+                      placeholder="10"
+                      inputmode="numeric"
+                    />
+                  </label>
+                  <label class="sheet-inline-field sheet-inline-field--grow">
+                    <span class="sheet-name-label">Alinhamento</span>
+                    <select id="alignmentSelect" class="sheet-select">
+                      <option value="">— Escolher —</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <p id="sheetEmpty" class="sheet-empty" hidden>
+            Nenhum item na ficha. Marca favoritos à esquerda com «Na ficha».
+          </p>
+
+          <div id="sheetBoard" class="sheet-board" aria-live="polite"></div>
+        </div>
+      </main>
+    </div>
+    <script src="shared.js"></script>
+    <script src="sheet.js"></script>
+  </body>
+</html>

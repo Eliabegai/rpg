@@ -1,9 +1,3 @@
-const API_BASE = "https://www.dnd5eapi.co";
-const STORAGE_LOCALE = "dnd5eapi.locale";
-const STORAGE_FAVORITES = "dnd5eapi.favorites";
-const STORAGE_LIST_SCOPE = "dnd5eapi.listScope";
-const STORAGE_SESSION = "dnd5eapi.session";
-
 const DEFAULT_SESSION = {
   resourceKey: "",
   resourcePath: "",
@@ -19,8 +13,6 @@ const DEFAULT_SESSION = {
 };
 
 const SPELL_META_CONCURRENCY = 12;
-/** BCP 47 — @see https://5e-bits.github.io/docs/reference/multilingual */
-let currentLocale = "pt-BR";
 let listScopeFilter = "all";
 const PAGE_SIZE = 25;
 
@@ -59,40 +51,6 @@ let selectedItemIndex = "";
 let selectedItemPath = "";
 
 let filterDebounceId = 0;
-
-/**
- * URL absoluta com `lang` (recomendado pela API). Só altera pedidos ao host dnd5eapi.co.
- * @see https://5e-bits.github.io/docs/reference/multilingual
- */
-function apiUrl(pathOrUrl) {
-  if (!pathOrUrl) return "";
-  const absolute = pathOrUrl.startsWith("http") ? pathOrUrl : `${API_BASE}${pathOrUrl}`;
-  try {
-    const u = new URL(absolute);
-    const host = u.hostname.replace(/^www\./, "");
-    if (host !== "dnd5eapi.co") return absolute;
-    u.searchParams.set("lang", currentLocale);
-    return u.toString();
-  } catch {
-    const sep = absolute.includes("?") ? "&" : "?";
-    return `${absolute}${sep}lang=${encodeURIComponent(currentLocale)}`;
-  }
-}
-
-/**
- * fetch à API com Accept-Language (RFC 5646). Se existir `lang` na query, este cabeçalho é redundante mas alinhado à doc.
- */
-function apiFetch(pathOrUrl, init = {}) {
-  const url = apiUrl(pathOrUrl);
-  const headers = new Headers(init.headers);
-  headers.set("Accept-Language", currentLocale);
-  return fetch(url, { ...init, headers });
-}
-
-function initLocaleFromStorage() {
-  const v = localStorage.getItem(STORAGE_LOCALE);
-  currentLocale = v && typeof v === "string" && v.length > 0 ? v : "pt-BR";
-}
 
 function syncApiRootDocLinkHref() {
   if (apiRootDocLink) apiRootDocLink.href = apiUrl("/api/2014/");
@@ -273,27 +231,6 @@ function hasActiveSpellFilters() {
   );
 }
 
-function loadFavorites() {
-  try {
-    const raw = localStorage.getItem(STORAGE_FAVORITES);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveFavorites(entries) {
-  try {
-    localStorage.setItem(STORAGE_FAVORITES, JSON.stringify(entries));
-    updateFavoritesCountHint();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function updateFavoritesCountHint() {
   if (!favoritesCountHint) return;
   const total = loadFavorites().length;
@@ -308,17 +245,6 @@ function updateFavoritesCountHint() {
       total === 0
         ? "Nenhum favorito guardado ainda — usa ★ na lista ou no detalhe."
         : `${total} favorito(s) guardado(s) neste navegador.`;
-  }
-}
-
-/** Caminho API sem query (para guardar favoritos de forma estável). */
-function cleanApiPath(pathOrUrl) {
-  if (!pathOrUrl) return "";
-  try {
-    const u = new URL(pathOrUrl, API_BASE);
-    return u.pathname;
-  } catch {
-    return String(pathOrUrl).split("?")[0];
   }
 }
 
@@ -352,6 +278,7 @@ function toggleFavoriteForItem({ resourceKey, index, name, path }) {
   if (i >= 0) favs.splice(i, 1);
   else favs.push(entry);
   if (!saveFavorites(favs)) return isFavorite(resourceKey, ix);
+  updateFavoritesCountHint();
   return i < 0;
 }
 
@@ -384,56 +311,16 @@ function afterFavoriteChange(resourceKey, index) {
 }
 
 async function initLocalesDropdown() {
-  initLocaleFromStorage();
-  if (!localeSelect) return;
-  localeSelect.replaceChildren();
-
-  const addOpt = (value, label) => {
-    const o = document.createElement("option");
-    o.value = value;
-    o.textContent = label;
-    localeSelect.appendChild(o);
-  };
-
-  addOpt("en", "English (predefinição)");
-
-  try {
-    const res = await fetch(`${API_BASE}/api/2014/locales`);
-    if (res.ok) {
-      const data = await res.json();
-      const seen = new Set(["en"]);
-      for (const row of data.results || []) {
-        const lang = row.lang;
-        if (typeof lang === "string" && !seen.has(lang)) {
-          seen.add(lang);
-          addOpt(lang, lang);
-        }
+  await populateLocalesDropdown(localeSelect, {
+    onChange() {
+      spellFilterOptionsLoaded = false;
+      syncApiRootDocLinkHref();
+      const btn = activeSidebarBtn;
+      if (btn?.dataset.resourceKey && btn.dataset.resourcePath) {
+        selectResource(btn.dataset.resourceKey, btn.dataset.resourcePath, btn);
       }
-    }
-  } catch {
-    /* fallback abaixo */
-  }
-
-  if (![...localeSelect.options].some((o) => o.value === "pt-BR")) addOpt("pt-BR", "pt-BR");
-  if (![...localeSelect.options].some((o) => o.value === "fr-FR")) addOpt("fr-FR", "fr-FR");
-
-  const saved = localStorage.getItem(STORAGE_LOCALE);
-  const pick = saved && [...localeSelect.options].some((o) => o.value === saved) ? saved : "pt-BR";
-  localeSelect.value = [...localeSelect.options].some((o) => o.value === pick) ? pick : "en";
-  currentLocale = localeSelect.value;
-  localStorage.setItem(STORAGE_LOCALE, currentLocale);
-}
-
-function onLocaleChange() {
-  if (!localeSelect) return;
-  currentLocale = localeSelect.value;
-  localStorage.setItem(STORAGE_LOCALE, currentLocale);
-  spellFilterOptionsLoaded = false;
-  syncApiRootDocLinkHref();
-  const btn = activeSidebarBtn;
-  if (btn?.dataset.resourceKey && btn.dataset.resourcePath) {
-    selectResource(btn.dataset.resourceKey, btn.dataset.resourcePath, btn);
-  }
+    },
+  });
 }
 
 function onSpellFilterChange() {
@@ -487,19 +374,6 @@ function setDetailFavoriteButtonState(btn, on) {
   btn.classList.toggle("is-favorite", on);
   btn.setAttribute("aria-pressed", String(on));
   btn.textContent = on ? "★ Nos favoritos" : "☆ Adicionar aos favoritos";
-}
-
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text == null ? "" : String(text);
-  return div.innerHTML;
-}
-
-function formatResourceLabel(key) {
-  return key
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 }
 
 function itemSearchText(item) {
@@ -1356,7 +1230,6 @@ detailPanel.addEventListener("change", onDetailPanelPickChange);
 
 async function boot() {
   await initLocalesDropdown();
-  if (localeSelect) localeSelect.addEventListener("change", onLocaleChange);
   syncApiRootDocLinkHref();
   updateFavoritesCountHint();
   await populateApi2014Sidebar();
