@@ -2890,10 +2890,40 @@ body.game-tools-open .game-tools-fab {
 }
 
 .dm-sidebar-sub {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.5rem;
   font-size: 0.8rem;
   color: #94a3b8;
   line-height: 1.45;
+}
+
+.dm-sidebar-explore-wrap {
+  margin: 0 0 0.85rem;
+}
+
+.dm-sidebar-explore-btn {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  background: #334155;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.dm-sidebar-explore-btn:hover {
+  background: #3b82f6;
+  border-color: #60a5fa;
+  color: #fff;
 }
 
 .dm-sidebar .sheet-empty {
