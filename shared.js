@@ -7,7 +7,15 @@ const STORAGE_SESSION = "dnd5eapi.session";
 const STORAGE_SHEET = "dnd5eapi.sheet";
 const STORAGE_GAME_TOOLS = "dnd5eapi.gameTools";
 const STORAGE_DM_BATTLE = "dnd5eapi.dmBattle";
+const STORAGE_CAMPAIGN = "dnd5eapi.campaign";
 const STORAGE_DM_VISITED = "dnd5eapi.dmVisited";
+const CAMPAIGN_EXPORT_VERSION = 1;
+
+/** XP acumulado mínimo por nível (PHB 2014). Índice = nível (1–20). */
+const XP_THRESHOLDS = [
+  0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000,
+  165000, 195000, 225000, 265000, 305000, 355000,
+];
 const STORAGE_IMAGE_CACHE = "dnd5eapi.imageCache";
 const IMAGE_CACHE_MAX_ENTRIES = 96;
 
@@ -19,6 +27,7 @@ const GAME_TOOLS_TABS = ["combat", "character", "dm"];
  * @property {string} id
  * @property {string} name
  * @property {string} initiative
+ * @property {number} level nível de personagem (1–20)
  * @property {boolean} downed fora do XP (mantido no registo para reviver)
  */
 
@@ -62,6 +71,23 @@ function filterKilledByForXp(killerIds, party) {
 function monsterXpFromApiData(data) {
   const xp = Number(data?.xp);
   return Number.isFinite(xp) && xp >= 0 ? Math.floor(xp) : 0;
+}
+
+function clampCharacterLevel(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(20, Math.max(1, Math.floor(n)));
+}
+
+function xpThresholdForLevel(level) {
+  const lv = clampCharacterLevel(level);
+  return XP_THRESHOLDS[lv - 1] ?? 0;
+}
+
+function xpToNextLevel(level) {
+  const lv = clampCharacterLevel(level);
+  if (lv >= 20) return null;
+  return XP_THRESHOLDS[lv] - XP_THRESHOLDS[lv - 1];
 }
 
 function splitXpAmongParty(totalXp, partyIds) {
@@ -387,6 +413,7 @@ function normalizeDmPartyMember(raw) {
     id: raw.id != null ? String(raw.id) : newEntityId("party"),
     name: name.slice(0, 120),
     initiative: raw.initiative != null ? String(raw.initiative) : "",
+    level: clampCharacterLevel(raw.level),
     downed: Boolean(raw.downed),
   };
 }
@@ -452,6 +479,58 @@ function saveDmBattle(battle) {
   } catch {
     return false;
   }
+}
+
+function normalizeCampaign(parsed) {
+  const base = { name: "" };
+  if (!parsed || typeof parsed !== "object") return base;
+  return {
+    name: parsed.name != null ? String(parsed.name).trim().slice(0, 120) : "",
+  };
+}
+
+function loadCampaign() {
+  try {
+    const raw = localStorage.getItem(STORAGE_CAMPAIGN);
+    if (!raw) return normalizeCampaign(null);
+    return normalizeCampaign(JSON.parse(raw));
+  } catch {
+    return normalizeCampaign(null);
+  }
+}
+
+function saveCampaign(campaign) {
+  try {
+    localStorage.setItem(STORAGE_CAMPAIGN, JSON.stringify(normalizeCampaign(campaign)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function buildCampaignExportBundle() {
+  const campaign = loadCampaign();
+  return {
+    version: CAMPAIGN_EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    campaign,
+    dmBattle: loadDmBattle(),
+    favorites: loadFavorites(),
+    sheet: loadSheet(),
+  };
+}
+
+function importCampaignBundle(raw) {
+  if (!raw || typeof raw !== "object") return { ok: false, error: "JSON inválido." };
+  const version = Number(raw.version);
+  if (!Number.isFinite(version) || version < 1) {
+    return { ok: false, error: "Versão de exportação não suportada." };
+  }
+  if (raw.campaign) saveCampaign(raw.campaign);
+  if (raw.dmBattle != null) saveDmBattle(raw.dmBattle);
+  if (Array.isArray(raw.favorites)) saveFavorites(raw.favorites);
+  if (raw.sheet != null) saveSheet(normalizeSheet(raw.sheet));
+  return { ok: true };
 }
 
 /** PV médios a partir do JSON do monstro na API 2014. */

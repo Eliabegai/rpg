@@ -542,6 +542,64 @@ body {
   font-size: 0.85rem;
 }
 
+.detail-info-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 0.85rem;
+  font-size: 0.88rem;
+}
+
+.detail-info-table th {
+  text-align: left;
+  font-weight: 600;
+  color: #444;
+  padding: 0.3rem 0.65rem 0.3rem 0;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.detail-info-table td {
+  padding: 0.3rem 0;
+  color: #222;
+  line-height: 1.4;
+}
+
+.detail-layout-section {
+  margin: 0 0 0.85rem;
+}
+
+.detail-layout-heading {
+  margin: 0 0 0.4rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.detail-action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-action-card {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.detail-action-name {
+  margin: 0 0 0.2rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.detail-chip-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.88rem;
+}
+
 .detail-collapse {
   margin: 0 0 0.35rem;
   border: 1px solid #e0e0e0;
@@ -3099,6 +3157,10 @@ body.game-tools-open .game-tools-fab {
   max-width: 14rem;
 }
 
+.dm-party-level-input {
+  width: 3.25rem;
+}
+
 .dm-initiative-list {
   list-style: none;
   margin: 0;
@@ -3110,13 +3172,20 @@ body.game-tools-open .game-tools-fab {
 
 .dm-init-row {
   display: grid;
-  grid-template-columns: 2.25rem auto 1fr 4.25rem auto auto;
+  grid-template-columns: 2.25rem auto 1fr 3rem 4.25rem auto auto;
   align-items: center;
   gap: 0.45rem;
   padding: 0.4rem 0.5rem;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
+}
+
+.dm-init-level-input {
+  width: 100%;
+  max-width: 3rem;
+  padding: 0.25rem 0.35rem;
+  text-align: center;
 }
 
 .dm-init-row--party.is-downed {
@@ -3562,6 +3631,45 @@ body.game-tools-open .game-tools-fab {
   accent-color: #2563eb;
 }
 
+.dm-sidebar-campaign {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #334155;
+}
+
+.dm-campaign-name-field {
+  display: block;
+  margin-bottom: 0.55rem;
+}
+
+.dm-campaign-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.35rem;
+}
+
+.dm-campaign-btn {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.dm-campaign-import-label {
+  cursor: pointer;
+  margin: 0;
+}
+
+.dm-campaign-status {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #86efac;
+  min-height: 1.1em;
+}
+
+.dm-campaign-status.is-error {
+  color: #fca5a5;
+}
+
 .dm-sidebar-xp {
   margin-top: 1.25rem;
   padding-top: 1rem;
@@ -3610,6 +3718,45 @@ body.game-tools-open .game-tools-fab {
 
 .dm-xp-name {
   color: #e2e8f0;
+}
+
+.dm-xp-level {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-top: 0.1rem;
+}
+
+.dm-xp-meta {
+  display: block;
+  font-size: 0.65rem;
+  color: #64748b;
+  margin-top: 0.08rem;
+  font-weight: 400;
+}
+
+.dm-xp-phb-collapse {
+  margin-top: 0.65rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.dm-xp-phb-collapse summary {
+  cursor: pointer;
+  color: #cbd5e1;
+  user-select: none;
+}
+
+.dm-xp-phb-table-wrap {
+  margin-top: 0.45rem;
+  max-height: 10rem;
+  overflow: auto;
+}
+
+.dm-xp-phb-table .dm-xp-phb-delta {
+  font-size: 0.72rem;
+  color: #94a3b8;
 }
 
 .dm-xp-value {

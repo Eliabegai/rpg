@@ -55,10 +55,38 @@
         </p>
         <ul id="dmMonsterLibrary" class="dm-monster-list"></ul>
 
+        <section class="dm-sidebar-campaign" aria-labelledby="dmCampaignTitle">
+          <h2 id="dmCampaignTitle" class="dm-sidebar-xp-title">Campanha</h2>
+          <label class="sheet-inline-field dm-campaign-name-field">
+            <span class="sheet-name-label">Nome</span>
+            <input
+              type="text"
+              id="dmCampaignNameInput"
+              class="sheet-name-input"
+              placeholder="Ex.: Crônica de Faerûn"
+              maxlength="120"
+            />
+          </label>
+          <div class="dm-campaign-actions">
+            <button type="button" class="sheet-dice-btn dm-campaign-btn" data-action="dm-export-campaign">
+              Exportar JSON
+            </button>
+            <label class="dm-campaign-import-label">
+              <span class="sheet-dice-btn dm-campaign-btn">Importar JSON</span>
+              <input type="file" id="dmCampaignImportInput" accept="application/json,.json" hidden />
+            </label>
+          </div>
+          <p id="dmCampaignStatus" class="dm-campaign-status" role="status" aria-live="polite"></p>
+        </section>
+
         <section class="dm-sidebar-xp" aria-labelledby="dmXpTitle">
           <h2 id="dmXpTitle" class="dm-sidebar-xp-title">XP da sessão</h2>
           <p class="dm-sidebar-xp-hint">Dividido entre quem eliminou cada monstro (só personagens vivos).</p>
           <div id="dmXpLedger" class="dm-xp-ledger" aria-live="polite"></div>
+          <details class="dm-xp-phb-collapse">
+            <summary>Tabela XP por nível (PHB)</summary>
+            <div id="dmXpPhbTable" class="dm-xp-phb-table-wrap"></div>
+          </details>
         </section>
       </aside>
 
@@ -94,6 +122,19 @@
                   placeholder="Ex.: Aelindra"
                   maxlength="120"
                   required
+                />
+              </label>
+              <label class="sheet-inline-field">
+                <span class="sheet-name-label">Nível</span>
+                <input
+                  type="number"
+                  id="dmPartyLevelInput"
+                  class="sheet-number-input dm-party-level-input"
+                  value="1"
+                  min="1"
+                  max="20"
+                  inputmode="numeric"
+                  aria-label="Nível de personagem"
                 />
               </label>
               <label class="sheet-inline-field">

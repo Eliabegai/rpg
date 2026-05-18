@@ -2,7 +2,12 @@ const dmMonsterLibrary = document.getElementById("dmMonsterLibrary");
 const dmMonsterEmpty = document.getElementById("dmMonsterEmpty");
 const dmPartyForm = document.getElementById("dmPartyForm");
 const dmPartyNameInput = document.getElementById("dmPartyNameInput");
+const dmPartyLevelInput = document.getElementById("dmPartyLevelInput");
 const dmPartyInitInput = document.getElementById("dmPartyInitInput");
+const dmCampaignNameInput = document.getElementById("dmCampaignNameInput");
+const dmCampaignImportInput = document.getElementById("dmCampaignImportInput");
+const dmCampaignStatus = document.getElementById("dmCampaignStatus");
+const dmXpPhbTable = document.getElementById("dmXpPhbTable");
 const dmInitiativeList = document.getElementById("dmInitiativeList");
 const dmInitEmpty = document.getElementById("dmInitEmpty");
 const dmEncounterList = document.getElementById("dmEncounterList");
@@ -126,6 +131,25 @@ function computePartyXpLedger(battle) {
   return totals;
 }
 
+function renderXpPhbReferenceTable() {
+  if (!dmXpPhbTable) return;
+  const rows = XP_THRESHOLDS.map((xp, i) => {
+    const level = i + 1;
+    const next = level < 20 ? XP_THRESHOLDS[level] - xp : null;
+    return `<tr>
+      <td>${level}</td>
+      <td class="dm-xp-value">${xp.toLocaleString("pt-BR")}</td>
+      <td class="dm-xp-phb-delta">${next != null ? next.toLocaleString("pt-BR") : "—"}</td>
+    </tr>`;
+  }).join("");
+  dmXpPhbTable.innerHTML = `<table class="dm-xp-table dm-xp-phb-table">
+    <thead>
+      <tr><th scope="col">Nív.</th><th scope="col">XP total</th><th scope="col">Para subir</th></tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
 function renderXpSidebar() {
   if (!dmXpLedger) return;
   const battle = loadDmBattle();
@@ -145,8 +169,14 @@ function renderXpSidebar() {
     .map((p) => {
       const xp = totals.get(p.id) || 0;
       grand += xp;
+      const threshold = xpThresholdForLevel(p.level);
+      const nextDelta = xpToNextLevel(p.level);
+      const meta =
+        nextDelta != null
+          ? `<span class="dm-xp-meta">${threshold.toLocaleString("pt-BR")} XP · +${nextDelta.toLocaleString("pt-BR")} p/ ${p.level + 1}</span>`
+          : `<span class="dm-xp-meta">${threshold.toLocaleString("pt-BR")} XP · máx.</span>`;
       return `<tr>
-        <td class="dm-xp-name">${escapeHtml(p.name)}</td>
+        <td class="dm-xp-name">${escapeHtml(p.name)}<span class="dm-xp-level">Nív. ${p.level}</span>${meta}</td>
         <td class="dm-xp-value">${xp}</td>
       </tr>`;
     })
@@ -154,13 +184,62 @@ function renderXpSidebar() {
 
   dmXpLedger.innerHTML = `<table class="dm-xp-table">
     <thead>
-      <tr><th scope="col">Personagem</th><th scope="col">XP</th></tr>
+      <tr><th scope="col">Personagem</th><th scope="col">XP sessão</th></tr>
     </thead>
     <tbody>${rows}</tbody>
     <tfoot>
       <tr><th scope="row">Total</th><td class="dm-xp-value dm-xp-total">${grand}</td></tr>
     </tfoot>
   </table>`;
+}
+
+function renderCampaignUi() {
+  const campaign = loadCampaign();
+  if (dmCampaignNameInput && dmCampaignNameInput !== document.activeElement) {
+    dmCampaignNameInput.value = campaign.name;
+  }
+}
+
+function setCampaignStatus(message, isError = false) {
+  if (!dmCampaignStatus) return;
+  dmCampaignStatus.textContent = message;
+  dmCampaignStatus.classList.toggle("is-error", isError);
+}
+
+function exportCampaignJson() {
+  const bundle = buildCampaignExportBundle();
+  const name = bundle.campaign?.name?.trim() || "campanha";
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40) || "campanha";
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `grimorio-${slug}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setCampaignStatus("Exportação concluída.");
+}
+
+async function importCampaignJsonFile(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const result = importCampaignBundle(parsed);
+    if (!result.ok) {
+      setCampaignStatus(result.error || "Importação falhou.", true);
+      return;
+    }
+    renderCampaignUi();
+    renderAll();
+    setCampaignStatus("Campanha importada.");
+  } catch {
+    setCampaignStatus("Ficheiro JSON inválido.", true);
+  }
 }
 
 function encounterLabelFor(entry, battle) {
@@ -182,6 +261,7 @@ function buildInitiativeEntries(battle) {
       id: p.id,
       name: p.name,
       initiative: p.initiative,
+      level: p.level,
       dead: false,
       downed: isPartyMemberDowned(p),
       imageUrl: "",
@@ -364,6 +444,11 @@ function renderInitiative() {
           ? `<span class="dm-init-thumb">${portraitHtml(row.imageUrl, row.name, "dm-init-thumb-img")}</span>`
           : `<span class="dm-init-kind" title="${escapeHtml(row.name)}">${escapeHtml(partyInitialLetter(row.name))}</span>`;
 
+      const levelInput =
+        row.kind === "party"
+          ? `<input type="number" class="sheet-number-input dm-init-level-input" value="${row.level}" data-field="level" min="1" max="20" inputmode="numeric" aria-label="Nível" />`
+          : "";
+
       const initInput =
         row.kind === "party"
           ? `<input type="number" class="sheet-number-input dm-init-input" value="${row.initiative !== "" ? escapeHtml(row.initiative) : ""}" data-field="initiative" placeholder="—" inputmode="numeric" aria-label="Iniciativa" />`
@@ -384,6 +469,7 @@ function renderInitiative() {
         <span class="dm-init-badge" title="Iniciativa">${init}</span>
         ${thumb}
         <div class="dm-init-body">${nameCell}</div>
+        ${levelInput ? `<div class="dm-init-level">${levelInput}</div>` : ""}
         <div class="dm-init-edit">${initInput}</div>
         ${partyActions}
       </li>`;
@@ -614,6 +700,7 @@ function renderEncounters() {
 
 function renderAll() {
   const encUi = captureEncounterUiState();
+  renderCampaignUi();
   renderMonsterLibrary();
   renderInitiative();
   renderEncounters();
@@ -640,7 +727,7 @@ function focusEncounter(encId) {
   el?.querySelector(".dm-encounter-dice")?.setAttribute("open", "");
 }
 
-function addPartyMember(name, initiative) {
+function addPartyMember(name, initiative, level) {
   const trimmed = String(name || "").trim();
   if (!trimmed) return;
   patchBattle((battle) => {
@@ -648,6 +735,7 @@ function addPartyMember(name, initiative) {
       id: newEntityId("party"),
       name: trimmed,
       initiative: initiative != null && initiative !== "" ? String(initiative) : "",
+      level: clampCharacterLevel(level),
       downed: false,
     });
   });
@@ -684,6 +772,8 @@ function updatePartyField(id, field, value) {
       if (v) p.name = v.slice(0, 120);
     } else if (field === "initiative") {
       p.initiative = value != null && value !== "" ? String(value) : "";
+    } else if (field === "level") {
+      p.level = clampCharacterLevel(value);
     }
   });
   scheduleRender();
@@ -946,9 +1036,11 @@ function onPartyFormSubmit(e) {
   e.preventDefault();
   const name = dmPartyNameInput?.value;
   const init = dmPartyInitInput?.value;
-  addPartyMember(name, init);
+  const level = dmPartyLevelInput?.value;
+  addPartyMember(name, init, level);
   if (dmPartyNameInput) dmPartyNameInput.value = "";
   if (dmPartyInitInput) dmPartyInitInput.value = "";
+  if (dmPartyLevelInput) dmPartyLevelInput.value = "1";
   dmPartyNameInput?.focus();
 }
 
@@ -964,6 +1056,11 @@ function handleDocumentClick(e) {
     btn.closest(".dm-compact-d20")
   ) {
     e.stopPropagation();
+  }
+
+  if (action === "dm-export-campaign") {
+    exportCampaignJson();
+    return;
   }
 
   if (action === "dm-explore-monsters") {
@@ -1168,10 +1265,23 @@ function initDmPage() {
   backfillEncounterMeta();
 
   dmPartyForm?.addEventListener("submit", onPartyFormSubmit);
+  dmCampaignNameInput?.addEventListener("change", () => {
+    saveCampaign({ name: dmCampaignNameInput.value });
+    setCampaignStatus("Nome da campanha guardado.");
+  });
+  dmCampaignNameInput?.addEventListener("blur", () => {
+    saveCampaign({ name: dmCampaignNameInput.value });
+  });
+  dmCampaignImportInput?.addEventListener("change", () => {
+    const file = dmCampaignImportInput.files?.[0];
+    void importCampaignJsonFile(file);
+    dmCampaignImportInput.value = "";
+  });
   document.addEventListener("click", handleDocumentClick);
   document.addEventListener("change", handleDocumentChange);
   document.addEventListener("input", handleDocumentInput);
 
+  renderXpPhbReferenceTable();
   renderAll();
   void warmFavoriteMonsterImages().then(() => {
     backfillEncounterMeta();
