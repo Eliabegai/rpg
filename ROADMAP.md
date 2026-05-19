@@ -6,8 +6,8 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 
 | Área | O que existe |
 |------|----------------|
-| **Explorador** | Perfis «estilo livro» para monstro, magia, equipamento, classe (evolução por nível), raça/sub-raça, trait, feature, subclasse; favoritos; filtros de magias |
-| **Ficha** | v3.0–v3.3 fechados; **v3.4** explorador (background/feat estilo livro, polimento) |
+| **Explorador** | Perfis estilo livro (incl. background, feat, subclasse por nível, magia com classes); favoritos; filtros de magias |
+| **Ficha** | v3.0–v3.4 fechados (explorador estilo livro + polimento base) |
 | **Mesa (DM)** | Monstros (PV, dano, iniciativa, imagens), iniciativa unificada, dificuldade de encontro DMG, XP por sessão + histórico, personagens (nível, sync, eliminado), modo mesa |
 | **Infra** | PWA, `base-path` GitHub Pages, campanha export/import JSON, SEO básico |
 
@@ -23,9 +23,9 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 |---------|--------|
 | Monstro, magia, equipamento | Feito |
 | Classe, raça, sub-raça, trait, feature | Feito |
-| Background, feat (mesmo padrão livro) | v3.4 |
-| Subclasse com evolução por nível (`subclass_levels`) | v3.4 |
-| Magia: classes que aprendem no detalhe | v3.4 |
+| Background, feat (mesmo padrão livro) | Feito (v3.4) |
+| Subclasse com evolução por nível (`subclass_levels`) | Feito (v3.4) |
+| Magia: classes que aprendem no detalhe | Feito (v3.4) |
 | Delta só do que mudou por nível (conjuradores) | Feito (v3.1) |
 
 ### Épicos 2–6
@@ -189,6 +189,25 @@ Melhoria planeada (pós v3.0): o bloco de **curação / PV / descanso** passa a 
 | Acessibilidade / modo mesa | Revisão de contraste, alvos de toque, `prefers-reduced-motion` | UX |
 
 **Critério de aceite:** qualquer recurso principal da sidebar abre painel legível sem JSON cru visível.
+
+**Progresso v3.4 (implementação):**
+
+- [x] Background estilo livro: tabela, característica, traços/ideais/vínculos/defeitos com checkboxes
+- [x] Feat estilo livro: pré-requisitos + descrição (`renderFeatDetailLayout`)
+- [x] Subclasse: evolução por nível via `subclass_levels` (mesmo mount que classe)
+- [x] Magia: secções «Classes / Subclasses que aprendem» no detalhe
+- [x] Acessibilidade: alvos de toque ≥44px, `:focus-visible`, `prefers-reduced-motion` global
+- [x] Ficha: cartões de antecedente, feat e subclasse usam layout livro + enrich
+
+**Pendências v3.4 (fora do critério mínimo ou dependem da API):**
+
+- [ ] Checkboxes do antecedente no explorador **não** sincronizam com a ficha (usar «Aplicar do antecedente» ou assistente v3.3)
+- [ ] Bónus de atributo flexíveis (`ability_bonus_options`, ex. meio-elfo) — só bónus fixos
+- [ ] Equipamento inicial com pacotes A/B — escolha manual no inventário
+- [ ] Nem todas as magias na API trazem `classes` / `subclasses` no detalhe — lista pode estar incompleta
+- [ ] Perícias de classe com escolha — ainda manual nos cartões da classe
+- [ ] Modo mesa em telemóvel estreito: sidebar da mesa continua abaixo do combate
+- [ ] Ilustrações / tema visual por ambiente de descanso (ver «Futuro — Restauração de vida»)
 
 ---
 

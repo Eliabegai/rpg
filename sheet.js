@@ -1462,6 +1462,23 @@ async function loadCardBody(cardEl) {
       if (typeof enrichDetailMounts === "function") {
         await enrichDetailMounts(body);
       }
+    } else if (entry.resourceKey === "feats") {
+      body.innerHTML = renderBookDetail(entry, data);
+      if (typeof enrichDetailMounts === "function") {
+        await enrichDetailMounts(body);
+      }
+    } else if (entry.resourceKey === "backgrounds") {
+      body.innerHTML = renderBookDetail(entry, data);
+      if (typeof enrichDetailMounts === "function") {
+        await enrichDetailMounts(body);
+      }
+    } else if (entry.resourceKey === "subclasses") {
+      body.innerHTML = renderBookDetail(entry, data);
+      if (typeof enrichDetailMounts === "function") {
+        await enrichDetailMounts(body);
+      }
+    } else if (entry.resourceKey === "spells") {
+      body.innerHTML = renderBookDetail(entry, data);
     } else if (
       entry.resourceKey === "equipment" ||
       entry.resourceKey === "magic-items" ||

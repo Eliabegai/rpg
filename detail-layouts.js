@@ -100,6 +100,53 @@ function layoutClassLevelsMount(classLevels) {
   </div>`;
 }
 
+function layoutBackgroundOptionText(opt) {
+  if (!opt || typeof opt !== "object") return "";
+  if (opt.string) return String(opt.string).trim();
+  if (opt.desc) return String(opt.desc).trim();
+  if (opt.name) return String(opt.name).trim();
+  return "";
+}
+
+/** Tabela PHB com checkboxes (referência na mesa; não grava na ficha). */
+function layoutBackgroundChoiceTable(tableData, title, { showAlignment = false } = {}) {
+  if (!tableData?.from?.options?.length) return "";
+  const choose = tableData.choose != null ? Number(tableData.choose) : 1;
+  const chooseLabel = choose === 1 ? "escolhe 1" : `escolhe ${choose}`;
+  const rows = tableData.from.options
+    .map((opt, i) => {
+      const text = layoutBackgroundOptionText(opt);
+      if (!text) return "";
+      const cid = `bg-choice-${layoutNodeId()}`;
+      const align =
+        showAlignment && Array.isArray(opt.alignments) && opt.alignments.length
+          ? opt.alignments.map((a) => a.name || formatResourceLabel(a.index || "")).join(", ")
+          : "";
+      return `<tr>
+        <td class="detail-bg-choice-check">
+          <input type="checkbox" class="detail-bg-choice-cb" id="${cid}" aria-label="Marcar opção ${i + 1}" />
+        </td>
+        <td><label for="${cid}" class="detail-bg-choice-label">${escapeHtml(text)}${
+          align ? ` <span class="detail-bg-align">(${escapeHtml(align)})</span>` : ""
+        }</label></td>
+      </tr>`;
+    })
+    .filter(Boolean)
+    .join("");
+  if (!rows) return "";
+  return layoutSection(
+    title,
+    `<p class="detail-muted detail-bg-choose-hint">PHB: ${escapeHtml(chooseLabel)}. Marca na mesa ou copia para a ficha.</p>
+    <table class="detail-bg-choices"><thead><tr><th scope="col" class="detail-bg-choice-check"></th><th scope="col">Opção</th></tr></thead><tbody>${rows}</tbody></table>`
+  );
+}
+
+let _layoutNodeId = 0;
+function layoutNodeId() {
+  _layoutNodeId += 1;
+  return _layoutNodeId;
+}
+
 function layoutStartingEquipmentSection(equipment, options) {
   const parts = [];
 
@@ -558,10 +605,10 @@ function renderSpellDetailLayout(data) {
   }
 
   if (Array.isArray(data.classes) && data.classes.length) {
-    const chips = data.classes
-      .map((c) => `<li>${escapeHtml(c.name || c.index || "")}</li>`)
-      .join("");
-    html += layoutSection("Classes", `<ul class="detail-chip-list">${chips}</ul>`);
+    html += layoutSection("Classes que aprendem", layoutChipList(data.classes));
+  }
+  if (Array.isArray(data.subclasses) && data.subclasses.length) {
+    html += layoutSection("Subclasses que aprendem", layoutChipList(data.subclasses));
   }
 
   const skip = new Set([
@@ -745,6 +792,82 @@ function renderSubraceDetailLayout(data) {
   return renderRaceDetailLayout(data);
 }
 
+function renderBackgroundDetailLayout(data) {
+  _layoutNodeId = 0;
+  const rows = [];
+  if (data.feature?.name) rows.push(["Característica", data.feature.name]);
+  const profs = layoutRefNames(data.starting_proficiencies);
+  if (profs) rows.push(["Proficiências iniciais", profs]);
+  const langs = layoutRefNames(data.languages);
+  if (langs) rows.push(["Idiomas", langs]);
+  const tools = layoutRefNames(data.tool_proficiencies);
+  if (tools) rows.push(["Ferramentas", tools]);
+
+  let html = `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`;
+
+  if (data.feature?.desc) {
+    html += layoutSection("Característica", layoutFormatDesc(data.feature.desc));
+  }
+
+  html += layoutBackgroundChoiceTable(data.personality_traits, "Traços de personalidade");
+  html += layoutBackgroundChoiceTable(data.ideals, "Ideais", { showAlignment: true });
+  html += layoutBackgroundChoiceTable(data.bonds, "Vínculos");
+  html += layoutBackgroundChoiceTable(data.flaws, "Defeitos");
+
+  const equipBody = layoutStartingEquipmentSection(data.starting_equipment, data.starting_equipment_options);
+  if (equipBody) html += layoutSection("Equipamento inicial", equipBody);
+
+  const skip = new Set([
+    "url",
+    "updated_at",
+    "image",
+    "name",
+    "index",
+    "feature",
+    "starting_proficiencies",
+    "language_proficiencies",
+    "languages",
+    "tool_proficiencies",
+    "skill_proficiencies",
+    "personality_traits",
+    "ideals",
+    "bonds",
+    "flaws",
+    "starting_equipment",
+    "starting_equipment_options",
+    "starting_proficiency_options",
+    "desc",
+  ]);
+
+  return { html, skip };
+}
+
+function renderFeatDetailLayout(data) {
+  const rows = [];
+  const prereq = layoutPrerequisitesText(data.prerequisites);
+  if (prereq) rows.push(["Pré-requisitos", prereq]);
+
+  let html = rows.length
+    ? `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`
+    : "";
+
+  if (data.desc) html += layoutSection("Descrição", layoutFormatDesc(data.desc));
+  else if (!html) html = '<p class="detail-muted">Sem descrição na API.</p>';
+
+  const skip = new Set([
+    "url",
+    "updated_at",
+    "image",
+    "name",
+    "index",
+    "prerequisites",
+    "desc",
+    "reference",
+  ]);
+
+  return { html, skip };
+}
+
 function renderSubclassDetailLayout(data) {
   const rows = [];
   if (data.class?.name) rows.push(["Classe", data.class.name]);
@@ -753,6 +876,17 @@ function renderSubclassDetailLayout(data) {
 
   let html = `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`;
   html += layoutFormatDesc(data.desc);
+
+  if (data.subclass_levels) {
+    html += layoutSection("Evolução por nível", layoutClassLevelsMount(data.subclass_levels));
+  }
+
+  if (Array.isArray(data.spells) && data.spells.length) {
+    html += layoutSection(
+      "Magias da subclasse",
+      layoutRefCardsMount(data.spells, { loadingLabel: "A carregar magias…" })
+    );
+  }
 
   const skip = new Set([
     "url",
@@ -867,8 +1001,10 @@ function getSpecializedDetailLayout(resourceKey, data) {
   if (resourceKey === "equipment") return renderEquipmentDetailLayout(data);
   if (resourceKey === "classes") return renderClassDetailLayout(data);
   if (resourceKey === "races" || resourceKey === "subraces") return renderRaceDetailLayout(data);
+  if (resourceKey === "backgrounds") return renderBackgroundDetailLayout(data);
   if (resourceKey === "subclasses") return renderSubclassDetailLayout(data);
   if (resourceKey === "traits") return renderTraitDetailLayout(data);
+  if (resourceKey === "feats") return renderFeatDetailLayout(data);
   if (resourceKey === "features") return renderFeatureDetailLayout(data);
   return null;
 }
