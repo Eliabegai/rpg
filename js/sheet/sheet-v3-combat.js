@@ -72,7 +72,7 @@ function computeInventoryWeight(sheet) {
 async function loadSkillLabelsFromApi() {
   if (skillLabelsFromApi) return;
   try {
-    const res = await apiFetch("/api/2014/skills");
+    const res = await apiFetch(apiListPath("skills"));
     if (!res.ok) return;
     const data = await res.json();
     const map = {};

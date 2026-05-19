@@ -55,7 +55,7 @@ let selectedItemData = null;
 let filterDebounceId = 0;
 
 function syncApiRootDocLinkHref() {
-  if (apiRootDocLink) apiRootDocLink.href = apiUrl("/api/2014/");
+  if (apiRootDocLink) apiRootDocLink.href = apiUrl(apiRootPath());
 }
 
 function loadSession() {
@@ -135,9 +135,9 @@ async function populateSpellFilterDropdowns() {
   if (spellFilterOptionsLoaded) return;
   try {
     const [schoolsRes, classesRes, subclassesRes] = await Promise.all([
-      apiFetch("/api/2014/magic-schools"),
-      apiFetch("/api/2014/classes"),
-      apiFetch("/api/2014/subclasses"),
+      apiFetch(apiListPath("magic-schools")),
+      apiFetch(apiListPath("classes")),
+      apiFetch(apiListPath("subclasses")),
     ]);
     if (schoolsRes.ok) {
       const data = await schoolsRes.json();
@@ -593,8 +593,7 @@ function resultsFromPayload(data) {
       ([key, v]) =>
         !PSEUDO_LIST_SKIP_KEYS.has(key) &&
         typeof v === "string" &&
-        v.startsWith("/api/2014/") &&
-        !v.includes("/api/images/")
+        isApiCatalogDataPath(v)
     );
     if (entries.length > 0) {
       return entries.map(([key, url]) => ({
@@ -1211,7 +1210,7 @@ async function populateApi2014Sidebar() {
   apiRootNav.appendChild(status);
 
   try {
-    const res = await apiFetch("/api/2014/");
+    const res = await apiFetch(apiRootPath());
     if (!res.ok) throw new Error("api-root");
     const data = await res.json();
     apiRootNav.replaceChildren();

@@ -55,7 +55,9 @@ O site publica em **`https://eliabegai.github.io/rpg/`** (repositório `rpg`).
 
 ### API
 
-As requisições vão para `https://www.dnd5eapi.co` (CORS permitido). Não é preciso backend neste repositório.
+As requisições vão para `https://www.dnd5eapi.co` (catálogo SRD **2014**, CORS permitido). Não é preciso backend neste repositório.
+
+Paths e origem estão centralizados em `js/core/api-client.js` (`apiListPath`, `apiItemPath`, `buildApiEntryPath`). Para migrar de API no futuro, altera `API_BASE` e `API_CATALOG_VERSION` nesse ficheiro e adapta os parsers JSON por módulo (explorador, ficha, mesa).
 
 ## SEO (aparecer no Google)
 

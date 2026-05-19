@@ -1,5 +1,5 @@
 /** Utilitários partilhados entre a exploração da API e a ficha. */
-const API_BASE = "https://www.dnd5eapi.co";
+/** API_BASE e paths: js/core/api-client.js (carregar antes deste ficheiro). */
 const STORAGE_LOCALE = "dnd5eapi.locale";
 const STORAGE_FAVORITES = "dnd5eapi.favorites";
 const STORAGE_LIST_SCOPE = "dnd5eapi.listScope";
@@ -389,7 +389,7 @@ function openMonstersInExplorer() {
   try {
     const session = {
       resourceKey: "monsters",
-      resourcePath: "/api/2014/monsters",
+      resourcePath: apiListPath("monsters"),
       itemIndex: "",
       itemPath: "",
       filter: "",
@@ -451,7 +451,7 @@ function openEntryInExplorer(entry) {
 function openExplorerResource(resourceKey, resourcePath) {
   const key = String(resourceKey || "").trim();
   if (!key) return;
-  const path = resourcePath || `/api/2014/${key}`;
+  const path = resourcePath || apiListPath(key);
   try {
     localStorage.setItem(
       STORAGE_SESSION,
@@ -1265,7 +1265,7 @@ function normalizeSpellListEntry(raw) {
     resourceKey: "spells",
     index,
     name: raw.name != null ? String(raw.name) : index,
-    path: cleanApiPath(raw.path || ""),
+    path: pathnameFromApiRef(withActiveApiPath(raw.path || "")),
     level,
     prepared: raw.prepared !== false,
   };
@@ -1535,7 +1535,7 @@ function importEquipmentFavoritesToSheet(sheet) {
         const cached = getCachedEntryData({
           resourceKey: src.resourceKey,
           index: src.index,
-          path: src.path || `/api/2014/${src.resourceKey}/${src.index}`,
+          path: buildApiEntryPath(src),
         });
         if (cached) weight = equipmentWeightFromEntry({ cachedData: cached });
       }
@@ -1803,7 +1803,8 @@ function setLocale(locale) {
 
 function apiUrl(pathOrUrl) {
   if (!pathOrUrl) return "";
-  const absolute = pathOrUrl.startsWith("http") ? pathOrUrl : `${API_BASE}${pathOrUrl}`;
+  const path = withActiveApiPath(pathOrUrl);
+  const absolute = path.startsWith("http") ? path : `${API_BASE}${path}`;
   try {
     const u = new URL(absolute);
     const host = u.hostname.replace(/^www\./, "");
@@ -1838,13 +1839,7 @@ function formatResourceLabel(key) {
 }
 
 function cleanApiPath(pathOrUrl) {
-  if (!pathOrUrl) return "";
-  try {
-    const u = new URL(pathOrUrl, API_BASE);
-    return u.pathname;
-  } catch {
-    return String(pathOrUrl).split("?")[0];
-  }
+  return pathnameFromApiRef(withActiveApiPath(pathOrUrl));
 }
 
 function favoriteEntryId(entry) {
@@ -1860,7 +1855,7 @@ function normalizeFavoriteEntry(raw) {
     resourceKey: String(resourceKey),
     index,
     name: raw.name != null ? String(raw.name) : index,
-    path: cleanApiPath(raw.path || ""),
+    path: pathnameFromApiRef(withActiveApiPath(raw.path || "")),
   };
   if (raw.cachedData && typeof raw.cachedData === "object") {
     entry.cachedData = raw.cachedData;
@@ -1878,7 +1873,7 @@ function normalizeSheetItem(raw) {
     resourceKey: String(resourceKey),
     index,
     name: raw.name != null ? String(raw.name) : index,
-    path: cleanApiPath(raw.path || ""),
+    path: pathnameFromApiRef(withActiveApiPath(raw.path || "")),
   };
   if (raw.cachedData && typeof raw.cachedData === "object") {
     entry.cachedData = raw.cachedData;
@@ -2011,18 +2006,6 @@ function saveSheet(sheet) {
   }
 }
 
-/** `/api/2014/monsters/foo` → lista `/api/2014/monsters` */
-function resourcePathFromItemPath(path) {
-  const parts = cleanApiPath(path).split("/").filter(Boolean);
-  if (parts.length >= 4 && parts[0] === "api" && parts[1] === "2014") {
-    return `/${parts.slice(0, 3).join("/")}`;
-  }
-  if (parts.length === 3 && parts[0] === "api" && parts[1] === "2014") {
-    return `/${parts.join("/")}`;
-  }
-  return cleanApiPath(path);
-}
-
 async function populateLocalesDropdown(selectEl, { onChange } = {}) {
   initLocaleFromStorage();
   if (!selectEl) return;
@@ -2038,7 +2021,7 @@ async function populateLocalesDropdown(selectEl, { onChange } = {}) {
   addOpt("en", "English (predefinição)");
 
   try {
-    const res = await fetch(`${API_BASE}/api/2014/locales`);
+    const res = await apiFetch(apiLocalesPath());
     if (res.ok) {
       const data = await res.json();
       const seen = new Set(["en"]);
