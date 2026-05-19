@@ -4934,6 +4934,58 @@ body.game-tools-open .game-tools-fab {
   color: #fca5a5;
 }
 
+.campaign-picker {
+  margin-bottom: 0.75rem;
+}
+
+.campaign-picker-field {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.campaign-picker-select {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  border: 1px solid #475569;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.campaign-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.campaign-picker--sheet {
+  margin: 0.65rem 0 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #334155;
+}
+
+.dm-session-notes-field {
+  display: block;
+  margin: 0.65rem 0 0.75rem;
+}
+
+.dm-session-notes-input {
+  width: 100%;
+  min-height: 4.5rem;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.35;
+}
+
+.dm-history-notes {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+}
+
 .dm-sidebar-xp {
   margin-top: 1.25rem;
   padding-top: 1rem;

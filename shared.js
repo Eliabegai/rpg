@@ -720,7 +720,8 @@ function cloneDmBattleSlice(battle) {
 
 function loadDmSnapshots() {
   try {
-    const raw = localStorage.getItem(STORAGE_DM_SNAPSHOTS);
+    const raw =
+      typeof readCampaignScoped === "function" ? readCampaignScoped("dmSnapshots") : localStorage.getItem(STORAGE_DM_SNAPSHOTS);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -746,7 +747,9 @@ function loadDmSnapshots() {
 
 function saveDmSnapshots(list) {
   try {
-    localStorage.setItem(STORAGE_DM_SNAPSHOTS, JSON.stringify(list));
+    const payload = JSON.stringify(list);
+    if (typeof writeCampaignScoped === "function") writeCampaignScoped("dmSnapshots", payload);
+    else localStorage.setItem(STORAGE_DM_SNAPSHOTS, payload);
     return true;
   } catch {
     return false;
@@ -782,7 +785,8 @@ function deleteDmSnapshot(snapshotId) {
 
 function loadDmBattle() {
   try {
-    const raw = localStorage.getItem(STORAGE_DM_BATTLE);
+    const raw =
+      typeof readCampaignScoped === "function" ? readCampaignScoped("dmBattle") : localStorage.getItem(STORAGE_DM_BATTLE);
     if (!raw) return normalizeDmBattle(null);
     return normalizeDmBattle(JSON.parse(raw));
   } catch {
@@ -792,7 +796,9 @@ function loadDmBattle() {
 
 function saveDmBattle(battle) {
   try {
-    localStorage.setItem(STORAGE_DM_BATTLE, JSON.stringify(normalizeDmBattle(battle)));
+    const payload = JSON.stringify(normalizeDmBattle(battle));
+    if (typeof writeCampaignScoped === "function") writeCampaignScoped("dmBattle", payload);
+    else localStorage.setItem(STORAGE_DM_BATTLE, payload);
     return true;
   } catch {
     return false;
@@ -809,9 +815,14 @@ function normalizeCampaign(parsed) {
 
 function loadCampaign() {
   try {
-    const raw = localStorage.getItem(STORAGE_CAMPAIGN);
-    if (!raw) return normalizeCampaign(null);
-    return normalizeCampaign(JSON.parse(raw));
+    const raw =
+      typeof readCampaignScoped === "function" ? readCampaignScoped("meta") : localStorage.getItem(STORAGE_CAMPAIGN);
+    const meta = raw ? normalizeCampaign(JSON.parse(raw)) : normalizeCampaign(null);
+    if (typeof getActiveCampaign === "function") {
+      const active = getActiveCampaign();
+      if (active?.name && !meta.name) meta.name = active.name;
+    }
+    return meta;
   } catch {
     return normalizeCampaign(null);
   }
@@ -819,7 +830,19 @@ function loadCampaign() {
 
 function saveCampaign(campaign) {
   try {
-    localStorage.setItem(STORAGE_CAMPAIGN, JSON.stringify(normalizeCampaign(campaign)));
+    const normalized = normalizeCampaign(campaign);
+    const payload = JSON.stringify(normalized);
+    if (typeof writeCampaignScoped === "function") writeCampaignScoped("meta", payload);
+    else localStorage.setItem(STORAGE_CAMPAIGN, payload);
+    if (typeof loadCampaignRegistry === "function" && normalized.name) {
+      const id = getActiveCampaignId();
+      const list = loadCampaignRegistry();
+      const entry = list.find((c) => c.id === id);
+      if (entry) {
+        entry.name = normalized.name;
+        saveCampaignRegistry(list);
+      }
+    }
     return true;
   } catch {
     return false;
@@ -831,11 +854,13 @@ function buildCampaignExportBundle() {
   return {
     version: CAMPAIGN_EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
+    campaignId: typeof getActiveCampaignId === "function" ? getActiveCampaignId() : DEFAULT_CAMPAIGN_ID,
     campaign,
     dmBattle: loadDmBattle(),
     favorites: loadFavorites(),
     sheet: loadSheet(),
     sessionHistory: loadSessionHistory(),
+    dmSnapshots: typeof loadDmSnapshots === "function" ? loadDmSnapshots() : [],
   };
 }
 
@@ -850,6 +875,7 @@ function importCampaignBundle(raw) {
   if (Array.isArray(raw.favorites)) saveFavorites(raw.favorites);
   if (raw.sheet != null) saveSheet(normalizeSheet(raw.sheet));
   if (Array.isArray(raw.sessionHistory)) saveSessionHistory(raw.sessionHistory);
+  if (Array.isArray(raw.dmSnapshots) && typeof saveDmSnapshots === "function") saveDmSnapshots(raw.dmSnapshots);
   return { ok: true };
 }
 
@@ -1121,7 +1147,10 @@ function applyTableModeClass() {
 
 function loadSessionHistory() {
   try {
-    const raw = localStorage.getItem(STORAGE_SESSION_HISTORY);
+    const raw =
+      typeof readCampaignScoped === "function"
+        ? readCampaignScoped("sessionHistory")
+        : localStorage.getItem(STORAGE_SESSION_HISTORY);
     if (!raw) return [];
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? arr : [];
@@ -1132,7 +1161,9 @@ function loadSessionHistory() {
 
 function saveSessionHistory(entries) {
   try {
-    localStorage.setItem(STORAGE_SESSION_HISTORY, JSON.stringify(entries.slice(0, SESSION_HISTORY_MAX)));
+    const payload = JSON.stringify(entries.slice(0, SESSION_HISTORY_MAX));
+    if (typeof writeCampaignScoped === "function") writeCampaignScoped("sessionHistory", payload);
+    else localStorage.setItem(STORAGE_SESSION_HISTORY, payload);
     return true;
   } catch {
     return false;
@@ -1148,6 +1179,7 @@ function appendSessionHistory(entry) {
     campaignName: entry.campaignName != null ? String(entry.campaignName).slice(0, 120) : "",
     totalXp: Number(entry.totalXp) || 0,
     monstersDefeated: Number(entry.monstersDefeated) || 0,
+    notes: entry.notes != null ? String(entry.notes).slice(0, 500) : "",
     members: Array.isArray(entry.members)
       ? entry.members.map((m) => ({
           name: String(m?.name || "").slice(0, 120),
@@ -1161,7 +1193,8 @@ function appendSessionHistory(entry) {
 
 function clearSessionHistory() {
   try {
-    localStorage.removeItem(STORAGE_SESSION_HISTORY);
+    if (typeof removeCampaignScoped === "function") removeCampaignScoped("sessionHistory");
+    else localStorage.removeItem(STORAGE_SESSION_HISTORY);
     return true;
   } catch {
     return false;
@@ -1947,7 +1980,8 @@ function saveFavorites(entries) {
 
 function loadSheet() {
   try {
-    const raw = localStorage.getItem(STORAGE_SHEET);
+    const raw =
+      typeof readCampaignScoped === "function" ? readCampaignScoped("sheet") : localStorage.getItem(STORAGE_SHEET);
     if (!raw) return normalizeSheet(null);
     return normalizeSheet(JSON.parse(raw));
   } catch {
@@ -1957,7 +1991,9 @@ function loadSheet() {
 
 function saveSheet(sheet) {
   try {
-    localStorage.setItem(STORAGE_SHEET, JSON.stringify(sheet));
+    const payload = JSON.stringify(sheet);
+    if (typeof writeCampaignScoped === "function") writeCampaignScoped("sheet", payload);
+    else localStorage.setItem(STORAGE_SHEET, payload);
     return true;
   } catch {
     try {
@@ -1965,7 +2001,9 @@ function saveSheet(sheet) {
         ...sheet,
         items: (sheet.items || []).map(({ cachedData, dataLocale, ...rest }) => rest),
       };
-      localStorage.setItem(STORAGE_SHEET, JSON.stringify(slim));
+      const payload = JSON.stringify(slim);
+      if (typeof writeCampaignScoped === "function") writeCampaignScoped("sheet", payload);
+      else localStorage.setItem(STORAGE_SHEET, payload);
       return true;
     } catch {
       return false;

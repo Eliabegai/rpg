@@ -7,7 +7,7 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 | Área | O que existe |
 |------|----------------|
 | **Explorador** | Perfis «estilo livro» para monstro, magia, equipamento, classe (evolução por nível), raça/sub-raça, trait, feature, subclasse; favoritos; filtros de magias |
-| **Ficha** | v3.0–v3.1 fechados; **v3.2 Mesa** em curso (turnos, encontros guardados, condições monstros, tesouro/regras) |
+| **Ficha** | v3.0–v3.2 fechados; **v3.3** em curso (várias campanhas, notas de sessão; assistente PHB a seguir) |
 | **Mesa (DM)** | Monstros (PV, dano, iniciativa, imagens), iniciativa unificada, dificuldade de encontro DMG, XP por sessão + histórico, personagens (nível, sync, eliminado), modo mesa |
 | **Infra** | PWA, `base-path` GitHub Pages, campanha export/import JSON, SEO básico |
 
@@ -164,6 +164,17 @@ Melhoria planeada (pós v3.0): o bloco de **curação / PV / descanso** passa a 
 | Partilha leitura | Export JSON + instrução (sem servidor) para jogador consultar | Produto |
 
 **Critério de aceite:** personagem novo criado em &lt; 15 min só no app; duas campanhas não misturam dados.
+
+**Progresso v3.3 (implementação):**
+
+- [x] Várias campanhas: `campaign-store.js`, chaves scoped em ficha/mesa/histórico/snapshots
+- [x] Troca de campanha na UI (ficha + mesa); migração automática dos dados legados
+- [x] Notas de sessão no histórico (ao creditar XP)
+- [ ] Assistente PHB (raça → classe → …)
+- [ ] Bónus de raça automáticos
+- [ ] Equipamento inicial via API
+- [ ] Impressão (`@media print`)
+- [ ] Partilha leitura (export + instrução)
 
 ---
 

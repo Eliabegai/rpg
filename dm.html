@@ -60,6 +60,7 @@
 
         <section class="dm-sidebar-campaign" aria-labelledby="dmCampaignTitle">
           <h2 id="dmCampaignTitle" class="dm-sidebar-xp-title">Campanha</h2>
+          <div id="dmCampaignPicker" class="campaign-picker"></div>
           <label class="sheet-inline-field dm-campaign-name-field">
             <span class="sheet-name-label">Nome</span>
             <input
@@ -89,6 +90,16 @@
         <section class="dm-sidebar-xp" aria-labelledby="dmXpTitle">
           <h2 id="dmXpTitle" class="dm-sidebar-xp-title">XP da sessão</h2>
           <p class="dm-sidebar-xp-hint">Dividido entre quem eliminou cada monstro (só personagens vivos).</p>
+          <label class="sheet-inline-field dm-session-notes-field">
+            <span class="sheet-name-label">Notas da sessão</span>
+            <textarea
+              id="dmSessionNotesInput"
+              class="sheet-name-input dm-session-notes-input"
+              rows="3"
+              maxlength="500"
+              placeholder="Resumo, loot, ganchos para a próxima sessão…"
+            ></textarea>
+          </label>
           <div id="dmXpLedger" class="dm-xp-ledger" aria-live="polite"></div>
           <button type="button" class="sheet-dice-btn dm-xp-apply-btn" data-action="dm-apply-session-xp">
             Creditar XP da sessão
@@ -233,7 +244,9 @@
     </div>
 
     <script src="spellcasting-data.js"></script>
+    <script src="campaign-store.js"></script>
     <script src="shared.js"></script>
+    <script src="campaign-ui.js"></script>
     <script src="dm-quick-ref-data.js"></script>
     <script src="dm-combat-sync.js"></script>
     <script src="dm-v32.js"></script>

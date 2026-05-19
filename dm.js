@@ -17,6 +17,7 @@ const dmEncounterDeadList = document.getElementById("dmEncounterDeadList");
 const dmXpLedger = document.getElementById("dmXpLedger");
 const dmEncounterDiff = document.getElementById("dmEncounterDiff");
 const dmSessionHistory = document.getElementById("dmSessionHistory");
+const dmSessionNotesInput = document.getElementById("dmSessionNotesInput");
 const localeSelect = document.getElementById("localeSelect");
 
 const DM_DAMAGE_TICK_MS = [45, 48, 52, 58, 68, 82, 100, 125, 160, 200];
@@ -242,10 +243,12 @@ function buildSessionHistoryEntry(battle, ledger, totalXp) {
     level: p.level,
   }));
   const monstersDefeated = battle.encounters.filter((e) => isEncounterDead(e)).length;
+  const notes = dmSessionNotesInput ? String(dmSessionNotesInput.value || "").trim().slice(0, 500) : "";
   return {
     campaignName: campaign.name || "",
     totalXp,
     monstersDefeated,
+    notes,
     members,
   };
 }
@@ -268,9 +271,13 @@ function renderSessionHistory() {
         .filter((m) => m.xp > 0)
         .map((m) => `<li>${escapeHtml(m.name)} +${m.xp} XP (nív. ${m.level})</li>`)
         .join("");
+      const notesBlock = e.notes
+        ? `<p class="dm-history-notes">${escapeHtml(e.notes)}</p>`
+        : "";
       return `<li class="dm-history-item">
         <p class="dm-history-meta"><time datetime="${escapeHtml(e.at)}">${escapeHtml(dateStr)}</time>${camp}</p>
         <p class="dm-history-summary">${e.totalXp} XP · ${e.monstersDefeated} monstro(s)</p>
+        ${notesBlock}
         ${memberRows ? `<ul class="dm-history-members">${memberRows}</ul>` : ""}
       </li>`;
     })
@@ -295,6 +302,7 @@ function applySessionXpToParty() {
   });
   if (credited > 0) {
     appendSessionHistory(buildSessionHistoryEntry(battle, ledger, credited));
+    if (dmSessionNotesInput) dmSessionNotesInput.value = "";
     renderSessionHistory();
     setCampaignStatus(`+${credited} XP creditado ao grupo.`);
   } else {
@@ -1585,6 +1593,7 @@ function initDmPage() {
 
   renderXpPhbReferenceTable();
   if (typeof initDmV32 === "function") initDmV32();
+  if (typeof initCampaignPicker === "function") initCampaignPicker("dmCampaignPicker");
   renderAll();
   void warmFavoriteMonsterImages().then(() => {
     backfillEncounterMeta();
