@@ -7,7 +7,7 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 | Área | O que existe |
 |------|----------------|
 | **Explorador** | Perfis «estilo livro» para monstro, magia, equipamento, classe (evolução por nível), raça/sub-raça, trait, feature, subclasse; favoritos; filtros de magias |
-| **Ficha** | v3.0: combate PHB (perícias ½/●/2×, salvaguardas, condições, inspiração, concentração, inventário + import ★); v3.1: multiclasse slots, preparadas, DV no curto, aplicar classe, sugerir PV; temas de ambiente (base CSS); resto: personalidade do background, sync mesa |
+| **Ficha** | v3.0–v3.1 fechados (combate, conjuração, descanso, sync inspiração/condições com mesa); próximo: **v3.2 Mesa** |
 | **Mesa (DM)** | Monstros (PV, dano, iniciativa, imagens), iniciativa unificada, dificuldade de encontro DMG, XP por sessão + histórico, personagens (nível, sync, eliminado), modo mesa |
 | **Infra** | PWA, `base-path` GitHub Pages, campanha export/import JSON, SEO básico |
 
@@ -26,7 +26,7 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 | Background, feat (mesmo padrão livro) | v3.4 |
 | Subclasse com evolução por nível (`subclass_levels`) | v3.4 |
 | Magia: classes que aprendem no detalhe | v3.4 |
-| Delta só do que mudou por nível (conjuradores) | v3.1 (opcional) |
+| Delta só do que mudou por nível (conjuradores) | Feito (v3.1) |
 
 ### Épicos 2–6
 
@@ -86,7 +86,7 @@ Foco: o que falta na ficha oficial para rodar combate e social básico.
 - [x] Meio bónus de proficiência (½) e perícia em dobro (2×) — botão por perícia: — → ½ → ● → 2×
 - [x] Importar equipamento dos favoritos para inventário (★ e itens na ficha; peso da API)
 - [x] Preencher personalidade a partir do background na ficha (aleatório PHB)
-- [ ] Inspiração / condições na mesa (sync opcional)
+- [x] Inspiração / condições na mesa (sync ficha ↔ iniciativa, `dm-combat-sync.js`)
 
 ---
 
@@ -124,8 +124,8 @@ Melhoria planeada (pós v3.0): o bloco de **curação / PV / descanso** passa a 
 - [x] Descanso curto: gastar N dados de vida de uma vez
 - [x] Aplicar classe na ficha: DV, salvaguardas, perícias fixas (API)
 - [x] Sugerir PV máximos (média PHB)
-- [ ] Recuperação de slots no longo por classe / meio-conjurador (avisos finos)
-- [ ] Delta só do que mudou por nível na tabela de classe
+- [x] Recuperação de slots no longo por classe / meio-conjurador (avisos em `describeLongRestSpellRecovery`)
+- [x] Delta só do que mudou por nível na tabela de classe (capacidades novas por nível)
 
 ---
 

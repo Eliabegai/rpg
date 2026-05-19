@@ -225,6 +225,11 @@ function syncSheetCombatV3() {
   syncCombatV3Fields(sheet);
 }
 
+function syncCombatStateToDmIfLinked() {
+  if (typeof trySyncCombatStateToDm !== "function") return;
+  trySyncCombatStateToDm(loadSheet());
+}
+
 function onCombatV3Click(e) {
   const rankBtn = e.target.closest("[data-skill-rank]");
   if (rankBtn?.dataset.skillRank) {
@@ -255,6 +260,7 @@ function onCombatV3Click(e) {
       s.activeConditions = [...set];
     });
     renderConditions(loadSheet());
+    syncCombatStateToDmIfLinked();
     return;
   }
 
@@ -263,6 +269,7 @@ function onCombatV3Click(e) {
       s.inspiration = !s.inspiration;
     });
     syncCombatV3Fields(loadSheet());
+    syncCombatStateToDmIfLinked();
     return;
   }
 
@@ -291,6 +298,7 @@ function onCombatV3Change(e) {
     patchSheet((s) => {
       s.concentrationSpell = e.target.value;
     });
+    syncCombatStateToDmIfLinked();
     return;
   }
 

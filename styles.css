@@ -1360,8 +1360,15 @@ body.game-tools-open .game-tools-fab {
   color: #64748b;
 }
 
-.sheet-locale-bar {
+/* Explorador: canto do .container; ficha/mesa: fluxo no cabeçalho */
+.sheet-header-actions .locale-bar,
+.dm-header-actions .locale-bar,
+.sheet-locale-bar,
+.dm-locale-bar {
   position: static;
+  top: auto;
+  right: auto;
+  z-index: auto;
 }
 
 .sheet-name-field {
@@ -3933,6 +3940,96 @@ body.game-tools-open .game-tools-fab {
   flex-shrink: 0;
 }
 
+.dm-init-combat {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  padding-top: 0.35rem;
+  margin-top: 0.15rem;
+  border-top: 1px dashed #c7d5e8;
+}
+
+.dm-inspiration-btn {
+  flex-shrink: 0;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 1rem;
+  line-height: 1;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.dm-inspiration-btn--on {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 1px #fbbf24;
+}
+
+.dm-init-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.dm-init-conditions-empty {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+.dm-condition-chip {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.dm-condition-chip--on {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.dm-init-conditions-edit {
+  font-size: 0.75rem;
+}
+
+.dm-init-conditions-edit summary {
+  cursor: pointer;
+  color: #475569;
+  list-style: none;
+}
+
+.dm-init-conditions-edit summary::-webkit-details-marker {
+  display: none;
+}
+
+.dm-init-conditions-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+  max-width: 28rem;
+}
+
+.dm-init-concentration {
+  font-size: 0.72rem;
+  color: #4338ca;
+  font-style: italic;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dm-init-row--monster .dm-init-order {
   background: linear-gradient(165deg, #fffbeb 0%, #fde68a 100%);
   border-color: #fbbf24;
@@ -5777,9 +5874,15 @@ html.table-mode .sheet-inspiration-btn {
 
 .multiclass-row {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto minmax(2rem, auto);
   gap: 0.35rem;
   align-items: center;
+}
+
+.multiclass-remove {
+  flex-shrink: 0;
+  min-width: 2rem;
+  min-height: 2rem;
 }
 
 .multiclass-level {

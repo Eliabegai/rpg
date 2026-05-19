@@ -587,7 +587,39 @@ function normalizeDmPartyMember(raw) {
     level: clampCharacterLevel(raw.level),
     xpTotal: normalizeXpTotal(raw.xpTotal),
     downed: Boolean(raw.downed),
+    inspiration: Boolean(raw.inspiration),
+    activeConditions: normalizeActiveConditions(raw.activeConditions),
+    concentrationSpell:
+      raw.concentrationSpell != null ? String(raw.concentrationSpell).slice(0, 200) : "",
   };
+}
+
+function copySheetCombatStateToMember(member, sheet) {
+  if (!member || !sheet) return;
+  member.inspiration = Boolean(sheet.inspiration);
+  member.activeConditions = normalizeActiveConditions(sheet.activeConditions);
+  member.concentrationSpell =
+    sheet.concentrationSpell != null ? String(sheet.concentrationSpell).slice(0, 200) : "";
+}
+
+function copyMemberCombatStateToSheet(sheet, member) {
+  if (!sheet || !member) return;
+  sheet.inspiration = Boolean(member.inspiration);
+  sheet.activeConditions = normalizeActiveConditions(member.activeConditions);
+  sheet.concentrationSpell =
+    member.concentrationSpell != null ? String(member.concentrationSpell).slice(0, 200) : "";
+}
+
+/** Atualiza inspiração/condições na mesa se o nome da ficha coincidir com um personagem. */
+function trySyncCombatStateToDm(sheet) {
+  const name = String(sheet?.characterName || "").trim();
+  if (!name) return false;
+  const battle = loadDmBattle();
+  const member = findDmPartyMemberByName(battle.party, name);
+  if (!member) return false;
+  copySheetCombatStateToMember(member, sheet);
+  saveDmBattle(battle);
+  return true;
 }
 
 function normalizeDmEncounter(raw) {
@@ -1392,6 +1424,7 @@ function syncSheetToDmBattle(sheet) {
   if (existing) {
     existing.level = clampCharacterLevel(sheet.characterLevel);
     existing.xpTotal = normalizeXpTotal(sheet.xpTotal);
+    copySheetCombatStateToMember(existing, sheet);
     saveDmBattle(battle);
     return { ok: true, memberId: existing.id, created: false };
   }
@@ -1401,6 +1434,9 @@ function syncSheetToDmBattle(sheet) {
     xpTotal: sheet.xpTotal,
     initiative: "",
     downed: false,
+    inspiration: sheet.inspiration,
+    activeConditions: sheet.activeConditions,
+    concentrationSpell: sheet.concentrationSpell,
   });
   if (!member) return { ok: false, error: "Não foi possível criar o personagem na mesa." };
   battle.party.push(member);
@@ -1426,6 +1462,7 @@ function syncDmPartyMemberToSheet(member, { forceName = false } = {}) {
   }
   sheet.characterLevel = clampCharacterLevel(member.level);
   sheet.xpTotal = normalizeXpTotal(member.xpTotal);
+  copyMemberCombatStateToSheet(sheet, member);
   saveSheet(normalizeSheet(sheet));
   return { ok: true };
 }

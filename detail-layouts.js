@@ -330,14 +330,24 @@ function renderSpellcastingLevelHtml(spellcasting, prevSpellcasting) {
   return html;
 }
 
-function renderClassLevelDescHtml(lv, prevLevel) {
-  const blocks = [];
-
-  const features = (Array.isArray(lv.features) ? lv.features : [])
+function featureNamesAtLevel(lv) {
+  return (Array.isArray(lv?.features) ? lv.features : [])
     .map((f) => f.name || f.index || "")
     .filter(Boolean);
-  if (features.length) {
-    const items = features.map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+}
+
+function featuresNewAtLevel(lv, seenBefore) {
+  const names = featureNamesAtLevel(lv);
+  if (!seenBefore || seenBefore.size === 0) return names;
+  return names.filter((n) => !seenBefore.has(n));
+}
+
+function renderClassLevelDescHtml(lv, prevLevel, seenFeaturesBefore) {
+  const blocks = [];
+
+  const newFeatures = featuresNewAtLevel(lv, seenFeaturesBefore);
+  if (newFeatures.length) {
+    const items = newFeatures.map((f) => `<li>${escapeHtml(f)}</li>`).join("");
     blocks.push(`<div class="detail-level-note detail-level-note--features">
       <span class="detail-level-note-label">Capacidades</span>
       <ul class="detail-level-feature-list">${items}</ul>
@@ -381,11 +391,13 @@ function renderClassLevelDescHtml(lv, prevLevel) {
 
 function renderClassLevelsListHtml(levels) {
   const sorted = [...levels].sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
+  const seenFeatures = new Set();
   const rows = sorted
     .map((lv, i) => {
       const levelNum = lv.level != null ? lv.level : "?";
       const prev = i > 0 ? sorted[i - 1] : null;
-      const desc = renderClassLevelDescHtml(lv, prev);
+      const desc = renderClassLevelDescHtml(lv, prev, seenFeatures);
+      for (const n of featureNamesAtLevel(lv)) seenFeatures.add(n);
       return `<tr class="detail-level-row">
         <th scope="row" class="detail-level-table-lvl"><span class="detail-level-badge">${escapeHtml(String(levelNum))}</span></th>
         <td class="detail-level-table-desc">${desc}</td>

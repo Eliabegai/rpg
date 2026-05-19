@@ -1969,8 +1969,12 @@ function onLongRest() {
   if (typeof applyRestEnvironmentTheme === "function") applyRestEnvironmentTheme();
   document.querySelector(".sheet-rest")?.classList.add("sheet-rest--pulse");
   setTimeout(() => document.querySelector(".sheet-rest")?.classList.remove("sheet-rest--pulse"), 900);
+  const spellNote =
+    typeof describeLongRestSpellRecovery === "function"
+      ? describeLongRestSpellRecovery(loadSheet())
+      : "Slots de magia repostos.";
   setRestMessage(
-    `Descanso longo (${env}): vida reposta, slots de magia repostos, salvaguardas de morte zeradas, +${regained} dados de vida (total ${newRemaining}/${maxHd}).`
+    `Descanso longo (${env}): vida reposta, salvaguardas de morte zeradas, +${regained} dados de vida (total ${newRemaining}/${maxHd}). ${spellNote}`
   );
 }
 

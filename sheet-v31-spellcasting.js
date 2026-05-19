@@ -25,7 +25,7 @@ function renderMulticlassPanel() {
             <option value="third"${c.caster === "third" ? " selected" : ""}>1/3</option>
             <option value="pact"${c.caster === "pact" ? " selected" : ""}>Pacto</option>
           </select>
-          <button type="button" class="sheet-inventory-remove" data-mc-remove="${i}" aria-label="Remover classe">×</button>
+          <button type="button" class="sheet-inventory-remove multiclass-remove" data-mc-remove="${i}" aria-label="Remover classe">×</button>
         </div>`
           )
           .join("")
@@ -136,10 +136,19 @@ function onMulticlassPanelClick(e) {
   const remove = e.target.closest("[data-mc-remove]");
   if (remove) {
     const i = Number(remove.dataset.mcRemove);
+    if (!Number.isFinite(i) || i < 0) return;
     patchSheet((s) => {
-      s.spellcasting?.multiclass?.classes?.splice(i, 1);
+      if (!s.spellcasting) return;
+      if (!s.spellcasting.multiclass) s.spellcasting.multiclass = { enabled: false, classes: [] };
+      s.spellcasting.multiclass.classes.splice(i, 1);
+      if (s.spellcasting.multiclass.classes.length === 0) {
+        s.spellcasting.multiclass.enabled = false;
+      }
+      s.spellcasting.slotsUsed = {};
     });
-    saveMulticlassFromDom();
+    renderMulticlassPanel();
+    renderSpellSlotsGrid?.();
+    renderSpellListByLevel?.();
   }
 }
 

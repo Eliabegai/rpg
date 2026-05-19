@@ -151,6 +151,51 @@ function getMulticlassSpellSlotsMap(multiclass, characterLevel) {
   return base;
 }
 
+/** Texto PHB para repor slots no descanso longo (ficha). */
+function describeLongRestSpellRecovery(sheet) {
+  const sc = sheet?.spellcasting;
+  if (!sc) return "Sem conjuração configurada.";
+  const maxMap = typeof getSheetMaxSpellSlots === "function" ? getSheetMaxSpellSlots(sheet) : {};
+  const slotSummary = Object.keys(maxMap).length
+    ? Object.keys(maxMap)
+        .sort((a, b) => Number(a) - Number(b))
+        .map((lv) => `${lv}º×${maxMap[lv]}`)
+        .join(", ")
+    : "";
+
+  if (sc.multiclass?.enabled && sc.multiclass.classes?.length) {
+    const combined =
+      typeof combinedMulticlassCasterLevel === "function"
+        ? combinedMulticlassCasterLevel(sc.multiclass.classes)
+        : 0;
+    const hasPact = sc.multiclass.classes.some((c) => c.caster === "pact" && c.level > 0);
+    const parts = [];
+    if (combined > 0) {
+      parts.push(`Slots de conjurador combinado (nível ${combined}) repostos.`);
+      if (slotSummary) parts.push(slotSummary);
+    } else {
+      parts.push("Multiclasse sem níveis de conjurador — sem slots na tabela combinada.");
+    }
+    if (hasPact) {
+      parts.push("Bruxo (pacto): slots também recuperam no descanso curto (PHB).");
+    }
+    return parts.join(" ");
+  }
+
+  const type = sc.casterType || "none";
+  if (type === "none") return "Tipo «sem magia» — nenhum slot a repor.";
+  if (type === "warlock") {
+    return `Bruxo (pacto): slots repostos${slotSummary ? ` (${slotSummary})` : ""}. Lembra-te: também recuperam no descanso curto.`;
+  }
+  if (type === "half") {
+    return `Meio-conjurador: todos os slots gastos repostos${slotSummary ? ` (${slotSummary})` : ""}.`;
+  }
+  if (type === "third") {
+    return `Conjurador 1/3: slots repostos${slotSummary ? ` (${slotSummary})` : ""}.`;
+  }
+  return `Conjurador pleno: todos os slots gastos repostos${slotSummary ? ` (${slotSummary})` : ""}.`;
+}
+
 function getSpellSlotsUsedMap(raw) {
   const used = {};
   if (!raw || typeof raw !== "object") return used;

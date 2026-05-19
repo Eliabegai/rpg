@@ -184,9 +184,11 @@ function pullPartyMemberFromSheet(partyId) {
       if (p) {
         p.level = clampCharacterLevel(sheet.characterLevel);
         p.xpTotal = normalizeXpTotal(sheet.xpTotal);
+        copySheetCombatStateToMember(p, sheet);
       }
     });
-    setCampaignStatus(`Dados de «${sheetName}» aplicados a «${memberName}».`);
+    setCampaignStatus(`Dados de «${sheetName}» aplicados a «${memberName}» (incl. inspiração e condições).`);
+    scheduleRender();
     return;
   }
   patchBattle((b) => {
@@ -194,9 +196,11 @@ function pullPartyMemberFromSheet(partyId) {
     if (p) {
       p.level = clampCharacterLevel(sheet.characterLevel);
       p.xpTotal = normalizeXpTotal(sheet.xpTotal);
+      copySheetCombatStateToMember(p, sheet);
     }
   });
-  setCampaignStatus(`«${memberName}» sincronizado com a ficha.`);
+  setCampaignStatus(`«${memberName}» sincronizado com a ficha (incl. inspiração e condições).`);
+  scheduleRender();
 }
 
 function pushPartyMemberToSheet(partyId) {
@@ -458,6 +462,9 @@ function buildInitiativeEntries(battle) {
       dead: false,
       downed: isPartyMemberDowned(p),
       imageUrl: "",
+      inspiration: Boolean(p.inspiration),
+      activeConditions: p.activeConditions || [],
+      concentrationSpell: p.concentrationSpell || "",
     })),
     ...battle.encounters
       .filter((e) => !isEncounterDead(e))
@@ -674,12 +681,12 @@ function renderInitiative() {
           ? `<div class="dm-init-actions-wrap">
              <div class="dm-init-actions" role="group" aria-label="Sincronizar com a ficha">
                <button type="button" class="dm-sync-sheet-btn dm-btn-tip" data-action="dm-sync-from-sheet" data-party-id="${escapeHtml(row.id)}"
-                 data-tip="Da ficha → mesa: traz nome, nível e XP da ficha de personagem"
-                 title="Da ficha → mesa: traz nome, nível e XP da ficha de personagem"
+                 data-tip="Da ficha → mesa: nome, nível, XP, inspiração e condições"
+                 title="Da ficha → mesa: nome, nível, XP, inspiração e condições"
                  aria-label="Sincronizar da ficha para a mesa">↓</button>
                <button type="button" class="dm-sync-sheet-btn dm-btn-tip" data-action="dm-push-to-sheet" data-party-id="${escapeHtml(row.id)}"
-                 data-tip="Da mesa → ficha: envia nome, nível e XP desta linha para a ficha"
-                 title="Da mesa → ficha: envia nome, nível e XP desta linha para a ficha"
+                 data-tip="Da mesa → ficha: nome, nível, XP, inspiração e condições"
+                 title="Da mesa → ficha: nome, nível, XP, inspiração e condições"
                  aria-label="Enviar dados da mesa para a ficha">↑</button>
              </div>
              <div class="dm-init-danger" role="group" aria-label="Remover ou eliminar">
@@ -704,12 +711,18 @@ function renderInitiative() {
       const statsBlock =
         row.kind === "party" ? `<div class="dm-init-stats">${levelInput}${initInput}</div>` : "";
 
+      const combatBar =
+        row.kind === "party" && typeof renderDmPartyCombatBar === "function"
+          ? renderDmPartyCombatBar(row)
+          : "";
+
       return `<li class="dm-init-row ${kindClass}${deadClass}" ${dataAttr}>
         ${initiativeOrderHtml(row.initiative)}
         <span class="dm-init-gap" aria-hidden="true"></span>
         ${identityBlock}
         ${statsBlock}
         ${partyActions}
+        ${combatBar}
       </li>`;
     })
     .join("");
@@ -1289,6 +1302,10 @@ function handleDocumentClick(e) {
   const btn = e.target.closest("[data-action]");
   if (!btn) return;
   const action = btn.dataset.action;
+
+  if (typeof handleDmCombatSyncAction === "function" && handleDmCombatSyncAction(action, btn)) {
+    return;
+  }
 
   if (
     action === "dm-add-dmg" ||
