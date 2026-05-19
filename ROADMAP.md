@@ -7,7 +7,7 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 | Área | O que existe |
 |------|----------------|
 | **Explorador** | Perfis «estilo livro» para monstro, magia, equipamento, classe (evolução por nível), raça/sub-raça, trait, feature, subclasse; favoritos; filtros de magias |
-| **Ficha** | v3.0–v3.2 fechados; **v3.3** em curso (várias campanhas, notas de sessão; assistente PHB a seguir) |
+| **Ficha** | v3.0–v3.3 fechados; **v3.4** explorador (background/feat estilo livro, polimento) |
 | **Mesa (DM)** | Monstros (PV, dano, iniciativa, imagens), iniciativa unificada, dificuldade de encontro DMG, XP por sessão + histórico, personagens (nível, sync, eliminado), modo mesa |
 | **Infra** | PWA, `base-path` GitHub Pages, campanha export/import JSON, SEO básico |
 
@@ -170,11 +170,11 @@ Melhoria planeada (pós v3.0): o bloco de **curação / PV / descanso** passa a 
 - [x] Várias campanhas: `campaign-store.js`, chaves scoped em ficha/mesa/histórico/snapshots
 - [x] Troca de campanha na UI (ficha + mesa); migração automática dos dados legados
 - [x] Notas de sessão no histórico (ao creditar XP)
-- [ ] Assistente PHB (raça → classe → …)
-- [ ] Bónus de raça automáticos
-- [ ] Equipamento inicial via API
-- [ ] Impressão (`@media print`)
-- [ ] Partilha leitura (export + instrução)
+- [x] Assistente PHB (6 passos: raça → classe → antecedente → equipamento → atributos → magias)
+- [x] Bónus de raça (assistente + botão «Aplicar bónus da raça»)
+- [x] Equipamento inicial via API (pacote fixo classe + antecedente → inventário)
+- [x] Impressão (`@media print` básico na ficha)
+- [x] Partilha leitura (export JSON + instrução na mesa)
 
 ---
 

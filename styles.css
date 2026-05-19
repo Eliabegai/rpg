@@ -6547,3 +6547,177 @@ html.table-mode .sheet-inspiration-btn {
     background: transparent;
   }
 }
+
+.sheet-ability-apply-race {
+  margin-bottom: 0.5rem;
+}
+
+.creation-wizard-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: min(85vh, 720px);
+  padding: 0;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.creation-wizard-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.creation-wizard-form {
+  display: flex;
+  flex-direction: column;
+  max-height: min(85vh, 720px);
+}
+
+.creation-wizard-header {
+  padding: 1rem 1.1rem 0.5rem;
+  border-bottom: 1px solid #334155;
+}
+
+.creation-wizard-title {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.creation-wizard-step-label {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.creation-wizard-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.85rem 1.1rem;
+}
+
+.creation-wizard-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.creation-wizard-muted {
+  margin: 0.5rem 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.creation-wizard-subtitle {
+  margin: 0.85rem 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.creation-wizard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 14rem;
+  overflow-y: auto;
+  border: 1px solid #334155;
+  border-radius: 8px;
+}
+
+.creation-wizard-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  border-bottom: 1px solid #1e293b;
+}
+
+.creation-wizard-option:hover {
+  background: #1e293b;
+}
+
+.creation-wizard-option--inline {
+  border: none;
+  padding: 0.35rem 0;
+}
+
+.creation-wizard-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+  font-size: 0.85rem;
+}
+
+.creation-wizard-standard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.creation-wizard-equip-preview {
+  margin: 0.5rem 0 0 1.1rem;
+  font-size: 0.82rem;
+}
+
+.creation-wizard-status {
+  margin: 0;
+  padding: 0 1.1rem;
+  min-height: 1.2em;
+  font-size: 0.78rem;
+  color: #86efac;
+}
+
+.creation-wizard-status.is-error {
+  color: #fca5a5;
+}
+
+.creation-wizard-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+  padding: 0.75rem 1.1rem 1rem;
+  border-top: 1px solid #334155;
+}
+
+.creation-wizard-name-field {
+  margin-bottom: 0.75rem;
+}
+
+@media print {
+  .sheet-library,
+  .sheet-header-actions,
+  .sheet-sync-bar,
+  .app-top-nav,
+  .game-tools-drawer,
+  .sheet-portrait-actions,
+  .creation-wizard-dialog,
+  #openCreationWizardBtn,
+  #applyRaceBonusesBtn,
+  .sheet-dice-panel,
+  .sheet-library-groups button {
+    display: none !important;
+  }
+
+  .sheet-shell {
+    display: block;
+  }
+
+  .sheet-main {
+    width: 100%;
+    max-width: none;
+  }
+
+  body.sheet-page {
+    background: #fff;
+    color: #000;
+    font-size: 10pt;
+  }
+
+  .sheet-hero,
+  .sheet-core,
+  .sheet-combat-v3 {
+    break-inside: avoid;
+  }
+}

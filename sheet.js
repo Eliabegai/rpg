@@ -2575,6 +2575,7 @@ async function boot() {
   if (typeof initSheetCombatV3 === "function") initSheetCombatV3();
   if (typeof initSheetV31Spellcasting === "function") initSheetV31Spellcasting();
   if (typeof initCampaignPicker === "function") initCampaignPicker("sheetCampaignPicker");
+  if (typeof initCreationWizard === "function") initCreationWizard();
 
   renderAll();
 }

@@ -82,6 +82,14 @@
               </button>
               <button
                 type="button"
+                id="openCreationWizardBtn"
+                class="sheet-dice-btn sheet-dice-btn--compact"
+                title="Assistente PHB: raça, classe, antecedente…"
+              >
+                Criar personagem
+              </button>
+              <button
+                type="button"
                 id="gameToolsOpenHeader"
                 class="sheet-tools-open-btn"
                 aria-expanded="false"
@@ -173,6 +181,9 @@
             <div class="sheet-core-fields">
                 <fieldset class="sheet-abilities">
                   <legend class="sheet-name-label">Atributos</legend>
+                  <button type="button" id="applyRaceBonusesBtn" class="sheet-dice-btn sheet-dice-btn--compact sheet-ability-apply-race">
+                    Aplicar bónus da raça
+                  </button>
                   <div class="sheet-abilities-grid" id="abilityScoresGrid"></div>
                 </fieldset>
 
@@ -662,6 +673,24 @@
       </div>
     </aside>
 
+
+    <dialog id="creationWizardDialog" class="creation-wizard-dialog" aria-labelledby="creationWizardTitle">
+      <form method="dialog" class="creation-wizard-form">
+        <header class="creation-wizard-header">
+          <h2 id="creationWizardTitle" class="creation-wizard-title">Criar personagem</h2>
+          <p id="creationWizardStepLabel" class="creation-wizard-step-label"></p>
+        </header>
+        <div id="creationWizardBody" class="creation-wizard-body"></div>
+        <p id="creationWizardStatus" class="creation-wizard-status" role="status" aria-live="polite"></p>
+        <footer class="creation-wizard-footer">
+          <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-wizard-action="cancel">Cancelar</button>
+          <button type="button" id="creationWizardBackBtn" class="sheet-dice-btn sheet-dice-btn--compact" data-wizard-action="back">Anterior</button>
+          <button type="button" id="creationWizardNextBtn" class="sheet-dice-btn" data-wizard-action="next">Seguinte</button>
+          <button type="button" id="creationWizardFinishBtn" class="sheet-dice-btn" data-wizard-action="finish" hidden>Concluir</button>
+        </footer>
+      </form>
+    </dialog>
+
     <script src="spellcasting-data.js"></script>
     <script src="campaign-store.js"></script>
     <script src="shared.js"></script>
@@ -670,6 +699,8 @@
     <script src="sheet-v3-combat.js"></script>
     <script src="sheet-class-sync.js"></script>
     <script src="sheet-v31-spellcasting.js"></script>
+    <script src="sheet-creation-data.js"></script>
+    <script src="sheet-creation-wizard.js"></script>
     <script src="sheet.js"></script>
     <script src="pwa-init.js"></script>
   </body>
