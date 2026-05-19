@@ -7,7 +7,7 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 | Área | O que existe |
 |------|----------------|
 | **Explorador** | Perfis estilo livro (incl. background, feat, subclasse por nível, magia com classes); favoritos; filtros de magias |
-| **Ficha** | v3.0–v3.4 fechados (explorador estilo livro + polimento base) |
+| **Ficha** | v3.0–v3.4 fechados; **v4** planeado (criação PHB completa + polimento) |
 | **Mesa (DM)** | Monstros (PV, dano, iniciativa, imagens), iniciativa unificada, dificuldade de encontro DMG, XP por sessão + histórico, personagens (nível, sync, eliminado), modo mesa |
 | **Infra** | PWA, `base-path` GitHub Pages, campanha export/import JSON, SEO básico |
 
@@ -100,7 +100,7 @@ Melhoria planeada (pós v3.0): o bloco de **curação / PV / descanso** passa a 
 | Cura contextual | Mensagens e cores alinhadas ao ambiente (ex.: longo na taverna vs. interrompido na masmorra) |
 | Modo mesa | Temas com maior contraste e menos ornamentação |
 
-**Estado:** base implementada — cena visual por ambiente, temas em PV/descanso, animação ao descansar. Ilustrações ou arte por ambiente → evolução futura.
+**Estado:** base implementada — cena visual por ambiente, temas em PV/descanso, animação ao descansar. Ilustrações ou arte por ambiente → **v4.3**.
 
 ---
 
@@ -199,15 +199,89 @@ Melhoria planeada (pós v3.0): o bloco de **curação / PV / descanso** passa a 
 - [x] Acessibilidade: alvos de toque ≥44px, `:focus-visible`, `prefers-reduced-motion` global
 - [x] Ficha: cartões de antecedente, feat e subclasse usam layout livro + enrich
 
-**Pendências v3.4 (fora do critério mínimo ou dependem da API):**
+**Nota:** itens que ficaram fora do critério mínimo da v3.4 passaram para **v4** (ver abaixo).
 
-- [ ] Checkboxes do antecedente no explorador **não** sincronizam com a ficha (usar «Aplicar do antecedente» ou assistente v3.3)
-- [ ] Bónus de atributo flexíveis (`ability_bonus_options`, ex. meio-elfo) — só bónus fixos
-- [ ] Equipamento inicial com pacotes A/B — escolha manual no inventário
-- [ ] Nem todas as magias na API trazem `classes` / `subclasses` no detalhe — lista pode estar incompleta
-- [ ] Perícias de classe com escolha — ainda manual nos cartões da classe
-- [ ] Modo mesa em telemóvel estreito: sidebar da mesa continua abaixo do combate
-- [ ] Ilustrações / tema visual por ambiente de descanso (ver «Futuro — Restauração de vida»)
+---
+
+## v4 — Criação PHB completa + polimento
+
+Objetivo da v4: fechar as **lacunas pós-v3** na criação de personagem (PHB fiel), nos dados que a API não cobre bem, e na UX de ficha/mesa em todos os ecrãs — sem entrar em VTT nem backend.
+
+### Princípios
+
+- Reutilizar assistente v3.3, layouts livro v3.4 e `campaign-store`.
+- Preferir importação guiada da API 2014; tabelas locais só onde a API falha ou é ambígua.
+- Manter `localStorage` + export JSON; sem contas na nuvem.
+
+---
+
+### v4.1 — Criação de personagem (lacunas PHB)
+
+| Item | Descrição | Fonte |
+|------|-----------|--------|
+| Antecedente → ficha | Checkboxes do explorador (ou passo do assistente) gravam traços, ideais, vínculos, defeitos na ficha | PHB / UX |
+| Bónus de raça flexíveis | Suportar `ability_bonus_options` (ex. meio-elfo: +2 em dois atributos à escolha) | PHB / API |
+| Equipamento A/B | No assistente: resolver `starting_equipment_options` (escolha guiada, não só pacote fixo) | PHB / API |
+| Perícias de classe | UI para `proficiency_choices` nos cartões da classe / assistente | PHB / API |
+| Assistente flexível | Passos opcionais ou «saltar» para jogadores experientes | Produto |
+
+**Critério de aceite:** personagem PHB criado no app com escolhas de antecedente, raça flexível, equipamento A/B e perícias de classe sem editar JSON nem copiar texto à mão.
+
+**Progresso v4.1 (implementação):**
+
+- [ ] Antecedente → ficha (sync ou assistente)
+- [ ] Bónus de raça flexíveis
+- [ ] Equipamento inicial A/B no assistente
+- [ ] Perícias de classe com escolha na UI
+- [ ] Assistente com passos opcionais
+
+---
+
+### v4.2 — Dados e regras (API + PHB)
+
+| Item | Descrição | Fonte |
+|------|-----------|--------|
+| Magias — quem aprende | Enriquecer detalhe/lista quando a API não envia `classes` / `subclasses` (cache, meta da lista, ou fallback) | API / UX |
+| PV multiclasse | PV máximos somando DV por nível **por classe** na carreira (não só `hitDie` único × nível total) | PHB |
+
+**Critério de aceite:** detalhe de magia mostra classes de forma fiável na maioria dos feitiços; multiclasse vê PV sugeridos coerentes com a regra de um DV por classe por nível.
+
+**Progresso v4.2 (implementação):**
+
+- [ ] Meta/cache de magias (classes que aprendem)
+- [ ] `computeSuggestedHpMax` / DV por classe na carreira
+
+---
+
+### v4.3 — UX ficha e mesa
+
+| Item | Descrição | Fonte |
+|------|-----------|--------|
+| Mesa em telemóvel | Sidebar da mesa acessível (drawer, abas ou sticky) sem perder combate/iniciativa | UX |
+| Impressão | `@media print` polido — ficha em 1–2 páginas legíveis | Produto |
+| Ambiente de descanso | Ilustrações ou arte leve por ambiente (além dos temas CSS atuais) | UX |
+
+**Critério de aceite:** mestre usa mesa em telemóvel sem scroll excessivo; ficha imprime como folha de jogo; bloco de descanso tem identidade visual por ambiente.
+
+**Progresso v4.3 (implementação):**
+
+- [ ] Layout mesa mobile
+- [ ] Impressão 1–2 páginas
+- [ ] Arte / ilustração por ambiente de descanso
+
+---
+
+## Ordem de desenvolvimento v4
+
+```
+v4.1 (criação PHB) → v4.2 (dados/API) → v4.3 (UX mesa + ficha)
+```
+
+Dependências sugeridas:
+
+- **v4.1** beneficia dos layouts v3.4 e do assistente v3.3 (estender, não reescrever).
+- **v4.2** PV multiclasse alinha com painel multiclasse v3.1.
+- **v4.3** pode correr em paralelo após v4.1, exceto impressão se depender do layout final da ficha.
 
 ---
 
@@ -227,12 +301,12 @@ Dependências sugeridas:
 
 ---
 
-## Fora de âmbito v3 (explícito)
+## Fora de âmbito v3 / v4 (explícito)
 
 - Mapas, tokens, linha de visão (VTT).
 - Regras de expansões além do 2014/SRD até haver API.
 - Automação total de combate (rolagem de ataque vs CA, dano automático por arma).
-- Backend com contas e sync na nuvem (opcional futuro; não bloqueia v3).
+- Backend com contas e sync na nuvem (opcional futuro; não bloqueia v3/v4).
 
 ---
 
@@ -257,7 +331,7 @@ Onde o projeto **já pode** (ou deve) puxar dados da API 2014 e da ficha (`sheet
 | Fonte API | Campos úteis | Uso na ficha hoje / proposto |
 |-----------|----------------|------------------------------|
 | `GET /classes/{id}` | `hit_die`, `saving_throws[]`, `proficiencies[]`, `proficiency_choices[]`, `starting_equipment[]` | **v3.0+:** botão «Aplicar da classe» → DV (`hitDie`), salvaguardas prof., perícias fixas; equipamento inicial → inventário (v3.3) |
-| `GET /classes/{id}/levels` | `features`, `class_specific`, spellcasting por nível | Já no explorador; **v3.1:** slots/preparadas; **futuro:** sugerir PV por nível somando `hit_die` + CON |
+| `GET /classes/{id}/levels` | `features`, `class_specific`, spellcasting por nível | Já no explorador; **v3.1:** slots/preparadas; **v4.2:** PV por classe na carreira |
 | `GET /races/{id}` | `ability_bonuses[]`, `traits[]`, `subraces` | **v3.3:** bónus de atributo; traits já em detalhe livro |
 | `GET /subraces/{id}` | `ability_bonuses`, `racial_traits` | Idem raça |
 | `GET /backgrounds/{id}` | `personality_traits`, `ideals`, `bonds`, `flaws` (tabelas) | **v3.0:** preencher personalidade; **v3.4:** estilo livro |
@@ -269,17 +343,17 @@ Regra oficial (resumo):
 
 1. **1º nível:** máximo do dado de vida da classe + modificador de Constituição.
 2. **Cada nível seguinte:** 1dDV + mod. CON (ou **média fixa** ⌈DV/2⌉+1 + mod. CON, arredondado para cima na média do dado).
-3. **Multiclasse:** um dado de vida por nível de **cada** classe (DV da classe em que sobe); PV máximos = soma ao longo da carreira (implementação completa com várias classes → v3.1/v3.3).
+3. **Multiclasse:** um dado de vida por nível de **cada** classe (DV da classe em que sobe); PV máximos = soma ao longo da carreira → **v4.2**.
 
-**Estado no código:** `hitDiceMaxForSheet` = nível de personagem (simplificado); `hitDie` manual no select; descanso curto rola `hitDie` + CON. **Próximo passo:** `computeSuggestedHpMax(level, hitDie, conMod)` + botão «Sugerir PV»; opcionalmente preencher `hitDie` a partir da primeira classe na ficha.
+**Estado no código:** `hitDiceMaxForSheet` = nível de personagem (simplificado); `hitDie` manual no select; botão «Sugerir PV» com média PHB para classe única. **v4.2:** somar por nível de cada classe na carreira.
 
 ---
 
 ## Decisões em aberto
 
-1. **Multiclasse** — v3.1 (não adiar além disso se conjuração for prioridade).
-2. **Várias campanhas** — v3.3; exige `campaignId` em todo o `localStorage` (migração de dados antigos).
-3. **API 2014** — manter até migração futura; não bloquear features v3.
-4. **SRD** — textos locais para tesouro, cobertura, descanso em masmorra; API para nomes e descrições oficiais em pt-BR quando disponível.
-5. **Preparadas vs conhecidas** — só classes preparadoras (mago, clérigo, druida); lista «conhecidas» para bardo/feiticeiro/bruxo.
-6. **Assistente de criação** — fluxo linear obrigatório vs. passos opcionais (permitir saltar para jogadores experientes).
+1. **Multiclasse (conjuração)** — fechado em v3.1; **PV por classe na carreira** → v4.2.
+2. **Várias campanhas** — fechado em v3.3.
+3. **API 2014** — manter até migração futura; v4 não depende de API nova.
+4. **SRD** — textos locais para tesouro, cobertura, descanso; API para pt-BR quando disponível.
+5. **Preparadas vs conhecidas** — fechado em v3.1.
+6. **Assistente de criação** — passos opcionais → **v4.1** (decidir: saltar tudo vs. saltar passo a passo).
