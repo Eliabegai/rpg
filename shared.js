@@ -710,6 +710,137 @@ let currentLocale = "pt-BR";
 
 const ABILITY_KEYS = ["str", "dex", "con", "int", "wis", "cha"];
 
+/** Perícias PHB: índice API → atributo */
+const SHEET_SKILLS = [
+  { index: "acrobatics", ability: "dex" },
+  { index: "animal-handling", ability: "wis" },
+  { index: "arcana", ability: "int" },
+  { index: "athletics", ability: "str" },
+  { index: "deception", ability: "cha" },
+  { index: "history", ability: "int" },
+  { index: "insight", ability: "wis" },
+  { index: "intimidation", ability: "cha" },
+  { index: "investigation", ability: "int" },
+  { index: "medicine", ability: "wis" },
+  { index: "nature", ability: "int" },
+  { index: "perception", ability: "wis" },
+  { index: "performance", ability: "cha" },
+  { index: "persuasion", ability: "cha" },
+  { index: "religion", ability: "int" },
+  { index: "sleight-of-hand", ability: "dex" },
+  { index: "stealth", ability: "dex" },
+  { index: "survival", ability: "wis" },
+];
+
+const SHEET_CONDITION_OPTIONS = [
+  { index: "blinded", label: "Cego" },
+  { index: "charmed", label: "Enfeitiçado" },
+  { index: "deafened", label: "Surdo" },
+  { index: "exhaustion", label: "Exaustão" },
+  { index: "frightened", label: "Amedrontado" },
+  { index: "grappled", label: "Agarrado" },
+  { index: "incapacitated", label: "Incapacitado" },
+  { index: "invisible", label: "Invisível" },
+  { index: "paralyzed", label: "Paralisado" },
+  { index: "petrified", label: "Petrificado" },
+  { index: "poisoned", label: "Envenenado" },
+  { index: "prone", label: "Prostrado" },
+  { index: "restrained", label: "Impedido" },
+  { index: "stunned", label: "Atordoado" },
+  { index: "unconscious", label: "Inconsciente" },
+];
+
+const DEFAULT_SHEET_COMBAT = {
+  skillProficiencies: {},
+  saveProficiencies: { str: false, dex: false, con: false, int: false, wis: false, cha: false },
+  activeConditions: [],
+  inspiration: false,
+  concentrationSpell: "",
+  personality: { traits: "", ideals: "", bonds: "", flaws: "" },
+  currency: { cp: "", sp: "", ep: "", gp: "", pp: "" },
+  inventory: [],
+};
+
+function proficiencyBonusFromLevel(level) {
+  const lv = clampCharacterLevel(level);
+  return Math.floor((lv - 1) / 4) + 2;
+}
+
+function abilityModNumber(score) {
+  const n = Number(score);
+  if (!Number.isFinite(n)) return 0;
+  return Math.floor((n - 10) / 2);
+}
+
+function formatSignedMod(n) {
+  if (!Number.isFinite(n)) return "—";
+  return n >= 0 ? `+${n}` : String(n);
+}
+
+function normalizeSkillProficiencies(raw) {
+  const out = {};
+  if (raw && typeof raw === "object") {
+    for (const skill of SHEET_SKILLS) {
+      if (raw[skill.index]) out[skill.index] = true;
+    }
+  }
+  return out;
+}
+
+function normalizeSaveProficiencies(raw) {
+  const out = { ...DEFAULT_SHEET_COMBAT.saveProficiencies };
+  if (raw && typeof raw === "object") {
+    for (const key of ABILITY_KEYS) {
+      if (raw[key]) out[key] = true;
+    }
+  }
+  return out;
+}
+
+function normalizeActiveConditions(raw) {
+  if (!Array.isArray(raw)) return [];
+  const allowed = new Set(SHEET_CONDITION_OPTIONS.map((c) => c.index));
+  return [...new Set(raw.map((c) => String(c)).filter((c) => allowed.has(c)))];
+}
+
+function normalizePersonality(raw) {
+  const base = { ...DEFAULT_SHEET_COMBAT.personality };
+  if (!raw || typeof raw !== "object") return base;
+  return {
+    traits: raw.traits != null ? String(raw.traits) : "",
+    ideals: raw.ideals != null ? String(raw.ideals) : "",
+    bonds: raw.bonds != null ? String(raw.bonds) : "",
+    flaws: raw.flaws != null ? String(raw.flaws) : "",
+  };
+}
+
+function normalizeCurrency(raw) {
+  const base = { ...DEFAULT_SHEET_COMBAT.currency };
+  if (!raw || typeof raw !== "object") return base;
+  for (const key of ["cp", "sp", "ep", "gp", "pp"]) {
+    if (raw[key] != null && raw[key] !== "") base[key] = String(raw[key]);
+  }
+  return base;
+}
+
+function normalizeInventory(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((row, i) => {
+      if (!row || typeof row !== "object") return null;
+      const name = String(row.name || "").trim();
+      if (!name) return null;
+      return {
+        id: row.id != null ? String(row.id) : `inv-${i}`,
+        name: name.slice(0, 120),
+        qty: Math.max(1, Math.floor(Number(row.qty) || 1)),
+        weight: row.weight != null && row.weight !== "" ? String(row.weight) : "",
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 80);
+}
+
 const DEFAULT_SHEET = {
   characterName: "",
   characterLevel: 1,
@@ -733,6 +864,7 @@ const DEFAULT_SHEET = {
   hitDiceRemaining: null,
   restEnvironment: "tavern",
   items: [],
+  ...DEFAULT_SHEET_COMBAT,
 };
 
 function normalizeCasterType(raw) {
@@ -1132,6 +1264,15 @@ function normalizeSheet(parsed) {
     items: Array.isArray(parsed.items)
       ? parsed.items.map(normalizeSheetItem).filter(Boolean)
       : [],
+    skillProficiencies: normalizeSkillProficiencies(parsed.skillProficiencies),
+    saveProficiencies: normalizeSaveProficiencies(parsed.saveProficiencies),
+    activeConditions: normalizeActiveConditions(parsed.activeConditions),
+    inspiration: Boolean(parsed.inspiration),
+    concentrationSpell:
+      parsed.concentrationSpell != null ? String(parsed.concentrationSpell).slice(0, 200) : "",
+    personality: normalizePersonality(parsed.personality),
+    currency: normalizeCurrency(parsed.currency),
+    inventory: normalizeInventory(parsed.inventory),
   };
 }
 

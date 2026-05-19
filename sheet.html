@@ -171,6 +171,89 @@
                   <div class="sheet-abilities-grid" id="abilityScoresGrid"></div>
                 </fieldset>
 
+                <fieldset class="sheet-combat-v3" id="sheetCombatV3Section" aria-labelledby="sheetCombatV3Title">
+                  <legend id="sheetCombatV3Title" class="sheet-name-label">Combate (PHB)</legend>
+                  <p class="sheet-combat-hint">
+                    Bónus de proficiência:
+                    <strong id="sheetProfBonusHint">+2</strong>
+                  </p>
+
+                  <div class="sheet-combat-block">
+                    <h3 class="sheet-combat-subtitle">Salvaguardas</h3>
+                    <div id="sheetSavingThrows" class="sheet-saving-grid" role="group" aria-label="Salvaguardas"></div>
+                  </div>
+
+                  <div class="sheet-combat-block">
+                    <h3 class="sheet-combat-subtitle">Perícias</h3>
+                    <div id="sheetSkills" class="sheet-skills-grid" role="group" aria-label="Perícias"></div>
+                  </div>
+
+                  <div class="sheet-combat-block sheet-combat-block--inline">
+                    <h3 class="sheet-combat-subtitle">Estado</h3>
+                    <div class="sheet-combat-status-row">
+                      <button type="button" id="sheetInspirationBtn" class="sheet-inspiration-btn" aria-pressed="false">
+                        Sem inspiração
+                      </button>
+                      <label class="sheet-concentration-field">
+                        <span class="sheet-name-label">Concentração</span>
+                        <input
+                          type="text"
+                          id="sheetConcentrationInput"
+                          class="sheet-text-input"
+                          maxlength="200"
+                          placeholder="Magia em concentração…"
+                          autocomplete="off"
+                        />
+                      </label>
+                    </div>
+                    <p class="sheet-combat-hint sheet-combat-hint--small">
+                      Ao sofrer dano em combate: teste de Constituição CD 10 ou metade do dano (o maior), para manter concentração.
+                    </p>
+                    <div id="sheetConditions" class="sheet-conditions" role="group" aria-label="Condições ativas"></div>
+                  </div>
+
+                  <div class="sheet-combat-block">
+                    <h3 class="sheet-combat-subtitle">Personalidade</h3>
+                    <div class="sheet-personality-grid">
+                      <label class="sheet-personality-field">
+                        <span class="sheet-name-label">Traços</span>
+                        <textarea id="sheetPersonalityTraits" class="sheet-textarea" rows="2" maxlength="800"></textarea>
+                      </label>
+                      <label class="sheet-personality-field">
+                        <span class="sheet-name-label">Ideais</span>
+                        <textarea id="sheetPersonalityIdeals" class="sheet-textarea" rows="2" maxlength="800"></textarea>
+                      </label>
+                      <label class="sheet-personality-field">
+                        <span class="sheet-name-label">Vínculos</span>
+                        <textarea id="sheetPersonalityBonds" class="sheet-textarea" rows="2" maxlength="800"></textarea>
+                      </label>
+                      <label class="sheet-personality-field">
+                        <span class="sheet-name-label">Defeitos</span>
+                        <textarea id="sheetPersonalityFlaws" class="sheet-textarea" rows="2" maxlength="800"></textarea>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="sheet-combat-block">
+                    <h3 class="sheet-combat-subtitle">Inventário</h3>
+                    <div class="sheet-currency-row" aria-label="Moedas">
+                      <label><span>PC</span><input type="text" inputmode="numeric" id="sheetCurrencyCP" class="sheet-currency-input" /></label>
+                      <label><span>PP</span><input type="text" inputmode="numeric" id="sheetCurrencySP" class="sheet-currency-input" /></label>
+                      <label><span>PE</span><input type="text" inputmode="numeric" id="sheetCurrencyEP" class="sheet-currency-input" /></label>
+                      <label><span>PO</span><input type="text" inputmode="numeric" id="sheetCurrencyGP" class="sheet-currency-input" /></label>
+                      <label><span>PL</span><input type="text" inputmode="numeric" id="sheetCurrencyPP" class="sheet-currency-input" /></label>
+                    </div>
+                    <p id="sheetCarrySummary" class="sheet-carry-summary">Carga: —</p>
+                    <div id="sheetInventoryList" class="sheet-inventory-list"></div>
+                    <form id="sheetInventoryAddForm" class="sheet-inventory-add">
+                      <input type="text" id="sheetInventoryName" class="sheet-text-input" placeholder="Item" maxlength="120" required />
+                      <input type="number" id="sheetInventoryQty" class="sheet-number-input sheet-inventory-qty" min="1" value="1" aria-label="Quantidade" />
+                      <input type="text" id="sheetInventoryWeight" class="sheet-number-input sheet-inventory-weight" placeholder="lb" inputmode="decimal" aria-label="Peso (lb)" />
+                      <button type="submit" class="sheet-dice-btn sheet-dice-btn--compact">Adicionar</button>
+                    </form>
+                  </div>
+                </fieldset>
+
                 <div class="sheet-core-row">
                   <label class="sheet-inline-field">
                     <span class="sheet-name-label">CA (classe de armadura)</span>
@@ -513,6 +596,7 @@
     <script src="spellcasting-data.js"></script>
     <script src="shared.js"></script>
     <script src="detail-layouts.js"></script>
+    <script src="sheet-v3-combat.js"></script>
     <script src="sheet.js"></script>
     <script src="pwa-init.js"></script>
   </body>

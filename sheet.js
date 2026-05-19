@@ -1630,6 +1630,7 @@ function onCharacterLevelInput() {
   renderSpellSlotsGrid();
   renderSpellListByLevel();
   syncHitDiceUi();
+  if (typeof refreshCombatBonuses === "function") refreshCombatBonuses();
 }
 
 function onCharacterXpInput() {
@@ -2026,6 +2027,8 @@ function syncCharacterCoreFromSheet() {
     restEnvironmentSelect.value = sheet.restEnvironment || "tavern";
   }
   updateRestEnvironmentHint();
+  if (typeof refreshCombatBonuses === "function") refreshCombatBonuses();
+  else if (typeof syncSheetCombatV3 === "function") syncSheetCombatV3();
 }
 
 async function syncAlignmentSummary() {
@@ -2158,6 +2161,7 @@ function onAbilityInput(e) {
   const modEl = abilityScoresGrid?.querySelector(`[data-mod-for="${key}"]`);
   if (modEl) modEl.textContent = abilityModifier(input.value);
   syncAbilityAssignDropdowns();
+  if (typeof refreshCombatBonuses === "function") refreshCombatBonuses();
 }
 
 function onAbilityAssignChange(e) {
@@ -2550,6 +2554,8 @@ async function boot() {
     hitDiceRemainingInput.addEventListener("input", onHitDiceRemainingInput);
     hitDiceRemainingInput.addEventListener("change", onHitDiceRemainingInput);
   }
+
+  if (typeof initSheetCombatV3 === "function") initSheetCombatV3();
 
   renderAll();
 }

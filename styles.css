@@ -5368,3 +5368,292 @@ html.table-mode .dm-init-danger .dm-btn-tip {
     order: 2;
   }
 }
+
+/* v3.0 — combate na ficha */
+.sheet-combat-v3 {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0 0;
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.sheet-combat-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.sheet-combat-hint--small {
+  font-size: 0.78rem;
+  margin: 0.35rem 0 0.5rem;
+}
+
+.sheet-combat-block {
+  margin-bottom: 0.85rem;
+}
+
+.sheet-combat-subtitle {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+}
+
+.sheet-saving-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.sheet-save-row,
+.sheet-skill-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.sheet-save-row {
+  grid-template-columns: auto 1fr auto;
+}
+
+.sheet-save-ability,
+.sheet-skill-name {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.sheet-skill-ability {
+  font-size: 0.75rem;
+  color: #64748b;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.sheet-save-bonus,
+.sheet-skill-bonus {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 2.25rem;
+  text-align: right;
+  color: #0f766e;
+}
+
+.sheet-skills-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.sheet-combat-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+  margin-bottom: 0.35rem;
+}
+
+.sheet-inspiration-btn {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  color: #334155;
+}
+
+.sheet-inspiration-btn.sheet-inspiration--on {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.sheet-concentration-field {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+}
+
+.sheet-text-input,
+.sheet-textarea {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.9rem;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.sheet-textarea {
+  resize: vertical;
+  min-height: 2.5rem;
+}
+
+.sheet-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sheet-condition-chip {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: #475569;
+}
+
+.sheet-condition-chip--on {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.sheet-personality-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.sheet-personality-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sheet-currency-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.sheet-currency-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.sheet-currency-input {
+  width: 4.5rem;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.sheet-carry-summary {
+  margin: 0 0 0.45rem;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.sheet-carry-summary.sheet-carry--over {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.sheet-inventory-list {
+  margin-bottom: 0.5rem;
+}
+
+.sheet-inventory-empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.sheet-inventory-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 0.3rem;
+  font-size: 0.88rem;
+}
+
+.sheet-inventory-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.sheet-inventory-meta {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.sheet-inventory-remove {
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  line-height: 1;
+}
+
+.sheet-inventory-remove:hover {
+  color: #b91c1c;
+}
+
+.sheet-inventory-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.sheet-inventory-add .sheet-text-input {
+  flex: 1 1 8rem;
+  min-width: 6rem;
+}
+
+.sheet-inventory-qty {
+  width: 3.5rem;
+}
+
+.sheet-inventory-weight {
+  width: 4rem;
+}
+
+@media (max-width: 640px) {
+  .sheet-skills-grid,
+  .sheet-personality-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sheet-saving-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+html.table-mode .sheet-save-row,
+html.table-mode .sheet-skill-row,
+html.table-mode .sheet-condition-chip,
+html.table-mode .sheet-inspiration-btn {
+  font-size: 1rem;
+  padding: 0.45rem 0.55rem;
+}
