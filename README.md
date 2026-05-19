@@ -57,6 +57,14 @@ O site publica em **`https://eliabegai.github.io/rpg/`** (repositório `rpg`).
 
 As requisições vão para `https://www.dnd5eapi.co` (CORS permitido). Não é preciso backend neste repositório.
 
+**Versão da API (2014 / 2024):** por defeito usa a API **2014**. Para testar a **2024**:
+
+- Select **API** no canto superior (Explorar, Ficha, Mestre), ou
+- `?api=2024` na URL (ex.: `index.html?api=2024`), ou
+- `localStorage.setItem("dnd5eapi.apiVersion", "2024")` no consola do browser.
+
+A configuração vive em `js/core/api-config.js`; o código deve usar `apiListPath()` / `apiItemPath()` em vez de paths fixos.
+
 ## SEO (aparecer no Google)
 
 O projeto já inclui:

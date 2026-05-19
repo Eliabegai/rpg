@@ -37,7 +37,7 @@ function parseAbilityBonusesFromApi(bonuses) {
 }
 
 async function fetchWizardResourceList(resourceKey) {
-  const path = `/api/2014/${resourceKey}`;
+  const path = apiListPath(resourceKey);
   try {
     const res = await apiFetch(path);
     if (!res.ok) return [];
@@ -58,7 +58,7 @@ async function fetchWizardResourceList(resourceKey) {
 
 async function fetchWizardDetail(entry) {
   if (!entry?.path && !entry?.resourceKey) return null;
-  const path = entry.path || `/api/2014/${entry.resourceKey}/${entry.index}`;
+  const path = entry.path || apiItemPath(entry.resourceKey, entry.index);
   try {
     const res = await apiFetch(path);
     if (!res.ok) return null;
@@ -78,7 +78,7 @@ function flattenStartingEquipmentRows(rows, resourceKey = "equipment") {
       resourceKey,
       index: String(eq.index),
       name: eq.name != null ? String(eq.name) : formatResourceLabel(eq.index),
-      path: cleanApiPath(eq.url || `/api/2014/${resourceKey}/${eq.index}`),
+      path: cleanApiPath(eq.url || apiItemPath(resourceKey, eq.index)),
       qty: Math.max(1, Math.floor(Number(row.quantity) || 1)),
     });
   }

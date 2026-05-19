@@ -71,11 +71,11 @@ async function fetchEntryDataForSheet(entry) {
   const cached = getCachedEntryData({
     resourceKey: entry.resourceKey,
     index: entry.index,
-    path: entry.path || `/api/2014/${entry.resourceKey}/${entry.index}`,
+    path: entry.path || apiItemPath(entry.resourceKey, entry.index),
   });
   if (cached) return cached;
   try {
-    const res = await apiFetch(entry.path || `/api/2014/${entry.resourceKey}/${entry.index}`);
+    const res = await apiFetch(entry.path || apiItemPath(entry.resourceKey, entry.index));
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -250,7 +250,7 @@ function initSheetPersonalityLinks() {
   document.getElementById("linkExploreBackgrounds")?.addEventListener("click", (e) => {
     e.preventDefault();
     if (typeof openExplorerResource === "function") {
-      openExplorerResource("backgrounds", "/api/2014/backgrounds");
+      openExplorerResource("backgrounds", apiListPath("backgrounds"));
     } else {
       navigateToAppPage("index.html");
     }

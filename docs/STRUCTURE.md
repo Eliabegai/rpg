@@ -20,6 +20,7 @@ rpg/
 ├── js/
 │   ├── core/               # Partilhado por todas as páginas
 │   │   ├── base-path.js    # <base href>, injeta CSS, appPageHref / appAssetHref
+│   │   ├── api-config.js   # Versão global da API (2014 | 2024), paths e localStorage
 │   │   ├── shared.js       # API, localStorage, ficha/mesa, favoritos
 │   │   └── pwa-init.js     # Service worker + modo mesa
 │   ├── data/               # Tabelas e textos locais (sem DOM)
@@ -50,9 +51,21 @@ rpg/
 
 1. `js/core/base-path.js` — sempre primeiro no `<head>`.
 2. `js/data/*` e `js/campaign/campaign-store.js` — antes de `shared.js` se usarem constantes globais.
-3. `js/core/shared.js` — modelo de dados e API.
-4. Módulos da página (`explorer/`, `sheet/`, `dm/`).
-5. `js/core/pwa-init.js` — por último.
+3. `js/core/api-config.js` — **sempre antes de** `shared.js` (define `API_BASE`, `apiListPath`, etc.).
+4. `js/core/shared.js` — modelo de dados e API.
+5. Módulos da página (`explorer/`, `sheet/`, `dm/`).
+6. `js/core/pwa-init.js` — por último.
+
+### Versão da API (2014 vs 2024)
+
+- Configuração central: `js/core/api-config.js`.
+- Helpers: `apiBasePath()`, `apiListPath("classes")`, `apiItemPath("classes", "fighter")`.
+- `apiUrl()` / `apiFetch()` em `shared.js` reescrevem paths antigos com `withCurrentApiVersion()`.
+- Trocar versão:
+  - Select **API** na barra de idioma (todas as páginas);
+  - `localStorage` chave `dnd5eapi.apiVersion`;
+  - URL `?api=2024` (prioridade na carga).
+- Novos pedidos à API: usar os helpers acima — **não** hardcodar `/api/2014`.
 
 ## Onde alterar o quê
 

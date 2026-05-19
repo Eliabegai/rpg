@@ -543,7 +543,7 @@ function restoreEncounterUiState(state) {
 
 function encounterEntry(enc) {
   const fav = findFavorite(enc.sourceKey, enc.sourceIndex);
-  const path = fav?.path || `/api/2014/monsters/${enc.sourceIndex}`;
+  const path = fav?.path || apiItemPath("monsters", enc.sourceIndex);
   return {
     resourceKey: enc.sourceKey,
     index: enc.sourceIndex,
@@ -1568,6 +1568,9 @@ function initDmPage() {
     return;
   }
 
+  populateApiVersionSelect(document.getElementById("apiVersionSelect"), {
+    onChange: () => window.location.reload(),
+  });
   populateLocalesDropdown(localeSelect, {
     onChange: () => renderMonsterLibrary(),
   });

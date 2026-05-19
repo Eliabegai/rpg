@@ -168,7 +168,12 @@
               >
                 <span class="table-mode-label">Modo mesa</span>
               </button>
-              <div class="locale-bar dm-locale-bar" aria-label="Idioma da API">
+              <div class="locale-bar dm-locale-bar" aria-label="Idioma e versão da API">
+                <label for="apiVersionSelect" class="locale-bar-label">API</label>
+                <select id="apiVersionSelect" class="locale-bar-select" aria-label="Versão da API (2014 ou 2024)">
+                  <option value="2014">API 2014</option>
+                  <option value="2024">API 2024</option>
+                </select>
                 <label for="localeSelect" class="locale-bar-label">Idioma</label>
                 <select id="localeSelect" class="locale-bar-select" aria-label="Idioma das traduções">
                   <option value="pt-BR">pt-BR</option>
@@ -250,6 +255,7 @@
 
     <script src="js/data/spellcasting-data.js"></script>
     <script src="js/campaign/campaign-store.js"></script>
+    <script src="js/core/api-config.js"></script>
     <script src="js/core/shared.js"></script>
     <script src="js/campaign/campaign-ui.js"></script>
     <script src="js/data/dm-quick-ref-data.js"></script>

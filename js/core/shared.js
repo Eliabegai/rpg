@@ -1,5 +1,5 @@
 /** Utilitários partilhados entre a exploração da API e a ficha. */
-const API_BASE = "https://www.dnd5eapi.co";
+/** API_BASE e versão da API: js/core/api-config.js (carregar antes deste ficheiro). */
 const STORAGE_LOCALE = "dnd5eapi.locale";
 const STORAGE_FAVORITES = "dnd5eapi.favorites";
 const STORAGE_LIST_SCOPE = "dnd5eapi.listScope";
@@ -389,7 +389,7 @@ function openMonstersInExplorer() {
   try {
     const session = {
       resourceKey: "monsters",
-      resourcePath: "/api/2014/monsters",
+      resourcePath: apiListPath("monsters"),
       itemIndex: "",
       itemPath: "",
       filter: "",
@@ -451,7 +451,7 @@ function openEntryInExplorer(entry) {
 function openExplorerResource(resourceKey, resourcePath) {
   const key = String(resourceKey || "").trim();
   if (!key) return;
-  const path = resourcePath || `/api/2014/${key}`;
+  const path = resourcePath || apiListPath(key);
   try {
     localStorage.setItem(
       STORAGE_SESSION,
@@ -1535,7 +1535,7 @@ function importEquipmentFavoritesToSheet(sheet) {
         const cached = getCachedEntryData({
           resourceKey: src.resourceKey,
           index: src.index,
-          path: src.path || `/api/2014/${src.resourceKey}/${src.index}`,
+          path: src.path || apiItemPath(src.resourceKey, src.index),
         });
         if (cached) weight = equipmentWeightFromEntry({ cachedData: cached });
       }
@@ -1803,7 +1803,8 @@ function setLocale(locale) {
 
 function apiUrl(pathOrUrl) {
   if (!pathOrUrl) return "";
-  const absolute = pathOrUrl.startsWith("http") ? pathOrUrl : `${API_BASE}${pathOrUrl}`;
+  const path = withCurrentApiVersion(pathOrUrl);
+  const absolute = path.startsWith("http") ? path : `${API_BASE}${path}`;
   try {
     const u = new URL(absolute);
     const host = u.hostname.replace(/^www\./, "");
@@ -2011,16 +2012,16 @@ function saveSheet(sheet) {
   }
 }
 
-/** `/api/2014/monsters/foo` → lista `/api/2014/monsters` */
+/** `/api/{versão}/monsters/foo` → lista `/api/{versão}/monsters` */
 function resourcePathFromItemPath(path) {
   const parts = cleanApiPath(path).split("/").filter(Boolean);
-  if (parts.length >= 4 && parts[0] === "api" && parts[1] === "2014") {
-    return `/${parts.slice(0, 3).join("/")}`;
+  if (parts.length >= 4 && parts[0] === "api" && isApiVersionSegment(parts[1])) {
+    return apiListPath(parts[2]);
   }
-  if (parts.length === 3 && parts[0] === "api" && parts[1] === "2014") {
-    return `/${parts.join("/")}`;
+  if (parts.length === 3 && parts[0] === "api" && isApiVersionSegment(parts[1])) {
+    return apiListPath(parts[2]);
   }
-  return cleanApiPath(path);
+  return withCurrentApiVersion(cleanApiPath(path));
 }
 
 async function populateLocalesDropdown(selectEl, { onChange } = {}) {
@@ -2038,7 +2039,7 @@ async function populateLocalesDropdown(selectEl, { onChange } = {}) {
   addOpt("en", "English (predefinição)");
 
   try {
-    const res = await fetch(`${API_BASE}/api/2014/locales`);
+    const res = await fetch(apiUrl(apiListPath("locales")));
     if (res.ok) {
       const data = await res.json();
       const seen = new Set(["en"]);

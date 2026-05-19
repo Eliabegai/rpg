@@ -2087,7 +2087,7 @@ async function syncAlignmentSummary() {
     const cached = getCachedEntryData({
       resourceKey: "alignments",
       index,
-      path: `/api/2014/alignments/${index}`,
+      path: apiItemPath("alignments", index),
     });
     if (cached?.desc) {
       data = cached;
@@ -2096,7 +2096,7 @@ async function syncAlignmentSummary() {
   }
   if (!data?.desc) {
     try {
-      const res = await apiFetch(`/api/2014/alignments/${index}`);
+      const res = await apiFetch(apiItemPath("alignments", index));
       if (res.ok) {
         data = await res.json();
         alignmentsCache.set(index, data);
@@ -2309,7 +2309,7 @@ function onAlignmentChange() {
 async function loadAlignmentsDropdown() {
   if (!alignmentSelect || alignmentsLoaded) return;
   try {
-    const res = await apiFetch("/api/2014/alignments");
+    const res = await apiFetch(apiListPath("alignments"));
     if (!res.ok) return;
     const data = await res.json();
     const sheet = loadSheet();
@@ -2333,7 +2333,7 @@ async function loadAlignmentsDropdown() {
           return;
         }
         try {
-          const detailRes = await apiFetch(row.url || `/api/2014/alignments/${row.index}`);
+          const detailRes = await apiFetch(row.url || apiItemPath("alignments", row.index));
           if (detailRes.ok) {
             alignmentsCache.set(row.index, await detailRes.json());
           }
@@ -2486,6 +2486,9 @@ function initGameTools() {
 }
 
 async function boot() {
+  populateApiVersionSelect(document.getElementById("apiVersionSelect"), {
+    onChange: () => window.location.reload(),
+  });
   await populateLocalesDropdown(localeSelect, { onChange: onLocaleReload });
   await loadAlignmentsDropdown();
 
