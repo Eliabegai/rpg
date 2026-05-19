@@ -475,6 +475,7 @@ function buildInitiativeEntries(battle) {
         initiative: e.initiative,
         dead: false,
         imageUrl: encounterImageUrl(e),
+        activeConditions: e.activeConditions || [],
       })),
   ];
   return sortByInitiativeDesc(rows, (r) => parseInitiativeValue(r.initiative));
@@ -632,6 +633,9 @@ function initiativeOrderHtml(initValue) {
 function renderInitiative() {
   if (!dmInitiativeList || !dmInitEmpty) return;
   const battle = loadDmBattle();
+  if (typeof ensureCombatTrack === "function") ensureCombatTrack(battle);
+  if (typeof renderDmTurnToolbar === "function") renderDmTurnToolbar(battle);
+  const activeTurnKey = battle.combat?.activeTurnKey || "";
   const rows = buildInitiativeEntries(battle);
 
   if (rows.length === 0) {
@@ -644,6 +648,8 @@ function renderInitiative() {
   dmInitiativeList.innerHTML = rows
     .map((row) => {
       const kindClass = row.kind === "party" ? "dm-init-row--party" : "dm-init-row--monster";
+      const turnClass =
+        activeTurnKey && dmTurnKey(row.kind, row.id) === activeTurnKey ? " dm-init-row--turn" : "";
       const deadClass = row.dead ? " is-dead" : row.downed ? " is-downed" : "";
       const dataAttr =
         row.kind === "party"
@@ -712,11 +718,13 @@ function renderInitiative() {
         row.kind === "party" ? `<div class="dm-init-stats">${levelInput}${initInput}</div>` : "";
 
       const combatBar =
-        row.kind === "party" && typeof renderDmPartyCombatBar === "function"
-          ? renderDmPartyCombatBar(row)
-          : "";
+        typeof renderDmInitCombatBar === "function"
+          ? renderDmInitCombatBar(row)
+          : typeof renderDmPartyCombatBar === "function" && row.kind === "party"
+            ? renderDmPartyCombatBar(row)
+            : "";
 
-      return `<li class="dm-init-row ${kindClass}${deadClass}" ${dataAttr}>
+      return `<li class="dm-init-row ${kindClass}${turnClass}${deadClass}" ${dataAttr}>
         ${initiativeOrderHtml(row.initiative)}
         <span class="dm-init-gap" aria-hidden="true"></span>
         ${identityBlock}
@@ -959,6 +967,7 @@ function renderAll() {
   restoreEncounterUiState(encUi);
   renderXpSidebar();
   renderSessionHistory();
+  if (typeof renderDmSnapshotsList === "function") renderDmSnapshotsList();
 }
 
 function refreshEncountersUi() {
@@ -1307,6 +1316,10 @@ function handleDocumentClick(e) {
     return;
   }
 
+  if (typeof handleDmV32Action === "function" && handleDmV32Action(action, btn)) {
+    return;
+  }
+
   if (
     action === "dm-add-dmg" ||
     action === "dm-remove-dmg" ||
@@ -1571,6 +1584,7 @@ function initDmPage() {
   document.addEventListener("input", handleDocumentInput);
 
   renderXpPhbReferenceTable();
+  if (typeof initDmV32 === "function") initDmV32();
   renderAll();
   void warmFavoriteMonsterImages().then(() => {
     backfillEncounterMeta();

@@ -7,7 +7,7 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 | Área | O que existe |
 |------|----------------|
 | **Explorador** | Perfis «estilo livro» para monstro, magia, equipamento, classe (evolução por nível), raça/sub-raça, trait, feature, subclasse; favoritos; filtros de magias |
-| **Ficha** | v3.0–v3.1 fechados (combate, conjuração, descanso, sync inspiração/condições com mesa); próximo: **v3.2 Mesa** |
+| **Ficha** | v3.0–v3.1 fechados; **v3.2 Mesa** em curso (turnos, encontros guardados, condições monstros, tesouro/regras) |
 | **Mesa (DM)** | Monstros (PV, dano, iniciativa, imagens), iniciativa unificada, dificuldade de encontro DMG, XP por sessão + histórico, personagens (nível, sync, eliminado), modo mesa |
 | **Infra** | PWA, `base-path` GitHub Pages, campanha export/import JSON, SEO básico |
 
@@ -140,6 +140,14 @@ Melhoria planeada (pós v3.0): o bloco de **curação / PV / descanso** passa a 
 | Regras rápidas | Atalhos: cobertura, visão, atividades de descanso (trechos SRD locais) | DMG / SRD |
 
 **Critério de aceite:** mestre corre um combate completo só em `dm.html` sem perder estado ao recarregar (encontro + iniciativa).
+
+**Progresso v3.2 (implementação):**
+
+- [x] Turno de iniciativa: destaque, «Próximo turno», rodada, nome do encontro
+- [x] Condições na mesa para personagens e monstros (iniciativa)
+- [x] Encontros guardados (até 24 snapshots em localStorage)
+- [x] Tesouro rápido por ND (individual / acumulação, DMG simplificado)
+- [x] Regras rápidas: cobertura, visão, descansos, surpresa
 
 ---
 

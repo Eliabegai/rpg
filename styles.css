@@ -1523,9 +1523,13 @@ body.game-tools-open .game-tools-fab {
   font: inherit;
   font-size: 1rem;
   font-weight: 700;
+  box-sizing: border-box;
+  margin: 0 auto;
 }
 
 .sheet-ability-mod {
+  width: 100%;
+  text-align: center;
   font-size: 0.78rem;
   font-weight: 600;
   color: #1d4ed8;
@@ -3913,10 +3917,175 @@ body.game-tools-open .game-tools-fab {
   width: 0.35rem;
 }
 
+.dm-init-row--turn {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px #93c5fd, 0 4px 14px rgba(37, 99, 235, 0.2);
+  z-index: 5;
+}
+
+.dm-init-row--monster.dm-init-row--turn {
+  outline-color: #d97706;
+  box-shadow: 0 0 0 1px #fcd34d, 0 4px 14px rgba(217, 119, 6, 0.2);
+}
+
+.dm-turn-toolbar {
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.dm-turn-toolbar-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.dm-turn-toolbar-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+}
+
+.dm-turn-round,
+.dm-turn-active {
+  font-size: 0.88rem;
+  color: #334155;
+}
+
+.dm-turn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.dm-encounter-label-field {
+  margin: 0;
+  min-width: min(100%, 16rem);
+}
+
+.dm-encounter-label-field .sheet-name-input {
+  width: 100%;
+}
+
+.dm-sidebar-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.dm-sidebar-snapshots,
+.dm-sidebar-quickref {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #334155;
+}
+
+.dm-snapshot-name-field {
+  margin-bottom: 0.45rem;
+}
+
+.dm-snapshots-list {
+  margin-top: 0.65rem;
+}
+
+.dm-snapshot-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.dm-snapshot-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding: 0.45rem 0.5rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+}
+
+.dm-snapshot-name {
+  display: block;
+  color: #f8fafc;
+  font-size: 0.82rem;
+}
+
+.dm-snapshot-date {
+  font-size: 0.68rem;
+  color: #94a3b8;
+}
+
+.dm-snapshot-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dm-snapshot-delete {
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+}
+
+.dm-quick-treasure {
+  margin-bottom: 0.85rem;
+}
+
+.dm-treasure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.45rem 0;
+}
+
+.dm-treasure-result {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #fbbf24;
+  min-height: 1.2em;
+}
+
+.dm-quick-rule {
+  margin-bottom: 0.35rem;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+}
+
+.dm-quick-rule summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.dm-quick-rule-body {
+  margin-top: 0.35rem;
+  padding-left: 0.25rem;
+}
+
+.dm-quick-rule-body ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+
 .dm-init-row--party {
   grid-template-columns: 3.1rem 0.35rem minmax(0, 1fr) auto minmax(3.5rem, auto);
   background: #e8eef7;
   border-color: #c7d5e8;
+}
+
+.dm-init-row--party.dm-init-row--turn,
+.dm-init-row--monster.dm-init-row--turn {
+  grid-template-columns: 3.1rem 0.35rem minmax(0, 1fr) auto minmax(3.5rem, auto);
 }
 
 .dm-init-row--monster {
@@ -5577,6 +5746,10 @@ html.table-mode .dm-init-danger .dm-btn-tip {
   border-radius: 6px;
   border: 1px solid #cbd5e1;
   background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
   font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
@@ -5607,6 +5780,7 @@ html.table-mode .dm-init-danger .dm-btn-tip {
   display: grid;
   grid-template-columns: auto 1fr auto auto;
   align-items: center;
+  justify-items: center;
   gap: 0.35rem 0.5rem;
   padding: 0.35rem 0.45rem;
   border-radius: 6px;
@@ -5614,6 +5788,7 @@ html.table-mode .dm-init-danger .dm-btn-tip {
   border: 1px solid #e2e8f0;
   font-size: 0.88rem;
   cursor: pointer;
+  text-align: center;
 }
 
 .sheet-save-row {
@@ -5624,6 +5799,9 @@ html.table-mode .dm-init-danger .dm-btn-tip {
 .sheet-skill-name {
   font-weight: 500;
   color: #1e293b;
+  text-align: center;
+  justify-self: center;
+  width: 100%;
 }
 
 .sheet-skill-ability {
@@ -5631,6 +5809,7 @@ html.table-mode .dm-init-danger .dm-btn-tip {
   color: #64748b;
   min-width: 2rem;
   text-align: center;
+  justify-self: center;
 }
 
 .sheet-save-bonus,
@@ -5638,7 +5817,8 @@ html.table-mode .dm-init-danger .dm-btn-tip {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   min-width: 2.25rem;
-  text-align: right;
+  text-align: center;
+  justify-self: center;
   color: #0f766e;
 }
 

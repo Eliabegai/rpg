@@ -99,6 +99,30 @@
           </details>
         </section>
 
+        <section class="dm-sidebar-snapshots" aria-labelledby="dmSnapshotsTitle">
+          <h2 id="dmSnapshotsTitle" class="dm-sidebar-xp-title">Encontros guardados</h2>
+          <p class="dm-sidebar-hint">Guarda party, monstros, PV e iniciativa para reabrir depois.</p>
+          <label class="sheet-inline-field dm-snapshot-name-field">
+            <span class="sheet-name-label">Nome</span>
+            <input
+              type="text"
+              id="dmSnapshotNameInput"
+              class="sheet-name-input"
+              placeholder="Ex.: Caverna dos goblins"
+              maxlength="120"
+            />
+          </label>
+          <button type="button" class="sheet-dice-btn dm-campaign-btn" data-action="dm-save-snapshot">
+            Guardar encontro atual
+          </button>
+          <div id="dmSnapshotsList" class="dm-snapshots-list" aria-live="polite"></div>
+        </section>
+
+        <section class="dm-sidebar-quickref" aria-labelledby="dmQuickRefTitle">
+          <h2 id="dmQuickRefTitle" class="dm-sidebar-xp-title">Referência rápida</h2>
+          <div id="dmQuickRulesMount"></div>
+        </section>
+
         <section class="dm-sidebar-history" aria-labelledby="dmHistoryTitle">
           <h2 id="dmHistoryTitle" class="dm-sidebar-xp-title">Histórico de sessões</h2>
           <p class="dm-sidebar-xp-hint">Registo ao creditar XP da sessão.</p>
@@ -142,6 +166,7 @@
             <p class="dm-section-hint">
               Personagens e monstros na mesma lista, do maior para o menor. ☠ marca personagem eliminado (fora do XP, pode reviver).
             </p>
+            <div id="dmTurnToolbar" class="dm-turn-toolbar" aria-label="Turnos de combate"></div>
             <form id="dmPartyForm" class="dm-party-form">
               <label class="dm-party-field dm-party-field--name">
                 <span class="sheet-name-label">Nome</span>
@@ -209,7 +234,9 @@
 
     <script src="spellcasting-data.js"></script>
     <script src="shared.js"></script>
+    <script src="dm-quick-ref-data.js"></script>
     <script src="dm-combat-sync.js"></script>
+    <script src="dm-v32.js"></script>
     <script src="dm.js"></script>
     <script src="pwa-init.js"></script>
   </body>

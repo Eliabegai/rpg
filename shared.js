@@ -7,6 +7,7 @@ const STORAGE_SESSION = "dnd5eapi.session";
 const STORAGE_SHEET = "dnd5eapi.sheet";
 const STORAGE_GAME_TOOLS = "dnd5eapi.gameTools";
 const STORAGE_DM_BATTLE = "dnd5eapi.dmBattle";
+const STORAGE_DM_SNAPSHOTS = "dnd5eapi.dmEncounterSnapshots";
 const STORAGE_CAMPAIGN = "dnd5eapi.campaign";
 const STORAGE_SESSION_HISTORY = "dnd5eapi.sessionHistory";
 const STORAGE_TABLE_MODE = "dnd5eapi.tableMode";
@@ -574,7 +575,41 @@ function newDamageDieId() {
 const DEFAULT_DM_BATTLE = {
   party: [],
   encounters: [],
+  combat: { activeTurnKey: "", round: 1, encounterLabel: "" },
 };
+
+function normalizeDmTurnKind(kind) {
+  if (kind === "monster") return "enc";
+  return kind;
+}
+
+function dmTurnKey(kind, id) {
+  const k = normalizeDmTurnKind(kind);
+  if (!id || (k !== "party" && k !== "enc")) return "";
+  return `${k}:${id}`;
+}
+
+function parseDmTurnKey(key) {
+  if (!key || typeof key !== "string") return null;
+  const normalized = key.startsWith("monster:") ? `enc:${key.slice(8)}` : key;
+  const i = normalized.indexOf(":");
+  if (i <= 0) return null;
+  const kind = normalized.slice(0, i);
+  const id = normalized.slice(i + 1);
+  if ((kind !== "party" && kind !== "enc") || !id) return null;
+  return { kind, id };
+}
+
+function normalizeDmCombatTrack(raw) {
+  const round = Math.max(1, Math.floor(Number(raw?.round)) || 1);
+  const activeTurnKey =
+    raw?.activeTurnKey != null && String(raw.activeTurnKey).trim()
+      ? String(raw.activeTurnKey).trim().slice(0, 80)
+      : "";
+  const encounterLabel =
+    raw?.encounterLabel != null ? String(raw.encounterLabel).trim().slice(0, 120) : "";
+  return { activeTurnKey, round, encounterLabel };
+}
 
 function normalizeDmPartyMember(raw) {
   if (!raw || typeof raw !== "object") return null;
@@ -648,14 +683,12 @@ function normalizeDmEncounter(raw) {
     killedBy: normalizeKilledBy(raw.killedBy),
     xp: monsterXpFromApiData({ xp: raw.xp }),
     imageUrl: typeof raw.imageUrl === "string" ? raw.imageUrl : "",
+    activeConditions: normalizeActiveConditions(raw.activeConditions),
   };
 }
 
 function normalizeDmBattle(parsed) {
-  const base = {
-    party: [],
-    encounters: [],
-  };
+  const base = { ...DEFAULT_DM_BATTLE, combat: { ...DEFAULT_DM_BATTLE.combat } };
   if (!parsed || typeof parsed !== "object") return base;
   const party = Array.isArray(parsed.party)
     ? parsed.party.map(normalizeDmPartyMember).filter(Boolean)
@@ -663,7 +696,88 @@ function normalizeDmBattle(parsed) {
   const encounters = Array.isArray(parsed.encounters)
     ? parsed.encounters.map(normalizeDmEncounter).filter(Boolean)
     : [];
-  return { party, encounters };
+  const combat = normalizeDmCombatTrack(parsed.combat);
+  return { party, encounters, combat };
+}
+
+function cloneDmBattleSlice(battle) {
+  return {
+    party: (battle?.party || []).map((p) => ({ ...p, activeConditions: [...(p.activeConditions || [])] })),
+    encounters: (battle?.encounters || []).map((e) => ({
+      ...e,
+      killedBy: [...(e.killedBy || [])],
+      damageRoll: e.damageRoll
+        ? {
+            modifier: e.damageRoll.modifier,
+            pool: (e.damageRoll.pool || []).map((d) => ({ ...d })),
+          }
+        : { modifier: "0", pool: [] },
+      activeConditions: [...(e.activeConditions || [])],
+    })),
+    combat: { ...normalizeDmCombatTrack(battle?.combat) },
+  };
+}
+
+function loadDmSnapshots() {
+  try {
+    const raw = localStorage.getItem(STORAGE_DM_SNAPSHOTS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((s) => {
+        if (!s || typeof s !== "object") return null;
+        const name = s.name != null ? String(s.name).trim().slice(0, 120) : "";
+        if (!name) return null;
+        const slice = s.battle && typeof s.battle === "object" ? normalizeDmBattle(s.battle) : null;
+        if (!slice) return null;
+        return {
+          id: s.id != null ? String(s.id) : newEntityId("snap"),
+          name,
+          savedAt: s.savedAt != null ? String(s.savedAt) : new Date().toISOString(),
+          battle: slice,
+        };
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function saveDmSnapshots(list) {
+  try {
+    localStorage.setItem(STORAGE_DM_SNAPSHOTS, JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function addDmSnapshot(name) {
+  const label = String(name || "").trim().slice(0, 120);
+  if (!label) return { ok: false, error: "Indica um nome para o encontro." };
+  const list = loadDmSnapshots();
+  const snap = {
+    id: newEntityId("snap"),
+    name: label,
+    savedAt: new Date().toISOString(),
+    battle: cloneDmBattleSlice(loadDmBattle()),
+  };
+  list.unshift(snap);
+  saveDmSnapshots(list.slice(0, 24));
+  return { ok: true, snapshot: snap };
+}
+
+function restoreDmSnapshot(snapshotId) {
+  const snap = loadDmSnapshots().find((s) => s.id === snapshotId);
+  if (!snap) return { ok: false, error: "Encontro guardado não encontrado." };
+  saveDmBattle(snap.battle);
+  return { ok: true, name: snap.name };
+}
+
+function deleteDmSnapshot(snapshotId) {
+  const list = loadDmSnapshots().filter((s) => s.id !== snapshotId);
+  saveDmSnapshots(list);
 }
 
 function loadDmBattle() {
