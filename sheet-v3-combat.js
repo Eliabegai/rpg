@@ -30,17 +30,28 @@ function getSkillLabel(index) {
 }
 
 function computeSkillBonus(sheet, skillIndex) {
-  const skill = SHEET_SKILLS.find((s) => s.index === skillIndex);
-  if (!skill) return 0;
-  const mod = abilityModNumber(sheet.abilityScores[skill.ability]);
-  const prof = proficiencyBonusFromLevel(sheet.characterLevel);
-  return sheet.skillProficiencies[skillIndex] ? mod + prof : mod;
+  return typeof computeSkillBonusFromSheet === "function"
+    ? computeSkillBonusFromSheet(sheet, skillIndex)
+    : 0;
 }
 
 function computeSaveBonus(sheet, abilityKey) {
-  const mod = abilityModNumber(sheet.abilityScores[abilityKey]);
-  const prof = proficiencyBonusFromLevel(sheet.characterLevel);
-  return sheet.saveProficiencies[abilityKey] ? mod + prof : mod;
+  return typeof computeSaveBonusFromSheet === "function"
+    ? computeSaveBonusFromSheet(sheet, abilityKey)
+    : 0;
+}
+
+function cycleSkillProfRank(current) {
+  const order = ["none", "half", "prof", "expertise"];
+  const i = order.indexOf(current);
+  return order[(i + 1) % order.length];
+}
+
+function skillRankLabel(rank) {
+  if (rank === "half") return "½";
+  if (rank === "prof") return "●";
+  if (rank === "expertise") return "2×";
+  return "—";
 }
 
 function computeCarryingCapacity(sheet) {
@@ -97,15 +108,18 @@ function renderSkills(sheet) {
   if (!el) return;
   el.innerHTML = SHEET_SKILLS.map((skill) => {
     const bonus = computeSkillBonus(sheet, skill.index);
-    const checked = sheet.skillProficiencies[skill.index] ? "checked" : "";
+    const rank = getSkillProficiencyRank(sheet, skill.index);
     const abbr = ABILITY_LABELS[skill.ability] || skill.ability;
     return `
-      <label class="sheet-skill-row" data-skill="${skill.index}">
-        <input type="checkbox" class="sheet-skill-prof" data-skill="${skill.index}" ${checked} aria-label="Proficiência em ${escapeHtml(getSkillLabel(skill.index))}" />
+      <div class="sheet-skill-row" data-skill="${skill.index}">
+        <button type="button" class="sheet-skill-rank-btn sheet-skill-rank-btn--${rank}" data-skill-rank="${skill.index}"
+          aria-label="Proficiência em ${escapeHtml(getSkillLabel(skill.index))}: ${rank}" title="Clica para alternar: —, ½, prof., 2×">
+          ${escapeHtml(skillRankLabel(rank))}
+        </button>
         <span class="sheet-skill-name">${escapeHtml(getSkillLabel(skill.index))}</span>
         <span class="sheet-skill-ability" title="Atributo">${escapeHtml(abbr)}</span>
         <span class="sheet-skill-bonus" data-skill-bonus="${skill.index}">${escapeHtml(formatSignedMod(bonus))}</span>
-      </label>`;
+      </div>`;
   }).join("");
 }
 
@@ -212,6 +226,25 @@ function syncSheetCombatV3() {
 }
 
 function onCombatV3Click(e) {
+  const rankBtn = e.target.closest("[data-skill-rank]");
+  if (rankBtn?.dataset.skillRank) {
+    const index = rankBtn.dataset.skillRank;
+    patchSheet((s) => {
+      if (!s.skillProficiencyRanks) s.skillProficiencyRanks = {};
+      const next = cycleSkillProfRank(getSkillProficiencyRank(s, index));
+      if (next === "none") {
+        delete s.skillProficiencyRanks[index];
+        delete s.skillProficiencies[index];
+      } else {
+        s.skillProficiencyRanks[index] = next;
+        s.skillProficiencies[index] = next === "prof" || next === "expertise";
+      }
+    });
+    renderSkills(loadSheet());
+    refreshCombatBonuses();
+    return;
+  }
+
   const cond = e.target.closest("[data-condition]");
   if (cond?.dataset.condition) {
     const index = cond.dataset.condition;
@@ -249,17 +282,6 @@ function onCombatV3Change(e) {
     const key = saveCb.dataset.save;
     patchSheet((s) => {
       s.saveProficiencies[key] = saveCb.checked;
-    });
-    refreshCombatBonuses();
-    return;
-  }
-
-  const skillCb = e.target.closest(".sheet-skill-prof");
-  if (skillCb?.dataset.skill) {
-    const index = skillCb.dataset.skill;
-    patchSheet((s) => {
-      if (skillCb.checked) s.skillProficiencies[index] = true;
-      else delete s.skillProficiencies[index];
     });
     refreshCombatBonuses();
     return;

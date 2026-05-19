@@ -1808,6 +1808,7 @@ function onToggleSpellPrepared(spellIndex) {
     if (spell) spell.prepared = !spell.prepared;
   });
   renderSpellListByLevel();
+  if (typeof updatePreparedSpellsHint === "function") updatePreparedSpellsHint();
 }
 
 function onRemoveSpell(spellIndex) {
@@ -1908,6 +1909,7 @@ function onRestEnvironmentChange() {
     sheet.restEnvironment = normalizeRestEnvironment(restEnvironmentSelect?.value);
   });
   updateRestEnvironmentHint();
+  if (typeof applyRestEnvironmentTheme === "function") applyRestEnvironmentTheme();
 }
 
 function setRestMessage(text, isError = false) {
@@ -1938,6 +1940,9 @@ function onShortRest() {
   });
   syncHpFields();
   syncHitDiceUi();
+  if (typeof applyRestEnvironmentTheme === "function") applyRestEnvironmentTheme();
+  document.querySelector(".sheet-rest")?.classList.add("sheet-rest--pulse");
+  setTimeout(() => document.querySelector(".sheet-rest")?.classList.remove("sheet-rest--pulse"), 900);
   setRestMessage(`Descanso curto: +${heal} PV (d${sides}=${roll}${conMod >= 0 ? `+${conMod}` : conMod}). Restam ${remaining - 1} dados de vida.`);
 }
 
@@ -1961,6 +1966,9 @@ function onLongRest() {
   renderDeathSaves();
   renderSpellSlotsGrid();
   renderSpellListByLevel();
+  if (typeof applyRestEnvironmentTheme === "function") applyRestEnvironmentTheme();
+  document.querySelector(".sheet-rest")?.classList.add("sheet-rest--pulse");
+  setTimeout(() => document.querySelector(".sheet-rest")?.classList.remove("sheet-rest--pulse"), 900);
   setRestMessage(
     `Descanso longo (${env}): vida reposta, slots de magia repostos, salvaguardas de morte zeradas, +${regained} dados de vida (total ${newRemaining}/${maxHd}).`
   );
@@ -2027,8 +2035,13 @@ function syncCharacterCoreFromSheet() {
     restEnvironmentSelect.value = sheet.restEnvironment || "tavern";
   }
   updateRestEnvironmentHint();
+  if (typeof applyRestEnvironmentTheme === "function") applyRestEnvironmentTheme();
+  if (hitDieSelect && document.activeElement !== hitDieSelect) {
+    hitDieSelect.value = sheet.hitDie || "d10";
+  }
   if (typeof refreshCombatBonuses === "function") refreshCombatBonuses();
   else if (typeof syncSheetCombatV3 === "function") syncSheetCombatV3();
+  if (typeof updatePreparedSpellsHint === "function") updatePreparedSpellsHint();
 }
 
 async function syncAlignmentSummary() {
@@ -2556,6 +2569,7 @@ async function boot() {
   }
 
   if (typeof initSheetCombatV3 === "function") initSheetCombatV3();
+  if (typeof initSheetV31Spellcasting === "function") initSheetV31Spellcasting();
 
   renderAll();
 }

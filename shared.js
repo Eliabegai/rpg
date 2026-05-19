@@ -446,6 +446,34 @@ function openEntryInExplorer(entry) {
   navigateToAppPage("index.html");
 }
 
+/** Abre o explorador num recurso da API (ex.: antecedentes, classes). */
+function openExplorerResource(resourceKey, resourcePath) {
+  const key = String(resourceKey || "").trim();
+  if (!key) return;
+  const path = resourcePath || `/api/2014/${key}`;
+  try {
+    localStorage.setItem(
+      STORAGE_SESSION,
+      JSON.stringify({
+        resourceKey: key,
+        resourcePath: path,
+        itemIndex: "",
+        itemPath: "",
+        filter: "",
+        spellLevel: "",
+        spellSchool: "",
+        spellClass: "",
+        spellSubclass: "",
+        page: 1,
+        listScope: "all",
+      })
+    );
+  } catch {
+    /* quota */
+  }
+  navigateToAppPage("index.html");
+}
+
 function formatArmorClass(ac) {
   if (ac == null) return "—";
   if (typeof ac === "number") return String(ac);
@@ -750,8 +778,12 @@ const SHEET_CONDITION_OPTIONS = [
   { index: "unconscious", label: "Inconsciente" },
 ];
 
+/** none | half | prof | expertise */
+const SKILL_PROF_RANKS = ["none", "half", "prof", "expertise"];
+
 const DEFAULT_SHEET_COMBAT = {
   skillProficiencies: {},
+  skillProficiencyRanks: {},
   saveProficiencies: { str: false, dex: false, con: false, int: false, wis: false, cha: false },
   activeConditions: [],
   inspiration: false,
@@ -777,6 +809,21 @@ function formatSignedMod(n) {
   return n >= 0 ? `+${n}` : String(n);
 }
 
+function normalizeSkillProficiencyRanks(rawRanks, legacyProf) {
+  const out = {};
+  const legacy = legacyProf && typeof legacyProf === "object" ? legacyProf : {};
+  const ranks = rawRanks && typeof rawRanks === "object" ? rawRanks : {};
+  for (const skill of SHEET_SKILLS) {
+    const ix = skill.index;
+    let rank = ranks[ix];
+    if (!SKILL_PROF_RANKS.includes(rank)) {
+      rank = legacy[ix] ? "prof" : "none";
+    }
+    if (rank !== "none") out[ix] = rank;
+  }
+  return out;
+}
+
 function normalizeSkillProficiencies(raw) {
   const out = {};
   if (raw && typeof raw === "object") {
@@ -785,6 +832,36 @@ function normalizeSkillProficiencies(raw) {
     }
   }
   return out;
+}
+
+function getSkillProficiencyRank(sheet, skillIndex) {
+  const ranks = sheet?.skillProficiencyRanks;
+  if (ranks && ranks[skillIndex] && SKILL_PROF_RANKS.includes(ranks[skillIndex])) {
+    return ranks[skillIndex];
+  }
+  return sheet?.skillProficiencies?.[skillIndex] ? "prof" : "none";
+}
+
+function proficiencyBonusForRank(level, rank) {
+  const prof = proficiencyBonusFromLevel(level);
+  if (rank === "expertise") return prof * 2;
+  if (rank === "prof") return prof;
+  if (rank === "half") return Math.floor(prof / 2);
+  return 0;
+}
+
+function computeSkillBonusFromSheet(sheet, skillIndex) {
+  const skill = SHEET_SKILLS.find((s) => s.index === skillIndex);
+  if (!skill) return 0;
+  const mod = abilityModNumber(sheet.abilityScores[skill.ability]);
+  const rank = getSkillProficiencyRank(sheet, skillIndex);
+  return mod + proficiencyBonusForRank(sheet.characterLevel, rank);
+}
+
+function computeSaveBonusFromSheet(sheet, abilityKey) {
+  const mod = abilityModNumber(sheet.abilityScores[abilityKey]);
+  const prof = proficiencyBonusFromLevel(sheet.characterLevel);
+  return sheet.saveProficiencies?.[abilityKey] ? mod + prof : mod;
 }
 
 function normalizeSaveProficiencies(raw) {
@@ -830,12 +907,15 @@ function normalizeInventory(raw) {
       if (!row || typeof row !== "object") return null;
       const name = String(row.name || "").trim();
       if (!name) return null;
-      return {
+      const rowOut = {
         id: row.id != null ? String(row.id) : `inv-${i}`,
         name: name.slice(0, 120),
         qty: Math.max(1, Math.floor(Number(row.qty) || 1)),
         weight: row.weight != null && row.weight !== "" ? String(row.weight) : "",
       };
+      if (row.resourceKey) rowOut.resourceKey = String(row.resourceKey);
+      if (row.index != null) rowOut.index = String(row.index);
+      return rowOut;
     })
     .filter(Boolean)
     .slice(0, 80);
@@ -1012,6 +1092,42 @@ function normalizeSpellListEntry(raw) {
   };
 }
 
+function normalizeMulticlassEntry(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const index = raw.index != null ? String(raw.index) : "";
+  if (!index) return null;
+  const level = Math.min(20, Math.max(1, Math.floor(Number(raw.level) || 1)));
+  const caster =
+    raw.caster === "full" ||
+    raw.caster === "half" ||
+    raw.caster === "third" ||
+    raw.caster === "pact" ||
+    raw.caster === "none"
+      ? raw.caster
+      : "none";
+  return {
+    index,
+    name: raw.name != null ? String(raw.name) : index,
+    level,
+    caster,
+  };
+}
+
+function normalizeMulticlassSpellcasting(raw) {
+  if (!raw || typeof raw !== "object") {
+    return { enabled: false, classes: [] };
+  }
+  const classes = Array.isArray(raw.classes)
+    ? raw.classes.map(normalizeMulticlassEntry).filter(Boolean).slice(0, 6)
+    : [];
+  return { enabled: Boolean(raw.enabled) && classes.length > 0, classes };
+}
+
+function normalizePreparedCaster(raw) {
+  const allowed = ["none", "wizard", "cleric", "druid"];
+  return allowed.includes(raw) ? raw : "none";
+}
+
 function normalizeSpellcasting(raw) {
   const casterType = normalizeCasterType(raw?.casterType);
   const slotsUsed =
@@ -1029,7 +1145,37 @@ function normalizeSpellcasting(raw) {
   spells.sort(
     (a, b) => a.level - b.level || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" })
   );
-  return { casterType, slotsUsed, spells };
+  return {
+    casterType,
+    slotsUsed,
+    spells,
+    multiclass: normalizeMulticlassSpellcasting(raw?.multiclass),
+    preparedCaster: normalizePreparedCaster(raw?.preparedCaster),
+  };
+}
+
+function maxPreparedSpellsForSheet(sheet) {
+  const key = sheet?.spellcasting?.preparedCaster;
+  const abilityByClass = { wizard: "int", cleric: "wis", druid: "wis" };
+  const ability = abilityByClass[key];
+  if (!ability) return null;
+  let classLevel = clampCharacterLevel(sheet?.characterLevel);
+  const mc = sheet?.spellcasting?.multiclass;
+  if (mc?.enabled && mc.classes?.length) {
+    const entry = mc.classes.find((c) => {
+      if (key === "wizard") return c.index === "wizard" || c.caster === "full";
+      if (key === "cleric") return c.index === "cleric";
+      if (key === "druid") return c.index === "druid";
+      return false;
+    });
+    if (entry) classLevel = entry.level;
+  }
+  const mod = abilityModNumber(sheet?.abilityScores?.[ability]);
+  return Math.max(1, classLevel + mod);
+}
+
+function countPreparedSpells(sheet) {
+  return (sheet?.spellcasting?.spells || []).filter((s) => s.prepared && s.level > 0).length;
 }
 
 /** Slots restantes no nível da magia ou acima (PHB; bruxo: qualquer slot de pacto). */
@@ -1148,7 +1294,85 @@ function hitDiceRemainingForSheet(sheet) {
 
 function getSheetMaxSpellSlots(sheet) {
   if (typeof getMaxSpellSlotsMap !== "function") return {};
-  return getMaxSpellSlotsMap(sheet?.spellcasting?.casterType, sheet?.characterLevel);
+  const sc = sheet?.spellcasting;
+  if (sc?.multiclass?.enabled && typeof getMulticlassSpellSlotsMap === "function") {
+    return getMulticlassSpellSlotsMap(sc.multiclass, sheet?.characterLevel);
+  }
+  return getMaxSpellSlotsMap(sc?.casterType, sheet?.characterLevel);
+}
+
+/** PV máximos sugeridos (PHB): 1º nível = DV + CON; depois média fixa por nível. */
+function computeSuggestedHpMax(sheet, { useAverage = true } = {}) {
+  const level = clampCharacterLevel(sheet?.characterLevel);
+  if (level < 1) return null;
+  const m = String(sheet?.hitDie || "d10").match(/d(\d+)/i);
+  const sides = m ? Number(m[1]) : 10;
+  if (!Number.isFinite(sides) || sides < 1) return null;
+  const conMod = abilityModNumber(sheet?.abilityScores?.con);
+  const first = sides + conMod;
+  if (level === 1) return Math.max(1, first);
+  const perLevel = useAverage ? Math.floor(sides / 2) + 1 + conMod : sides + conMod;
+  return Math.max(1, first + (level - 1) * perLevel);
+}
+
+function gatherEquipmentEntriesForImport(sheet) {
+  const keys = new Set(["equipment", "magic-items"]);
+  const seen = new Set();
+  const out = [];
+  const add = (entry) => {
+    if (!entry || !keys.has(entry.resourceKey)) return;
+    const ix = String(entry.index || "");
+    const id = `${entry.resourceKey}:${ix}`;
+    if (!ix || seen.has(id)) return;
+    seen.add(id);
+    out.push(entry);
+  };
+  loadFavorites().forEach(add);
+  (sheet?.items || []).forEach(add);
+  return out;
+}
+
+function equipmentWeightFromEntry(entry) {
+  const w = entry?.cachedData?.weight;
+  if (w == null || w === "") return "";
+  const n = Number(w);
+  return Number.isFinite(n) ? String(n) : "";
+}
+
+function importEquipmentFavoritesToSheet(sheet) {
+  if (!Array.isArray(sheet.inventory)) sheet.inventory = [];
+  const existing = new Set(
+    sheet.inventory.map((r) => `${r.resourceKey || ""}:${r.index || r.name}`.toLowerCase())
+  );
+  let added = 0;
+  for (const src of gatherEquipmentEntriesForImport(sheet)) {
+    const key = `${src.resourceKey}:${src.index}`.toLowerCase();
+    if (existing.has(key)) continue;
+    let weight = equipmentWeightFromEntry(src);
+    if (!weight) {
+      const fav = findFavorite(src.resourceKey, src.index);
+      if (fav?.cachedData) weight = equipmentWeightFromEntry(fav);
+      else {
+        const cached = getCachedEntryData({
+          resourceKey: src.resourceKey,
+          index: src.index,
+          path: src.path || `/api/2014/${src.resourceKey}/${src.index}`,
+        });
+        if (cached) weight = equipmentWeightFromEntry({ cachedData: cached });
+      }
+    }
+    sheet.inventory.push({
+      id: `inv-${src.resourceKey}-${src.index}-${Date.now()}-${added}`,
+      name: String(src.name || src.index).slice(0, 120),
+      qty: 1,
+      weight,
+      resourceKey: src.resourceKey,
+      index: String(src.index),
+    });
+    existing.add(key);
+    added += 1;
+  }
+  return added;
 }
 
 function clampSpellSlotsUsed(used, maxMap) {
@@ -1264,7 +1488,24 @@ function normalizeSheet(parsed) {
     items: Array.isArray(parsed.items)
       ? parsed.items.map(normalizeSheetItem).filter(Boolean)
       : [],
-    skillProficiencies: normalizeSkillProficiencies(parsed.skillProficiencies),
+    skillProficiencyRanks: (() => {
+      const ranks = normalizeSkillProficiencyRanks(
+        parsed.skillProficiencyRanks,
+        parsed.skillProficiencies
+      );
+      return ranks;
+    })(),
+    skillProficiencies: (() => {
+      const ranks = normalizeSkillProficiencyRanks(
+        parsed.skillProficiencyRanks,
+        parsed.skillProficiencies
+      );
+      const legacy = {};
+      for (const [k, rank] of Object.entries(ranks)) {
+        if (rank === "prof" || rank === "expertise") legacy[k] = true;
+      }
+      return legacy;
+    })(),
     saveProficiencies: normalizeSaveProficiencies(parsed.saveProficiencies),
     activeConditions: normalizeActiveConditions(parsed.activeConditions),
     inspiration: Boolean(parsed.inspiration),

@@ -119,6 +119,38 @@ function getMaxSpellSlotsMap(casterType, characterLevel) {
   return {};
 }
 
+/** Nível de conjurador combinado (PHB multiclasse). */
+function combinedMulticlassCasterLevel(classes) {
+  let total = 0;
+  for (const c of classes || []) {
+    const lv = Math.max(0, Math.floor(Number(c.level) || 0));
+    if (c.caster === "full") total += lv;
+    else if (c.caster === "half") total += Math.floor(lv / 2);
+    else if (c.caster === "third") total += Math.floor(lv / 3);
+  }
+  return Math.min(20, Math.max(0, total));
+}
+
+function getMulticlassSpellSlotsMap(multiclass, characterLevel) {
+  if (!multiclass?.enabled || !multiclass.classes?.length) {
+    return typeof getMaxSpellSlotsMap === "function"
+      ? getMaxSpellSlotsMap("none", characterLevel)
+      : {};
+  }
+  const combined = combinedMulticlassCasterLevel(multiclass.classes);
+  if (combined < 1) return {};
+  const base = slotsArrayToMap(FULL_CASTER_SLOTS_BY_LEVEL[combined - 1] || []);
+  const hasPact = multiclass.classes.some((c) => c.caster === "pact" && c.level > 0);
+  if (hasPact) {
+    const pactLv = multiclass.classes
+      .filter((c) => c.caster === "pact")
+      .reduce((sum, c) => sum + c.level, 0);
+    const pactMap = warlockPactSlotsMap(Math.min(20, Math.max(1, pactLv)));
+    return { ...base, ...pactMap };
+  }
+  return base;
+}
+
 function getSpellSlotsUsedMap(raw) {
   const used = {};
   if (!raw || typeof raw !== "object") return used;

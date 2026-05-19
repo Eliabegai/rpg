@@ -37,7 +37,7 @@
   </head>
   <body class="sheet-page">
     <div class="app-shell sheet-shell">
-      <aside class="sheet-library" aria-label="Biblioteca de favoritos">
+      <aside id="sheetFavoritesLibrary" class="sheet-library" aria-label="Biblioteca de favoritos">
         <nav class="app-top-nav" aria-label="Navegação">
           <a class="app-top-nav-link" href="index.html">← Explorar API</a>
           <a class="app-top-nav-link" href="dm.html">Mestre</a>
@@ -212,8 +212,20 @@
                     <div id="sheetConditions" class="sheet-conditions" role="group" aria-label="Condições ativas"></div>
                   </div>
 
-                  <div class="sheet-combat-block">
+                  <div class="sheet-combat-block" id="sheetPersonalitySection">
                     <h3 class="sheet-combat-subtitle">Personalidade</h3>
+                    <p class="sheet-personality-hint">
+                      O antecedente entra na ficha pela
+                      <a href="#lib-backgrounds" id="linkSheetLibraryBackgrounds" class="sheet-inline-link"
+                        >biblioteca à esquerda (Antecedentes)</a
+                      >:
+                      marca ★ no explorador e clica «+ Na ficha». Também podes
+                      <a href="index.html" id="linkExploreBackgrounds" class="sheet-inline-link">escolher antecedentes na API</a>.
+                    </p>
+                    <button type="button" id="applyBackgroundFromSheetBtn" class="sheet-dice-btn sheet-dice-btn--compact">
+                      Aplicar do antecedente (aleatório)
+                    </button>
+                    <p id="personalityApplyFeedback" class="sheet-apply-feedback" role="status" hidden></p>
                     <div class="sheet-personality-grid">
                       <label class="sheet-personality-field">
                         <span class="sheet-name-label">Traços</span>
@@ -244,6 +256,9 @@
                       <label><span>PL</span><input type="text" inputmode="numeric" id="sheetCurrencyPP" class="sheet-currency-input" /></label>
                     </div>
                     <p id="sheetCarrySummary" class="sheet-carry-summary">Carga: —</p>
+                    <button type="button" id="importEquipmentFavoritesBtn" class="sheet-dice-btn sheet-dice-btn--compact sheet-inventory-import">
+                      Importar equipamento (★ e ficha)
+                    </button>
                     <div id="sheetInventoryList" class="sheet-inventory-list"></div>
                     <form id="sheetInventoryAddForm" class="sheet-inventory-add">
                       <input type="text" id="sheetInventoryName" class="sheet-text-input" placeholder="Item" maxlength="120" required />
@@ -278,6 +293,7 @@
 
                 <fieldset class="sheet-core-vitals" aria-labelledby="sheetVitalsHpTitle">
                   <legend id="sheetVitalsHpTitle" class="sheet-name-label">Pontos de vida</legend>
+                  <p id="classApplyFeedback" class="sheet-apply-feedback" role="status" hidden></p>
                   <div class="sheet-hp-row">
                     <label class="sheet-inline-field">
                       <span class="sheet-name-label">Dado de vida</span>
@@ -292,6 +308,12 @@
                     </label>
                     <button type="button" id="rollHitDieBtn" class="sheet-dice-btn sheet-dice-btn--compact" data-action="roll-hit-die">
                       Rolar dado de vida
+                    </button>
+                    <button type="button" id="applyClassFromSheetBtn" class="sheet-dice-btn sheet-dice-btn--compact">
+                      Aplicar da classe
+                    </button>
+                    <button type="button" id="suggestHpMaxBtn" class="sheet-dice-btn sheet-dice-btn--compact">
+                      Sugerir PV máx.
                     </button>
                     <span id="hitDieRollResult" class="sheet-roll-result" aria-live="polite"></span>
                   </div>
@@ -358,6 +380,17 @@
                     </button>
                   </div>
                   <div id="spellSlotsGrid" class="spell-slots-grid" aria-live="polite"></div>
+                  <div id="multiclassPanel" class="multiclass-panel" aria-label="Multiclasse"></div>
+                  <label class="sheet-inline-field">
+                    <span class="sheet-name-label">Preparação (mago/clérigo/druida)</span>
+                    <select id="preparedCasterSelect" class="sheet-select">
+                      <option value="none">Sem limite de preparação</option>
+                      <option value="wizard">Mago (INT)</option>
+                      <option value="cleric">Clérigo (SAB)</option>
+                      <option value="druid">Druida (SAB)</option>
+                    </select>
+                  </label>
+                  <p id="preparedSpellsHint" class="sheet-combat-hint"></p>
                 </fieldset>
 
                 <fieldset class="sheet-spell-list" aria-labelledby="sheetSpellListTitle">
@@ -375,34 +408,64 @@
 
                 <fieldset class="sheet-rest" aria-labelledby="sheetRestTitle">
                   <legend id="sheetRestTitle" class="sheet-name-label">Descanso</legend>
-                  <label class="sheet-inline-field sheet-inline-field--grow">
+                  <div id="restEnvironmentScene" class="rest-environment-scene" data-theme="tavern" aria-hidden="false">
+                    <span class="rest-environment-scene__icon" aria-hidden="true">🍺</span>
+                    <div class="rest-environment-scene__text">
+                      <span class="rest-environment-scene__label">Taverna ou pousada</span>
+                      <span class="rest-environment-scene__mood">Ambiente confortável; descanso longo completo (PHB).</span>
+                    </div>
+                  </div>
+                  <div class="sheet-rest-body">
+                  <label class="sheet-inline-field sheet-rest-field">
                     <span class="sheet-name-label">Ambiente</span>
                     <select id="restEnvironmentSelect" class="sheet-select"></select>
                   </label>
-                  <p id="restEnvironmentHint" class="sheet-rest-hint"></p>
+                  <p id="restEnvironmentHint" class="sheet-rest-hint visually-hidden"></p>
                   <div class="sheet-rest-hd">
-                    <label class="sheet-inline-field">
+                    <label class="sheet-inline-field sheet-rest-field">
                       <span class="sheet-name-label">Dados de vida restantes</span>
-                      <input
-                        type="number"
-                        id="hitDiceRemainingInput"
-                        class="sheet-number-input"
-                        min="0"
-                        max="20"
-                        inputmode="numeric"
-                      />
-                      <span id="hitDiceMaxHint" class="sheet-rest-hd-max"></span>
+                      <span class="sheet-rest-hd-inputs">
+                        <input
+                          type="number"
+                          id="hitDiceRemainingInput"
+                          class="sheet-number-input"
+                          min="0"
+                          max="20"
+                          inputmode="numeric"
+                        />
+                        <span id="hitDiceMaxHint" class="sheet-rest-hd-max"></span>
+                      </span>
                     </label>
                   </div>
                   <div class="sheet-rest-actions">
-                    <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="short-rest">
-                      Descanso curto
-                    </button>
-                    <button type="button" class="sheet-dice-btn" data-action="long-rest">
-                      Descanso longo
-                    </button>
+                    <div class="sheet-rest-actions__spend">
+                      <label class="sheet-rest-field sheet-rest-field--inline" for="shortRestHdCount">
+                        <span class="sheet-name-label">Gastar DV no curto</span>
+                        <input
+                          type="number"
+                          id="shortRestHdCount"
+                          class="sheet-number-input"
+                          min="1"
+                          max="20"
+                          value="1"
+                          inputmode="numeric"
+                        />
+                      </label>
+                      <button type="button" id="shortRestSpendHdBtn" class="sheet-dice-btn sheet-dice-btn--compact">
+                        Curar com DV
+                      </button>
+                    </div>
+                    <div class="sheet-rest-actions__rests">
+                      <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="short-rest">
+                        Descanso curto (1 DV)
+                      </button>
+                      <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="long-rest">
+                        Descanso longo
+                      </button>
+                    </div>
                   </div>
                   <p id="restResultMessage" class="sheet-rest-result" role="status" aria-live="polite"></p>
+                  </div>
                 </fieldset>
               </div>
             </div>
@@ -597,6 +660,8 @@
     <script src="shared.js"></script>
     <script src="detail-layouts.js"></script>
     <script src="sheet-v3-combat.js"></script>
+    <script src="sheet-class-sync.js"></script>
+    <script src="sheet-v31-spellcasting.js"></script>
     <script src="sheet.js"></script>
     <script src="pwa-init.js"></script>
   </body>

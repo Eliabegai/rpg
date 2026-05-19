@@ -1849,11 +1849,76 @@ body.game-tools-open .game-tools-fab {
   color: #64748b;
 }
 
+.sheet-rest-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  max-width: 22rem;
+  margin: 0 auto;
+}
+
+.sheet-rest-field {
+  width: 100%;
+  align-items: center;
+  text-align: center;
+}
+
+.sheet-rest-field .sheet-name-label {
+  width: 100%;
+}
+
+.sheet-rest-field .sheet-select,
+.sheet-rest-field .sheet-number-input {
+  width: 100%;
+  max-width: 14rem;
+}
+
+.sheet-rest-hd-inputs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.sheet-rest-field--inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+
 .sheet-rest-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
   margin-top: 0.35rem;
+}
+
+.sheet-rest-actions__spend,
+.sheet-rest-actions__rests {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.sheet-rest-actions .sheet-dice-btn {
+  min-height: 2.15rem;
+  align-self: center;
+  white-space: nowrap;
+}
+
+.sheet-rest-actions__rests .sheet-dice-btn {
+  flex: 1 1 auto;
+  min-width: 8.5rem;
+  max-width: 11rem;
 }
 
 .sheet-rest-result {
@@ -1861,6 +1926,7 @@ body.game-tools-open .game-tools-fab {
   font-size: 0.8rem;
   color: #166534;
   line-height: 1.4;
+  text-align: center;
 }
 
 .sheet-rest-result.is-error {
@@ -5407,6 +5473,38 @@ html.table-mode .dm-init-danger .dm-btn-tip {
   gap: 0.35rem;
 }
 
+.sheet-skill-rank-btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.sheet-skill-rank-btn--half {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+}
+
+.sheet-skill-rank-btn--prof {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+.sheet-skill-rank-btn--expertise {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+
 .sheet-save-row,
 .sheet-skill-row {
   display: grid;
@@ -5656,4 +5754,248 @@ html.table-mode .sheet-condition-chip,
 html.table-mode .sheet-inspiration-btn {
   font-size: 1rem;
   padding: 0.45rem 0.55rem;
+}
+
+.sheet-inventory-import {
+  margin-bottom: 0.45rem;
+}
+
+.multiclass-panel {
+  margin: 0.65rem 0;
+  padding: 0.55rem;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
+  background: #fafafa;
+}
+
+.multiclass-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.45rem 0;
+}
+
+.multiclass-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.multiclass-level {
+  width: 3.5rem;
+}
+
+.multiclass-caster {
+  min-width: 6.5rem;
+}
+
+.multiclass-enable {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+}
+
+.sheet-rest-hd-spend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+/* Temas de ambiente (base para UI temática futura) */
+.sheet-core-vitals[data-rest-theme="tavern"],
+.sheet-rest[data-rest-theme="tavern"] {
+  --rest-accent: #b45309;
+  --rest-bg: #fffbeb;
+}
+
+.sheet-core-vitals[data-rest-theme="dungeon"],
+.sheet-rest[data-rest-theme="dungeon"] {
+  --rest-accent: #475569;
+  --rest-bg: #f1f5f9;
+}
+
+.sheet-core-vitals[data-rest-theme="wilderness"],
+.sheet-rest[data-rest-theme="wilderness"] {
+  --rest-accent: #15803d;
+  --rest-bg: #f0fdf4;
+}
+
+.sheet-core-vitals[data-rest-theme="campfire"],
+.sheet-rest[data-rest-theme="campfire"] {
+  --rest-accent: #c2410c;
+  --rest-bg: #fff7ed;
+}
+
+.sheet-core-vitals[data-rest-theme="stronghold"],
+.sheet-rest[data-rest-theme="stronghold"] {
+  --rest-accent: #1d4ed8;
+  --rest-bg: #eff6ff;
+}
+
+.sheet-core-vitals[data-rest-theme],
+.sheet-rest[data-rest-theme],
+.sheet-hp-actions[data-rest-theme] {
+  border-radius: 10px;
+  padding: 0.65rem;
+  background: var(--rest-bg, transparent);
+  border: 1px solid color-mix(in srgb, var(--rest-accent, #94a3b8) 28%, transparent);
+  transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.sheet-rest[data-rest-theme] .sheet-rest-hint {
+  color: color-mix(in srgb, var(--rest-accent, #64748b) 70%, #334155);
+}
+
+.sheet-apply-feedback {
+  margin: 0 0 0.5rem;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  border-radius: 6px;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  color: #065f46;
+}
+
+.sheet-apply-feedback.is-error {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.sheet-apply-feedback[hidden] {
+  display: none;
+}
+
+.rest-environment-scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  gap: 0.35rem;
+  margin: 0 auto 0.75rem;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  max-width: 22rem;
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--rest-theme-accent, #b45309) 12%, #fff) 0%,
+    color-mix(in srgb, var(--rest-theme-accent, #b45309) 6%, #f8fafc) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--rest-theme-accent, #b45309) 35%, #e2e8f0);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.rest-environment-scene__icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.rest-environment-scene__text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.rest-environment-scene__label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1e293b;
+}
+
+.rest-environment-scene__mood {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #64748b;
+  max-width: 18rem;
+}
+
+.sheet-rest[data-rest-theme="dungeon"] .rest-environment-scene {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-color: #475569;
+}
+
+.sheet-rest[data-rest-theme="dungeon"] .rest-environment-scene__label,
+.sheet-rest[data-rest-theme="dungeon"] .rest-environment-scene__mood {
+  color: #e2e8f0;
+}
+
+.sheet-rest[data-rest-theme="wilderness"] .rest-environment-scene {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+}
+
+.sheet-rest[data-rest-theme="campfire"] .rest-environment-scene {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 50%, #fed7aa 100%);
+}
+
+.sheet-rest[data-rest-theme="tavern"] .rest-environment-scene {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.sheet-rest[data-rest-theme="stronghold"] .rest-environment-scene {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.sheet-rest--pulse {
+  animation: sheet-rest-pulse 0.85s ease;
+}
+
+@keyframes sheet-rest-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--rest-theme-accent, #b45309) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.sheet-combat-block .sheet-dice-btn {
+  margin-bottom: 0.45rem;
+}
+
+.sheet-personality-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.sheet-inline-link {
+  color: #1d4ed8;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.sheet-inline-link:hover {
+  color: #1e3a8a;
+}
+
+.sheet-library-group--highlight {
+  outline: 2px solid #2563eb;
+  outline-offset: 4px;
+  border-radius: 8px;
+  animation: sheet-library-highlight 0.6s ease;
+}
+
+@keyframes sheet-library-highlight {
+  0% {
+    background: #dbeafe;
+  }
+  100% {
+    background: transparent;
+  }
 }

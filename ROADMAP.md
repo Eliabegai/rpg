@@ -7,7 +7,7 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 | Área | O que existe |
 |------|----------------|
 | **Explorador** | Perfis «estilo livro» para monstro, magia, equipamento, classe (evolução por nível), raça/sub-raça, trait, feature, subclasse; favoritos; filtros de magias |
-| **Ficha** | Atributos, CA, alinhamento, PV/dados de vida, morte, retrato, nível/XP com barra PHB, slots de magia (pleno, meio, pacto, 1/3), magias por nível de slot, descanso + ambientes, favoritos com detalhe livro, sync com mesa; **v3.0 em curso:** perícias, salvaguardas, condições, inspiração, concentração, inventário leve, personalidade |
+| **Ficha** | v3.0: combate PHB (perícias ½/●/2×, salvaguardas, condições, inspiração, concentração, inventário + import ★); v3.1: multiclasse slots, preparadas, DV no curto, aplicar classe, sugerir PV; temas de ambiente (base CSS); resto: personalidade do background, sync mesa |
 | **Mesa (DM)** | Monstros (PV, dano, iniciativa, imagens), iniciativa unificada, dificuldade de encontro DMG, XP por sessão + histórico, personagens (nível, sync, eliminado), modo mesa |
 | **Infra** | PWA, `base-path` GitHub Pages, campanha export/import JSON, SEO básico |
 
@@ -83,10 +83,24 @@ Foco: o que falta na ficha oficial para rodar combate e social básico.
 - [x] UI na ficha (`sheet-v3-combat.js`, secção «Combate (PHB)» em `sheet.html`)
 - [x] Bónus calculados (mod. atributo + prof. por nível)
 - [x] Nomes de perícias via API (`/api/2014/skills`)
-- [ ] Meio bónus de proficiência (expertise / multiclasse)
-- [ ] Importar equipamento dos favoritos para inventário
-- [ ] Preencher personalidade a partir do background na ficha
+- [x] Meio bónus de proficiência (½) e perícia em dobro (2×) — botão por perícia: — → ½ → ● → 2×
+- [x] Importar equipamento dos favoritos para inventário (★ e itens na ficha; peso da API)
+- [x] Preencher personalidade a partir do background na ficha (aleatório PHB)
 - [ ] Inspiração / condições na mesa (sync opcional)
+
+---
+
+### Futuro — Restauração de vida e ambiente temático
+
+Melhoria planeada (pós v3.0): o bloco de **curação / PV / descanso** passa a refletir visualmente o **ambiente de descanso** selecionado (taverna, masmorra, fogueira, etc.) — fundo, ícone ou ilustração leve, tipografia de «cena», sem alterar as regras PHB.
+
+| Ideia | Descrição |
+|-------|-----------|
+| Painel temático | `data-rest-theme` no fieldset de PV/descanso; CSS por ambiente (`wilderness`, `campfire`, `tavern`, `dungeon`, `stronghold`) |
+| Cura contextual | Mensagens e cores alinhadas ao ambiente (ex.: longo na taverna vs. interrompido na masmorra) |
+| Modo mesa | Temas com maior contraste e menos ornamentação |
+
+**Estado:** base implementada — cena visual por ambiente, temas em PV/descanso, animação ao descansar. Ilustrações ou arte por ambiente → evolução futura.
 
 ---
 
@@ -101,6 +115,17 @@ Foco: o que falta na ficha oficial para rodar combate e social básico.
 | Evolução por nível (delta) | Na tabela de classe: destacar só truques/slots/capacidades **novas** em cada nível | UX |
 
 **Critério de aceite:** mago multiclasse com bruxo vê slots corretos; descanso longo atualiza slots e HD de forma previsível.
+
+**Progresso v3.1 (implementação):**
+
+- [x] Multiclasse: painel com classes, níveis e contribuição de conjuração; nível combinado PHB
+- [x] Slots via `getMulticlassSpellSlotsMap` (incl. pacto do bruxo)
+- [x] Preparadas: limite mago/clérigo/druida (nível + atributo); contador na ficha
+- [x] Descanso curto: gastar N dados de vida de uma vez
+- [x] Aplicar classe na ficha: DV, salvaguardas, perícias fixas (API)
+- [x] Sugerir PV máximos (média PHB)
+- [ ] Recuperação de slots no longo por classe / meio-conjurador (avisos finos)
+- [ ] Delta só do que mudou por nível na tabela de classe
 
 ---
 
@@ -184,6 +209,31 @@ Dependências sugeridas:
 | Descanso, ambientes | PHB — lógica local |
 | Perícias, condições (lista), tesouro ND | PHB/DMG — local (+ API onde existir) |
 | Campanhas, encontros guardados, notas | `localStorage` |
+
+---
+
+## Importação automática — classe, raça e PV (análise)
+
+Onde o projeto **já pode** (ou deve) puxar dados da API 2014 e da ficha (`sheet.items`):
+
+| Fonte API | Campos úteis | Uso na ficha hoje / proposto |
+|-----------|----------------|------------------------------|
+| `GET /classes/{id}` | `hit_die`, `saving_throws[]`, `proficiencies[]`, `proficiency_choices[]`, `starting_equipment[]` | **v3.0+:** botão «Aplicar da classe» → DV (`hitDie`), salvaguardas prof., perícias fixas; equipamento inicial → inventário (v3.3) |
+| `GET /classes/{id}/levels` | `features`, `class_specific`, spellcasting por nível | Já no explorador; **v3.1:** slots/preparadas; **futuro:** sugerir PV por nível somando `hit_die` + CON |
+| `GET /races/{id}` | `ability_bonuses[]`, `traits[]`, `subraces` | **v3.3:** bónus de atributo; traits já em detalhe livro |
+| `GET /subraces/{id}` | `ability_bonuses`, `racial_traits` | Idem raça |
+| `GET /backgrounds/{id}` | `personality_traits`, `ideals`, `bonds`, `flaws` (tabelas) | **v3.0:** preencher personalidade; **v3.4:** estilo livro |
+| `GET /equipment/{id}` | `weight`, `cost` | **v3.0:** peso no inventário ao importar favoritos |
+
+### Cálculo de PV por nível (PHB)
+
+Regra oficial (resumo):
+
+1. **1º nível:** máximo do dado de vida da classe + modificador de Constituição.
+2. **Cada nível seguinte:** 1dDV + mod. CON (ou **média fixa** ⌈DV/2⌉+1 + mod. CON, arredondado para cima na média do dado).
+3. **Multiclasse:** um dado de vida por nível de **cada** classe (DV da classe em que sobe); PV máximos = soma ao longo da carreira (implementação completa com várias classes → v3.1/v3.3).
+
+**Estado no código:** `hitDiceMaxForSheet` = nível de personagem (simplificado); `hitDie` manual no select; descanso curto rola `hitDie` + CON. **Próximo passo:** `computeSuggestedHpMax(level, hitDie, conMod)` + botão «Sugerir PV»; opcionalmente preencher `hitDie` a partir da primeira classe na ficha.
 
 ---
 
