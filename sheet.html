@@ -97,19 +97,40 @@
             </div>
           </header>
 
-          <label class="sheet-name-field">
-            <span class="sheet-name-label">Nome do personagem</span>
-            <input
-              type="text"
-              id="characterName"
-              class="sheet-name-input"
-              placeholder="Ex.: Aelindra"
-              autocomplete="off"
-              maxlength="120"
-            />
-          </label>
-
-          <div class="sheet-character-meta">
+          <div class="sheet-hero">
+            <div class="sheet-portrait-block sheet-portrait-block--hero">
+              <div class="sheet-portrait-frame">
+                <img
+                  id="portraitPreview"
+                  class="sheet-portrait-img"
+                  alt=""
+                  hidden
+                />
+                <span id="portraitPlaceholder" class="sheet-portrait-placeholder">Sem imagem</span>
+              </div>
+              <div class="sheet-portrait-actions">
+                <label class="sheet-portrait-upload">
+                  <span class="visually-hidden">Retrato</span>
+                  <input type="file" id="portraitInput" accept="image/jpeg,image/png,image/webp,image/gif" />
+                  <span class="sheet-portrait-upload-btn">Escolher imagem</span>
+                </label>
+                <button type="button" id="portraitClear" class="sheet-portrait-clear" hidden>Remover</button>
+              </div>
+              <p id="portraitError" class="sheet-field-error" hidden></p>
+            </div>
+            <div class="sheet-hero-details">
+              <label class="sheet-name-field sheet-name-field--hero">
+              <span class="sheet-name-label">Nome do personagem</span>
+              <input
+                type="text"
+                id="characterName"
+                class="sheet-name-input sheet-name-input--hero"
+                placeholder="Ex.: Aelindra"
+                autocomplete="off"
+                maxlength="120"
+              />
+            </label>
+              <div class="sheet-character-meta sheet-character-meta--hero">
             <label class="sheet-inline-field sheet-inline-field--level">
               <span class="sheet-name-label">Nível</span>
               <input
@@ -134,8 +155,10 @@
                 inputmode="numeric"
               />
             </label>
+              </div>
+              <div id="characterXpProgress" class="sheet-xp-progress-wrap sheet-xp-progress-wrap--hero" aria-live="polite"></div>
+            </div>
           </div>
-          <div id="characterXpProgress" class="sheet-xp-progress-wrap" aria-live="polite"></div>
 
           <div class="sheet-sync-bar">
             <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="sync-sheet-to-dm">
@@ -146,26 +169,7 @@
 
           <section class="sheet-core" id="characterCore" aria-labelledby="sheetCoreTitle">
             <h2 id="sheetCoreTitle" class="sheet-core-title">Dados do personagem</h2>
-            <div class="sheet-core-layout">
-              <div class="sheet-portrait-block">
-                <div class="sheet-portrait-frame">
-                  <img
-                    id="portraitPreview"
-                    class="sheet-portrait-img"
-                    alt=""
-                    hidden
-                  />
-                  <span id="portraitPlaceholder" class="sheet-portrait-placeholder">Sem imagem</span>
-                </div>
-                <label class="sheet-portrait-upload">
-                  <span class="sheet-name-label">Retrato</span>
-                  <input type="file" id="portraitInput" accept="image/jpeg,image/png,image/webp,image/gif" />
-                </label>
-                <button type="button" id="portraitClear" class="sheet-portrait-clear" hidden>Remover imagem</button>
-                <p id="portraitError" class="sheet-field-error" hidden></p>
-              </div>
-
-              <div class="sheet-core-fields">
+            <div class="sheet-core-fields">
                 <fieldset class="sheet-abilities">
                   <legend class="sheet-name-label">Atributos</legend>
                   <div class="sheet-abilities-grid" id="abilityScoresGrid"></div>
@@ -178,23 +182,25 @@
                     <strong id="sheetProfBonusHint">+2</strong>
                   </p>
 
-                  <div class="sheet-combat-block">
+                  <div class="sheet-combat-block sheet-combat-block--saves">
                     <h3 class="sheet-combat-subtitle">Salvaguardas</h3>
-                    <div id="sheetSavingThrows" class="sheet-saving-grid" role="group" aria-label="Salvaguardas"></div>
+                      <div id="sheetSavingThrows" class="sheet-saving-grid" role="group" aria-label="Salvaguardas"></div>
                   </div>
-
-                  <div class="sheet-combat-block">
+                  <div class="sheet-combat-block sheet-combat-block--skills">
                     <h3 class="sheet-combat-subtitle">Perícias</h3>
                     <div id="sheetSkills" class="sheet-skills-grid" role="group" aria-label="Perícias"></div>
                   </div>
 
-                  <div class="sheet-combat-block sheet-combat-block--inline">
+                  <div class="sheet-combat-block sheet-combat-block--status">
                     <h3 class="sheet-combat-subtitle">Estado</h3>
                     <div class="sheet-combat-status-row">
-                      <button type="button" id="sheetInspirationBtn" class="sheet-inspiration-btn" aria-pressed="false">
-                        Sem inspiração
-                      </button>
-                      <label class="sheet-concentration-field">
+                      <div class="sheet-status-field">
+                        <span class="sheet-name-label">Inspiração</span>
+                        <button type="button" id="sheetInspirationBtn" class="sheet-inspiration-btn" aria-pressed="false">
+                          Sem inspiração
+                        </button>
+                      </div>
+                      <label class="sheet-concentration-field sheet-status-field">
                         <span class="sheet-name-label">Concentração</span>
                         <input
                           type="text"
@@ -467,7 +473,6 @@
                   <p id="restResultMessage" class="sheet-rest-result" role="status" aria-live="polite"></p>
                   </div>
                 </fieldset>
-              </div>
             </div>
           </section>
 

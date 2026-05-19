@@ -1079,7 +1079,7 @@ body {
 }
 
 .sheet-main-inner {
-  max-width: 720px;
+  max-width: 800px;
   margin: 0 auto;
 }
 
@@ -1371,9 +1371,118 @@ body.game-tools-open .game-tools-fab {
   z-index: auto;
 }
 
+.sheet-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin-bottom: 1.35rem;
+  padding: 1.15rem 1.25rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 55%, #f1f5f9 100%);
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(30, 41, 59, 0.06);
+}
+
+.sheet-portrait-block--hero {
+  flex: 0 0 auto;
+  width: 10.5rem;
+}
+
+.sheet-portrait-block--hero .sheet-portrait-frame {
+  width: 10.5rem;
+  height: 10.5rem;
+  border: 2px solid #a5b4fc;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.12);
+  background: #fff;
+}
+
+.sheet-portrait-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.sheet-portrait-upload {
+  position: relative;
+  display: block;
+}
+
+.sheet-portrait-upload input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.sheet-portrait-upload-btn {
+  display: block;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  color: #3730a3;
+  background: #fff;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sheet-portrait-upload:hover .sheet-portrait-upload-btn {
+  background: #eef2ff;
+  border-color: #818cf8;
+}
+
+.sheet-portrait-block--hero .sheet-portrait-clear {
+  width: 100%;
+  text-align: center;
+}
+
+.sheet-hero-details {
+  flex: 1;
+  min-width: min(100%, 16rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  justify-content: center;
+}
+
 .sheet-name-field {
   display: block;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
+}
+
+.sheet-name-field--hero {
+  margin-bottom: 0;
+}
+
+.sheet-name-input--hero {
+  max-width: none;
+  width: 100%;
+  font-size: 1.35rem;
+  font-weight: 700;
+  padding: 0.55rem 0.75rem;
+  border-color: #a5b4fc;
+  background: #fff;
+}
+
+.sheet-character-meta--hero {
+  margin: 0;
+  max-width: none;
+  justify-content: flex-start;
+  gap: 1rem 1.5rem;
+}
+
+.sheet-xp-progress-wrap--hero {
+  margin: 0;
+  max-width: none;
+  width: 100%;
 }
 
 .sheet-name-label {
@@ -1409,13 +1518,7 @@ body.game-tools-open .game-tools-fab {
   margin: 0 0 0.85rem;
   font-size: 1rem;
   color: #334155;
-}
-
-.sheet-core-layout {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-  align-items: flex-start;
+  text-align: center;
 }
 
 .sheet-portrait-block {
@@ -1479,8 +1582,22 @@ body.game-tools-open .game-tools-fab {
 }
 
 .sheet-core-fields {
-  flex: 1;
-  min-width: min(100%, 280px);
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sheet-core-fields > fieldset,
+.sheet-core-fields > .sheet-core-row {
+  width: 100%;
+  max-width: 36rem;
+}
+
+.sheet-core-fields fieldset {
+  text-align: center;
 }
 
 .sheet-abilities {
@@ -1491,8 +1608,11 @@ body.game-tools-open .game-tools-fab {
 
 .sheet-abilities-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(4.5rem, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(6, minmax(3.75rem, 1fr));
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 36rem;
+  margin: 0 auto;
 }
 
 .sheet-ability-cell {
@@ -1539,6 +1659,7 @@ body.game-tools-open .game-tools-fab {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem 1rem;
+  justify-content: center;
 }
 
 .sheet-core-vitals {
@@ -1588,8 +1709,9 @@ body.game-tools-open .game-tools-fab {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem 1.25rem;
-  margin: 0.35rem 0 0.25rem;
+  margin: 0.35rem auto 0.25rem;
   max-width: 36rem;
+  justify-content: center;
 }
 
 .sheet-inline-field--level .sheet-number-input--compact {
@@ -1608,7 +1730,7 @@ body.game-tools-open .game-tools-fab {
 
 .sheet-xp-progress-wrap {
   max-width: 36rem;
-  margin: 0 0 0.85rem;
+  margin: 0 auto 0.85rem;
 }
 
 .sheet-xp-progress {
@@ -1637,8 +1759,9 @@ body.game-tools-open .game-tools-fab {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem 0.75rem;
-  margin: 0 0 0.85rem;
+  margin: 0 auto 0.85rem;
   max-width: 36rem;
 }
 
@@ -2984,6 +3107,7 @@ body.game-tools-open .game-tools-fab {
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+  justify-content: center;
   margin-bottom: 0.65rem;
 }
 
@@ -3290,6 +3414,7 @@ body.game-tools-open .game-tools-fab {
   flex-wrap: wrap;
   gap: 0.65rem;
   align-items: flex-end;
+  justify-content: center;
   margin-bottom: 0.75rem;
 }
 
@@ -3297,7 +3422,8 @@ body.game-tools-open .game-tools-fab {
   display: grid;
   grid-template-columns: repeat(3, minmax(5rem, 1fr));
   gap: 0.65rem;
-  margin-bottom: 0.65rem;
+  margin: 0 auto 0.65rem;
+  max-width: 22rem;
 }
 
 .sheet-hp-heal-inline {
@@ -3332,6 +3458,7 @@ body.game-tools-open .game-tools-fab {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 1rem 1.25rem;
 }
 
@@ -5722,6 +5849,10 @@ html.table-mode .dm-init-danger .dm-btn-tip {
 
 .sheet-combat-block {
   margin-bottom: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
 .sheet-combat-subtitle {
@@ -5731,12 +5862,39 @@ html.table-mode .dm-init-danger .dm-btn-tip {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #475569;
+  text-align: center;
+  width: 100%;
+}
+
+.sheet-combat-block--saves {
+  width: 100%;
+  max-width: 22rem;
+  margin: 0 auto 0.85rem;
+}
+
+.sheet-combat-block--skills {
+  width: 100%;
+  max-width: 36rem;
+  margin: 0 auto 1rem;
+}
+
+.sheet-combat-block--skills .sheet-combat-subtitle {
+  margin-bottom: 0.55rem;
+}
+
+.sheet-combat-block--status {
+  width: 100%;
+  max-width: 32rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .sheet-saving-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.35rem;
+  gap: 0.65rem;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .sheet-skill-rank-btn {
@@ -5782,7 +5940,7 @@ html.table-mode .dm-init-danger .dm-btn-tip {
   align-items: center;
   justify-items: center;
   gap: 0.35rem 0.5rem;
-  padding: 0.35rem 0.45rem;
+  padding: 0.4rem 0.5rem;
   border-radius: 6px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -5825,18 +5983,43 @@ html.table-mode .dm-init-danger .dm-btn-tip {
 .sheet-skills-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 36rem;
+  margin: 0 auto;
 }
 
 .sheet-combat-status-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.sheet-status-field {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: flex-end;
-  margin-bottom: 0.35rem;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  text-align: left;
+}
+
+.sheet-status-field .sheet-inspiration-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.sheet-concentration-field.sheet-status-field {
+  flex: none;
+  min-width: 0;
 }
 
 .sheet-inspiration-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   padding: 0.45rem 0.75rem;
   border-radius: 6px;
@@ -5918,6 +6101,7 @@ html.table-mode .dm-init-danger .dm-btn-tip {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 0.45rem;
+  justify-content: center;
 }
 
 .sheet-currency-row label {
@@ -6014,14 +6198,43 @@ html.table-mode .dm-init-danger .dm-btn-tip {
   width: 4rem;
 }
 
+@media (max-width: 720px) {
+  .sheet-hero {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .sheet-hero-details {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .sheet-character-meta--hero {
+    justify-content: center;
+  }
+
+  .sheet-combat-status-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
-  .sheet-skills-grid,
+  .sheet-skills-grid {
+    grid-template-columns: 1fr;
+    max-width: 20rem;
+  }
+
   .sheet-personality-grid {
     grid-template-columns: 1fr;
   }
 
   .sheet-saving-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sheet-abilities-grid {
+    grid-template-columns: repeat(3, minmax(3.5rem, 1fr));
+    max-width: 20rem;
   }
 }
 
