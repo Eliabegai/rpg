@@ -9,7 +9,7 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 | **Explorador** | Perfis estilo livro (incl. background, feat, subclasse por nível, magia com classes); favoritos; filtros de magias |
 | **Ficha** | v3.0–v3.4 fechados; **v4** planeado (criação PHB completa + polimento) |
 | **Mesa (DM)** | Monstros (PV, dano, iniciativa, imagens), iniciativa unificada, dificuldade de encontro DMG, XP por sessão + histórico, personagens (nível, sync, eliminado), modo mesa |
-| **Infra** | PWA, `base-path` GitHub Pages, campanha export/import JSON, SEO básico |
+| **Infra** | PWA, `js/core/base-path` GitHub Pages, campanha export/import JSON, SEO; pastas `js/`, `assets/`, `docs/STRUCTURE.md` |
 
 ---
 

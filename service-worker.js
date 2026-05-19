@@ -1,7 +1,7 @@
-const CACHE_ID = "grimorio-static-v4";
+const CACHE_ID = "grimorio-static-v5";
 
 /** Pré-cache mínimo para offline. CSS/JS não passam pelo SW (navegador trata direto). */
-const PRECACHE_ASSETS = ["manifest.webmanifest", "icons/icon.svg", "robots.txt"];
+const PRECACHE_ASSETS = ["manifest.webmanifest", "assets/icons/icon.svg", "robots.txt"];
 
 const OFFLINE_PAGES = ["index.html", "sheet.html", "dm.html"];
 

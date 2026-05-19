@@ -43,7 +43,7 @@ function syncTableModeToggleButtons() {
         caches.keys().then((keys) =>
           Promise.all(
             keys
-              .filter((k) => k.startsWith("grimorio-") && k !== "grimorio-static-v4")
+              .filter((k) => k.startsWith("grimorio-") && k !== "grimorio-static-v5")
               .map((k) => caches.delete(k))
           )
         );

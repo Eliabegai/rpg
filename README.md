@@ -17,7 +17,9 @@ Abre no browser:
 
 Usa sempre a porta **3000** (definida no script). Se der erro de porta ocupada, fecha o outro processo ou corre `npx serve . -l 3001` e abre essa porta.
 
-> **Nota:** O `serve` pode aceitar URLs curtas (`/dm`, `/sheet`). Com o `base-path.js` atualizado, CSS e JS carregam da raiz em localhost. Se algo falhar, abre o ficheiro `.html` completo na URL.
+> **Nota:** O `serve` pode aceitar URLs curtas (`/dm`, `/sheet`). Com o `js/core/base-path.js`, CSS e JS carregam com paths em `assets/` e `js/`. Se algo falhar, abre o ficheiro `.html` completo na URL.
+
+Ver **[docs/STRUCTURE.md](docs/STRUCTURE.md)** para a árvore de pastas e onde colocar código novo.
 
 ## GitHub Pages
 
@@ -30,16 +32,17 @@ O site publica em **`https://eliabegai.github.io/rpg/`** (repositório `rpg`).
 3. **Branch:** `master` (ou `main`) → pasta **`/ (root)`**
 4. Guardar e esperar 1–2 minutos
 
-### Ficheiros importantes na raiz
+### Estrutura
 
-Não é obrigatório mover ficheiros para subpastas. O GitHub Pages serve bem HTML/CSS/JS na raiz do repositório.
-
-| Ficheiro | Função |
-|----------|--------|
-| `.nojekyll` | Desativa o Jekyll — evita que o build ignore ou altere ficheiros estáticos |
-| `base-path.js` | Ajusta `<base href>` para `/rpg/` no GitHub Pages |
-| `index.html`, `sheet.html`, `dm.html` | Páginas da app |
-| `shared.js`, `script.js`, … | Lógica e chamadas à API |
+| Pasta / ficheiro | Função |
+|------------------|--------|
+| `index.html`, `sheet.html`, `dm.html` | Páginas (raiz — URLs do Pages) |
+| `js/core/` | `base-path.js`, `shared.js`, `pwa-init.js` |
+| `js/explorer/`, `js/sheet/`, `js/dm/` | Lógica por página |
+| `js/campaign/` | Várias campanhas |
+| `js/data/` | Tabelas PHB/DMG locais |
+| `assets/css/styles.css` | Estilos globais |
+| `docs/STRUCTURE.md` | Mapa completo do projeto |
 
 ### Se CSS ou JS não carregarem
 
@@ -47,7 +50,7 @@ Não é obrigatório mover ficheiros para subpastas. O GitHub Pages serve bem HT
 - Em **localhost** o service worker fica desativado de propósito (evita cache antigo durante desenvolvimento).
 - O CSS é injetado por `base-path.js` com URL absoluta e `?v=…` (não passa pelo service worker).
 - No **GitHub Pages**, após deploy: um refresh normal basta. Se ainda falhar uma vez: DevTools → Application → Service Workers → *Unregister* + limpar *Cache storage*, depois recarregar.
-- No DevTools → **Network**, verifica se `styles.css`, `shared.js` e `script.js` respondem **200** (não 404) e vêm da rede, não `(ServiceWorker)`.
+- No DevTools → **Network**, verifica se `assets/css/styles.css` e `js/core/shared.js` respondem **200** (não 404).
 - Confirma que **todos** os ficheiros acima estão commitados e pushed para `master`.
 
 ### API

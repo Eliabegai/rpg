@@ -5,7 +5,7 @@
  */
 (function initAppBasePath() {
   /** Incrementar quando `styles.css` mudar de forma relevante. */
-  const APP_ASSET_VERSION = "6";
+  const APP_ASSET_VERSION = "7";
 
   function detectBasePath() {
     const { hostname, pathname } = window.location;
@@ -56,7 +56,7 @@
 
   function ensureMainStylesheet() {
     const existing = document.getElementById("grimorio-main-css");
-    const href = appAssetHref("styles.css");
+    const href = appAssetHref("assets/css/styles.css");
     if (existing) {
       if (existing.getAttribute("href") !== href) existing.setAttribute("href", href);
       return;
