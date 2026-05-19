@@ -44,8 +44,10 @@ Não é obrigatório mover ficheiros para subpastas. O GitHub Pages serve bem HT
 ### Se CSS ou JS não carregarem
 
 - Confirma que abres **`…/rpg/`** (com barra final) e não só o domínio sem o nome do repo.
-- Faz um refresh forçado (Ctrl+Shift+R / Cmd+Shift+R).
-- No DevTools → **Network**, verifica se `styles.css`, `shared.js` e `script.js` respondem **200** (não 404).
+- Em **localhost** o service worker fica desativado de propósito (evita cache antigo durante desenvolvimento).
+- O CSS é injetado por `base-path.js` com URL absoluta e `?v=…` (não passa pelo service worker).
+- No **GitHub Pages**, após deploy: um refresh normal basta. Se ainda falhar uma vez: DevTools → Application → Service Workers → *Unregister* + limpar *Cache storage*, depois recarregar.
+- No DevTools → **Network**, verifica se `styles.css`, `shared.js` e `script.js` respondem **200** (não 404) e vêm da rede, não `(ServiceWorker)`.
 - Confirma que **todos** os ficheiros acima estão commitados e pushed para `master`.
 
 ### API

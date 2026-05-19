@@ -23,11 +23,36 @@ function syncTableModeToggleButtons() {
     syncTableModeToggleButtons();
   });
 
+  const isLocalDev =
+    location.hostname === "localhost" ||
+    location.hostname === "127.0.0.1" ||
+    location.hostname === "[::1]";
+
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
+      if (isLocalDev) {
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          regs.forEach((r) => r.unregister());
+        });
+        return;
+      }
+
       const scope = document.querySelector("base[data-app-base]")?.href || "/";
       const swUrl = new URL("service-worker.js", document.baseURI).href;
-      navigator.serviceWorker.register(swUrl, { scope }).catch(() => {});
+      if ("caches" in window) {
+        caches.keys().then((keys) =>
+          Promise.all(
+            keys
+              .filter((k) => k.startsWith("grimorio-") && k !== "grimorio-static-v4")
+              .map((k) => caches.delete(k))
+          )
+        );
+      }
+
+      navigator.serviceWorker
+        .register(swUrl, { scope })
+        .then((reg) => reg.update())
+        .catch(() => {});
     });
   }
 })();

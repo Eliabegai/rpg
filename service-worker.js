@@ -1,20 +1,7 @@
-const CACHE_ID = "grimorio-static-v2";
+const CACHE_ID = "grimorio-static-v4";
 
-/** Só assets estáticos — HTML via rede (evita 301 do serve e páginas erradas no cache). */
-const STATIC_ASSETS = [
-  "styles.css",
-  "base-path.js",
-  "pwa-init.js",
-  "shared.js",
-  "script.js",
-  "sheet.js",
-  "dm.js",
-  "detail-layouts.js",
-  "spellcasting-data.js",
-  "manifest.webmanifest",
-  "icons/icon.svg",
-  "robots.txt",
-];
+/** Pré-cache mínimo para offline. CSS/JS não passam pelo SW (navegador trata direto). */
+const PRECACHE_ASSETS = ["manifest.webmanifest", "icons/icon.svg", "robots.txt"];
 
 const OFFLINE_PAGES = ["index.html", "sheet.html", "dm.html"];
 
@@ -25,12 +12,17 @@ function isHtmlNavigation(request) {
   return /\.html$/i.test(path) || /\/(index|sheet|dm)$/.test(path);
 }
 
+/** Nunca interceptar — evita CSS/JS presos em cache do SW. */
+function bypassServiceWorker(url) {
+  return /\.(css|js)$/i.test(url.pathname);
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_ID).then((cache) => {
       const base = self.registration.scope;
-      return cache.addAll(
-        STATIC_ASSETS.map((path) => new URL(path, base).href)
+      return Promise.allSettled(
+        PRECACHE_ASSETS.map((path) => cache.add(new URL(path, base).href))
       );
     })
   );
@@ -39,9 +31,9 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_ID).map((k) => caches.delete(k)))
-    )
+    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).then(() => {
+      return caches.open(CACHE_ID);
+    })
   );
   self.clients.claim();
 });
@@ -69,6 +61,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  if (bypassServiceWorker(url)) return;
+
   if (isHtmlNavigation(request)) {
     event.respondWith(
       fetch(request)
@@ -81,20 +75,5 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => offlinePageFallback(request))
     );
-    return;
   }
-
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request)
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type === "opaque") return response;
-          const copy = response.clone();
-          caches.open(CACHE_ID).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => caches.match(request));
-    })
-  );
 });
