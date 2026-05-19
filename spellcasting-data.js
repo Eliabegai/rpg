@@ -119,6 +119,83 @@ function getMaxSpellSlotsMap(casterType, characterLevel) {
   return {};
 }
 
+/** Nível de conjurador combinado (PHB multiclasse). */
+function combinedMulticlassCasterLevel(classes) {
+  let total = 0;
+  for (const c of classes || []) {
+    const lv = Math.max(0, Math.floor(Number(c.level) || 0));
+    if (c.caster === "full") total += lv;
+    else if (c.caster === "half") total += Math.floor(lv / 2);
+    else if (c.caster === "third") total += Math.floor(lv / 3);
+  }
+  return Math.min(20, Math.max(0, total));
+}
+
+function getMulticlassSpellSlotsMap(multiclass, characterLevel) {
+  if (!multiclass?.enabled || !multiclass.classes?.length) {
+    return typeof getMaxSpellSlotsMap === "function"
+      ? getMaxSpellSlotsMap("none", characterLevel)
+      : {};
+  }
+  const combined = combinedMulticlassCasterLevel(multiclass.classes);
+  if (combined < 1) return {};
+  const base = slotsArrayToMap(FULL_CASTER_SLOTS_BY_LEVEL[combined - 1] || []);
+  const hasPact = multiclass.classes.some((c) => c.caster === "pact" && c.level > 0);
+  if (hasPact) {
+    const pactLv = multiclass.classes
+      .filter((c) => c.caster === "pact")
+      .reduce((sum, c) => sum + c.level, 0);
+    const pactMap = warlockPactSlotsMap(Math.min(20, Math.max(1, pactLv)));
+    return { ...base, ...pactMap };
+  }
+  return base;
+}
+
+/** Texto PHB para repor slots no descanso longo (ficha). */
+function describeLongRestSpellRecovery(sheet) {
+  const sc = sheet?.spellcasting;
+  if (!sc) return "Sem conjuração configurada.";
+  const maxMap = typeof getSheetMaxSpellSlots === "function" ? getSheetMaxSpellSlots(sheet) : {};
+  const slotSummary = Object.keys(maxMap).length
+    ? Object.keys(maxMap)
+        .sort((a, b) => Number(a) - Number(b))
+        .map((lv) => `${lv}º×${maxMap[lv]}`)
+        .join(", ")
+    : "";
+
+  if (sc.multiclass?.enabled && sc.multiclass.classes?.length) {
+    const combined =
+      typeof combinedMulticlassCasterLevel === "function"
+        ? combinedMulticlassCasterLevel(sc.multiclass.classes)
+        : 0;
+    const hasPact = sc.multiclass.classes.some((c) => c.caster === "pact" && c.level > 0);
+    const parts = [];
+    if (combined > 0) {
+      parts.push(`Slots de conjurador combinado (nível ${combined}) repostos.`);
+      if (slotSummary) parts.push(slotSummary);
+    } else {
+      parts.push("Multiclasse sem níveis de conjurador — sem slots na tabela combinada.");
+    }
+    if (hasPact) {
+      parts.push("Bruxo (pacto): slots também recuperam no descanso curto (PHB).");
+    }
+    return parts.join(" ");
+  }
+
+  const type = sc.casterType || "none";
+  if (type === "none") return "Tipo «sem magia» — nenhum slot a repor.";
+  if (type === "warlock") {
+    return `Bruxo (pacto): slots repostos${slotSummary ? ` (${slotSummary})` : ""}. Lembra-te: também recuperam no descanso curto.`;
+  }
+  if (type === "half") {
+    return `Meio-conjurador: todos os slots gastos repostos${slotSummary ? ` (${slotSummary})` : ""}.`;
+  }
+  if (type === "third") {
+    return `Conjurador 1/3: slots repostos${slotSummary ? ` (${slotSummary})` : ""}.`;
+  }
+  return `Conjurador pleno: todos os slots gastos repostos${slotSummary ? ` (${slotSummary})` : ""}.`;
+}
+
 function getSpellSlotsUsedMap(raw) {
   const used = {};
   if (!raw || typeof raw !== "object") return used;

@@ -7,6 +7,7 @@ const STORAGE_SESSION = "dnd5eapi.session";
 const STORAGE_SHEET = "dnd5eapi.sheet";
 const STORAGE_GAME_TOOLS = "dnd5eapi.gameTools";
 const STORAGE_DM_BATTLE = "dnd5eapi.dmBattle";
+const STORAGE_DM_SNAPSHOTS = "dnd5eapi.dmEncounterSnapshots";
 const STORAGE_CAMPAIGN = "dnd5eapi.campaign";
 const STORAGE_SESSION_HISTORY = "dnd5eapi.sessionHistory";
 const STORAGE_TABLE_MODE = "dnd5eapi.tableMode";
@@ -446,6 +447,34 @@ function openEntryInExplorer(entry) {
   navigateToAppPage("index.html");
 }
 
+/** Abre o explorador num recurso da API (ex.: antecedentes, classes). */
+function openExplorerResource(resourceKey, resourcePath) {
+  const key = String(resourceKey || "").trim();
+  if (!key) return;
+  const path = resourcePath || `/api/2014/${key}`;
+  try {
+    localStorage.setItem(
+      STORAGE_SESSION,
+      JSON.stringify({
+        resourceKey: key,
+        resourcePath: path,
+        itemIndex: "",
+        itemPath: "",
+        filter: "",
+        spellLevel: "",
+        spellSchool: "",
+        spellClass: "",
+        spellSubclass: "",
+        page: 1,
+        listScope: "all",
+      })
+    );
+  } catch {
+    /* quota */
+  }
+  navigateToAppPage("index.html");
+}
+
 function formatArmorClass(ac) {
   if (ac == null) return "—";
   if (typeof ac === "number") return String(ac);
@@ -546,7 +575,41 @@ function newDamageDieId() {
 const DEFAULT_DM_BATTLE = {
   party: [],
   encounters: [],
+  combat: { activeTurnKey: "", round: 1, encounterLabel: "" },
 };
+
+function normalizeDmTurnKind(kind) {
+  if (kind === "monster") return "enc";
+  return kind;
+}
+
+function dmTurnKey(kind, id) {
+  const k = normalizeDmTurnKind(kind);
+  if (!id || (k !== "party" && k !== "enc")) return "";
+  return `${k}:${id}`;
+}
+
+function parseDmTurnKey(key) {
+  if (!key || typeof key !== "string") return null;
+  const normalized = key.startsWith("monster:") ? `enc:${key.slice(8)}` : key;
+  const i = normalized.indexOf(":");
+  if (i <= 0) return null;
+  const kind = normalized.slice(0, i);
+  const id = normalized.slice(i + 1);
+  if ((kind !== "party" && kind !== "enc") || !id) return null;
+  return { kind, id };
+}
+
+function normalizeDmCombatTrack(raw) {
+  const round = Math.max(1, Math.floor(Number(raw?.round)) || 1);
+  const activeTurnKey =
+    raw?.activeTurnKey != null && String(raw.activeTurnKey).trim()
+      ? String(raw.activeTurnKey).trim().slice(0, 80)
+      : "";
+  const encounterLabel =
+    raw?.encounterLabel != null ? String(raw.encounterLabel).trim().slice(0, 120) : "";
+  return { activeTurnKey, round, encounterLabel };
+}
 
 function normalizeDmPartyMember(raw) {
   if (!raw || typeof raw !== "object") return null;
@@ -559,7 +622,39 @@ function normalizeDmPartyMember(raw) {
     level: clampCharacterLevel(raw.level),
     xpTotal: normalizeXpTotal(raw.xpTotal),
     downed: Boolean(raw.downed),
+    inspiration: Boolean(raw.inspiration),
+    activeConditions: normalizeActiveConditions(raw.activeConditions),
+    concentrationSpell:
+      raw.concentrationSpell != null ? String(raw.concentrationSpell).slice(0, 200) : "",
   };
+}
+
+function copySheetCombatStateToMember(member, sheet) {
+  if (!member || !sheet) return;
+  member.inspiration = Boolean(sheet.inspiration);
+  member.activeConditions = normalizeActiveConditions(sheet.activeConditions);
+  member.concentrationSpell =
+    sheet.concentrationSpell != null ? String(sheet.concentrationSpell).slice(0, 200) : "";
+}
+
+function copyMemberCombatStateToSheet(sheet, member) {
+  if (!sheet || !member) return;
+  sheet.inspiration = Boolean(member.inspiration);
+  sheet.activeConditions = normalizeActiveConditions(member.activeConditions);
+  sheet.concentrationSpell =
+    member.concentrationSpell != null ? String(member.concentrationSpell).slice(0, 200) : "";
+}
+
+/** Atualiza inspiração/condições na mesa se o nome da ficha coincidir com um personagem. */
+function trySyncCombatStateToDm(sheet) {
+  const name = String(sheet?.characterName || "").trim();
+  if (!name) return false;
+  const battle = loadDmBattle();
+  const member = findDmPartyMemberByName(battle.party, name);
+  if (!member) return false;
+  copySheetCombatStateToMember(member, sheet);
+  saveDmBattle(battle);
+  return true;
 }
 
 function normalizeDmEncounter(raw) {
@@ -588,14 +683,12 @@ function normalizeDmEncounter(raw) {
     killedBy: normalizeKilledBy(raw.killedBy),
     xp: monsterXpFromApiData({ xp: raw.xp }),
     imageUrl: typeof raw.imageUrl === "string" ? raw.imageUrl : "",
+    activeConditions: normalizeActiveConditions(raw.activeConditions),
   };
 }
 
 function normalizeDmBattle(parsed) {
-  const base = {
-    party: [],
-    encounters: [],
-  };
+  const base = { ...DEFAULT_DM_BATTLE, combat: { ...DEFAULT_DM_BATTLE.combat } };
   if (!parsed || typeof parsed !== "object") return base;
   const party = Array.isArray(parsed.party)
     ? parsed.party.map(normalizeDmPartyMember).filter(Boolean)
@@ -603,12 +696,97 @@ function normalizeDmBattle(parsed) {
   const encounters = Array.isArray(parsed.encounters)
     ? parsed.encounters.map(normalizeDmEncounter).filter(Boolean)
     : [];
-  return { party, encounters };
+  const combat = normalizeDmCombatTrack(parsed.combat);
+  return { party, encounters, combat };
+}
+
+function cloneDmBattleSlice(battle) {
+  return {
+    party: (battle?.party || []).map((p) => ({ ...p, activeConditions: [...(p.activeConditions || [])] })),
+    encounters: (battle?.encounters || []).map((e) => ({
+      ...e,
+      killedBy: [...(e.killedBy || [])],
+      damageRoll: e.damageRoll
+        ? {
+            modifier: e.damageRoll.modifier,
+            pool: (e.damageRoll.pool || []).map((d) => ({ ...d })),
+          }
+        : { modifier: "0", pool: [] },
+      activeConditions: [...(e.activeConditions || [])],
+    })),
+    combat: { ...normalizeDmCombatTrack(battle?.combat) },
+  };
+}
+
+function loadDmSnapshots() {
+  try {
+    const raw =
+      typeof readCampaignScoped === "function" ? readCampaignScoped("dmSnapshots") : localStorage.getItem(STORAGE_DM_SNAPSHOTS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((s) => {
+        if (!s || typeof s !== "object") return null;
+        const name = s.name != null ? String(s.name).trim().slice(0, 120) : "";
+        if (!name) return null;
+        const slice = s.battle && typeof s.battle === "object" ? normalizeDmBattle(s.battle) : null;
+        if (!slice) return null;
+        return {
+          id: s.id != null ? String(s.id) : newEntityId("snap"),
+          name,
+          savedAt: s.savedAt != null ? String(s.savedAt) : new Date().toISOString(),
+          battle: slice,
+        };
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function saveDmSnapshots(list) {
+  try {
+    const payload = JSON.stringify(list);
+    if (typeof writeCampaignScoped === "function") writeCampaignScoped("dmSnapshots", payload);
+    else localStorage.setItem(STORAGE_DM_SNAPSHOTS, payload);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function addDmSnapshot(name) {
+  const label = String(name || "").trim().slice(0, 120);
+  if (!label) return { ok: false, error: "Indica um nome para o encontro." };
+  const list = loadDmSnapshots();
+  const snap = {
+    id: newEntityId("snap"),
+    name: label,
+    savedAt: new Date().toISOString(),
+    battle: cloneDmBattleSlice(loadDmBattle()),
+  };
+  list.unshift(snap);
+  saveDmSnapshots(list.slice(0, 24));
+  return { ok: true, snapshot: snap };
+}
+
+function restoreDmSnapshot(snapshotId) {
+  const snap = loadDmSnapshots().find((s) => s.id === snapshotId);
+  if (!snap) return { ok: false, error: "Encontro guardado não encontrado." };
+  saveDmBattle(snap.battle);
+  return { ok: true, name: snap.name };
+}
+
+function deleteDmSnapshot(snapshotId) {
+  const list = loadDmSnapshots().filter((s) => s.id !== snapshotId);
+  saveDmSnapshots(list);
 }
 
 function loadDmBattle() {
   try {
-    const raw = localStorage.getItem(STORAGE_DM_BATTLE);
+    const raw =
+      typeof readCampaignScoped === "function" ? readCampaignScoped("dmBattle") : localStorage.getItem(STORAGE_DM_BATTLE);
     if (!raw) return normalizeDmBattle(null);
     return normalizeDmBattle(JSON.parse(raw));
   } catch {
@@ -618,7 +796,9 @@ function loadDmBattle() {
 
 function saveDmBattle(battle) {
   try {
-    localStorage.setItem(STORAGE_DM_BATTLE, JSON.stringify(normalizeDmBattle(battle)));
+    const payload = JSON.stringify(normalizeDmBattle(battle));
+    if (typeof writeCampaignScoped === "function") writeCampaignScoped("dmBattle", payload);
+    else localStorage.setItem(STORAGE_DM_BATTLE, payload);
     return true;
   } catch {
     return false;
@@ -635,9 +815,14 @@ function normalizeCampaign(parsed) {
 
 function loadCampaign() {
   try {
-    const raw = localStorage.getItem(STORAGE_CAMPAIGN);
-    if (!raw) return normalizeCampaign(null);
-    return normalizeCampaign(JSON.parse(raw));
+    const raw =
+      typeof readCampaignScoped === "function" ? readCampaignScoped("meta") : localStorage.getItem(STORAGE_CAMPAIGN);
+    const meta = raw ? normalizeCampaign(JSON.parse(raw)) : normalizeCampaign(null);
+    if (typeof getActiveCampaign === "function") {
+      const active = getActiveCampaign();
+      if (active?.name && !meta.name) meta.name = active.name;
+    }
+    return meta;
   } catch {
     return normalizeCampaign(null);
   }
@@ -645,7 +830,19 @@ function loadCampaign() {
 
 function saveCampaign(campaign) {
   try {
-    localStorage.setItem(STORAGE_CAMPAIGN, JSON.stringify(normalizeCampaign(campaign)));
+    const normalized = normalizeCampaign(campaign);
+    const payload = JSON.stringify(normalized);
+    if (typeof writeCampaignScoped === "function") writeCampaignScoped("meta", payload);
+    else localStorage.setItem(STORAGE_CAMPAIGN, payload);
+    if (typeof loadCampaignRegistry === "function" && normalized.name) {
+      const id = getActiveCampaignId();
+      const list = loadCampaignRegistry();
+      const entry = list.find((c) => c.id === id);
+      if (entry) {
+        entry.name = normalized.name;
+        saveCampaignRegistry(list);
+      }
+    }
     return true;
   } catch {
     return false;
@@ -657,11 +854,13 @@ function buildCampaignExportBundle() {
   return {
     version: CAMPAIGN_EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
+    campaignId: typeof getActiveCampaignId === "function" ? getActiveCampaignId() : DEFAULT_CAMPAIGN_ID,
     campaign,
     dmBattle: loadDmBattle(),
     favorites: loadFavorites(),
     sheet: loadSheet(),
     sessionHistory: loadSessionHistory(),
+    dmSnapshots: typeof loadDmSnapshots === "function" ? loadDmSnapshots() : [],
   };
 }
 
@@ -676,6 +875,7 @@ function importCampaignBundle(raw) {
   if (Array.isArray(raw.favorites)) saveFavorites(raw.favorites);
   if (raw.sheet != null) saveSheet(normalizeSheet(raw.sheet));
   if (Array.isArray(raw.sessionHistory)) saveSessionHistory(raw.sessionHistory);
+  if (Array.isArray(raw.dmSnapshots) && typeof saveDmSnapshots === "function") saveDmSnapshots(raw.dmSnapshots);
   return { ok: true };
 }
 
@@ -710,6 +910,189 @@ let currentLocale = "pt-BR";
 
 const ABILITY_KEYS = ["str", "dex", "con", "int", "wis", "cha"];
 
+/** Perícias PHB: índice API → atributo */
+const SHEET_SKILLS = [
+  { index: "acrobatics", ability: "dex" },
+  { index: "animal-handling", ability: "wis" },
+  { index: "arcana", ability: "int" },
+  { index: "athletics", ability: "str" },
+  { index: "deception", ability: "cha" },
+  { index: "history", ability: "int" },
+  { index: "insight", ability: "wis" },
+  { index: "intimidation", ability: "cha" },
+  { index: "investigation", ability: "int" },
+  { index: "medicine", ability: "wis" },
+  { index: "nature", ability: "int" },
+  { index: "perception", ability: "wis" },
+  { index: "performance", ability: "cha" },
+  { index: "persuasion", ability: "cha" },
+  { index: "religion", ability: "int" },
+  { index: "sleight-of-hand", ability: "dex" },
+  { index: "stealth", ability: "dex" },
+  { index: "survival", ability: "wis" },
+];
+
+const SHEET_CONDITION_OPTIONS = [
+  { index: "blinded", label: "Cego" },
+  { index: "charmed", label: "Enfeitiçado" },
+  { index: "deafened", label: "Surdo" },
+  { index: "exhaustion", label: "Exaustão" },
+  { index: "frightened", label: "Amedrontado" },
+  { index: "grappled", label: "Agarrado" },
+  { index: "incapacitated", label: "Incapacitado" },
+  { index: "invisible", label: "Invisível" },
+  { index: "paralyzed", label: "Paralisado" },
+  { index: "petrified", label: "Petrificado" },
+  { index: "poisoned", label: "Envenenado" },
+  { index: "prone", label: "Prostrado" },
+  { index: "restrained", label: "Impedido" },
+  { index: "stunned", label: "Atordoado" },
+  { index: "unconscious", label: "Inconsciente" },
+];
+
+/** none | half | prof | expertise */
+const SKILL_PROF_RANKS = ["none", "half", "prof", "expertise"];
+
+const DEFAULT_SHEET_COMBAT = {
+  skillProficiencies: {},
+  skillProficiencyRanks: {},
+  saveProficiencies: { str: false, dex: false, con: false, int: false, wis: false, cha: false },
+  activeConditions: [],
+  inspiration: false,
+  concentrationSpell: "",
+  personality: { traits: "", ideals: "", bonds: "", flaws: "" },
+  currency: { cp: "", sp: "", ep: "", gp: "", pp: "" },
+  inventory: [],
+};
+
+function proficiencyBonusFromLevel(level) {
+  const lv = clampCharacterLevel(level);
+  return Math.floor((lv - 1) / 4) + 2;
+}
+
+function abilityModNumber(score) {
+  const n = Number(score);
+  if (!Number.isFinite(n)) return 0;
+  return Math.floor((n - 10) / 2);
+}
+
+function formatSignedMod(n) {
+  if (!Number.isFinite(n)) return "—";
+  return n >= 0 ? `+${n}` : String(n);
+}
+
+function normalizeSkillProficiencyRanks(rawRanks, legacyProf) {
+  const out = {};
+  const legacy = legacyProf && typeof legacyProf === "object" ? legacyProf : {};
+  const ranks = rawRanks && typeof rawRanks === "object" ? rawRanks : {};
+  for (const skill of SHEET_SKILLS) {
+    const ix = skill.index;
+    let rank = ranks[ix];
+    if (!SKILL_PROF_RANKS.includes(rank)) {
+      rank = legacy[ix] ? "prof" : "none";
+    }
+    if (rank !== "none") out[ix] = rank;
+  }
+  return out;
+}
+
+function normalizeSkillProficiencies(raw) {
+  const out = {};
+  if (raw && typeof raw === "object") {
+    for (const skill of SHEET_SKILLS) {
+      if (raw[skill.index]) out[skill.index] = true;
+    }
+  }
+  return out;
+}
+
+function getSkillProficiencyRank(sheet, skillIndex) {
+  const ranks = sheet?.skillProficiencyRanks;
+  if (ranks && ranks[skillIndex] && SKILL_PROF_RANKS.includes(ranks[skillIndex])) {
+    return ranks[skillIndex];
+  }
+  return sheet?.skillProficiencies?.[skillIndex] ? "prof" : "none";
+}
+
+function proficiencyBonusForRank(level, rank) {
+  const prof = proficiencyBonusFromLevel(level);
+  if (rank === "expertise") return prof * 2;
+  if (rank === "prof") return prof;
+  if (rank === "half") return Math.floor(prof / 2);
+  return 0;
+}
+
+function computeSkillBonusFromSheet(sheet, skillIndex) {
+  const skill = SHEET_SKILLS.find((s) => s.index === skillIndex);
+  if (!skill) return 0;
+  const mod = abilityModNumber(sheet.abilityScores[skill.ability]);
+  const rank = getSkillProficiencyRank(sheet, skillIndex);
+  return mod + proficiencyBonusForRank(sheet.characterLevel, rank);
+}
+
+function computeSaveBonusFromSheet(sheet, abilityKey) {
+  const mod = abilityModNumber(sheet.abilityScores[abilityKey]);
+  const prof = proficiencyBonusFromLevel(sheet.characterLevel);
+  return sheet.saveProficiencies?.[abilityKey] ? mod + prof : mod;
+}
+
+function normalizeSaveProficiencies(raw) {
+  const out = { ...DEFAULT_SHEET_COMBAT.saveProficiencies };
+  if (raw && typeof raw === "object") {
+    for (const key of ABILITY_KEYS) {
+      if (raw[key]) out[key] = true;
+    }
+  }
+  return out;
+}
+
+function normalizeActiveConditions(raw) {
+  if (!Array.isArray(raw)) return [];
+  const allowed = new Set(SHEET_CONDITION_OPTIONS.map((c) => c.index));
+  return [...new Set(raw.map((c) => String(c)).filter((c) => allowed.has(c)))];
+}
+
+function normalizePersonality(raw) {
+  const base = { ...DEFAULT_SHEET_COMBAT.personality };
+  if (!raw || typeof raw !== "object") return base;
+  return {
+    traits: raw.traits != null ? String(raw.traits) : "",
+    ideals: raw.ideals != null ? String(raw.ideals) : "",
+    bonds: raw.bonds != null ? String(raw.bonds) : "",
+    flaws: raw.flaws != null ? String(raw.flaws) : "",
+  };
+}
+
+function normalizeCurrency(raw) {
+  const base = { ...DEFAULT_SHEET_COMBAT.currency };
+  if (!raw || typeof raw !== "object") return base;
+  for (const key of ["cp", "sp", "ep", "gp", "pp"]) {
+    if (raw[key] != null && raw[key] !== "") base[key] = String(raw[key]);
+  }
+  return base;
+}
+
+function normalizeInventory(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((row, i) => {
+      if (!row || typeof row !== "object") return null;
+      const name = String(row.name || "").trim();
+      if (!name) return null;
+      const rowOut = {
+        id: row.id != null ? String(row.id) : `inv-${i}`,
+        name: name.slice(0, 120),
+        qty: Math.max(1, Math.floor(Number(row.qty) || 1)),
+        weight: row.weight != null && row.weight !== "" ? String(row.weight) : "",
+      };
+      if (row.resourceKey) rowOut.resourceKey = String(row.resourceKey);
+      if (row.index != null) rowOut.index = String(row.index);
+      return rowOut;
+    })
+    .filter(Boolean)
+    .slice(0, 80);
+}
+
 const DEFAULT_SHEET = {
   characterName: "",
   characterLevel: 1,
@@ -733,6 +1116,7 @@ const DEFAULT_SHEET = {
   hitDiceRemaining: null,
   restEnvironment: "tavern",
   items: [],
+  ...DEFAULT_SHEET_COMBAT,
 };
 
 function normalizeCasterType(raw) {
@@ -763,7 +1147,10 @@ function applyTableModeClass() {
 
 function loadSessionHistory() {
   try {
-    const raw = localStorage.getItem(STORAGE_SESSION_HISTORY);
+    const raw =
+      typeof readCampaignScoped === "function"
+        ? readCampaignScoped("sessionHistory")
+        : localStorage.getItem(STORAGE_SESSION_HISTORY);
     if (!raw) return [];
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? arr : [];
@@ -774,7 +1161,9 @@ function loadSessionHistory() {
 
 function saveSessionHistory(entries) {
   try {
-    localStorage.setItem(STORAGE_SESSION_HISTORY, JSON.stringify(entries.slice(0, SESSION_HISTORY_MAX)));
+    const payload = JSON.stringify(entries.slice(0, SESSION_HISTORY_MAX));
+    if (typeof writeCampaignScoped === "function") writeCampaignScoped("sessionHistory", payload);
+    else localStorage.setItem(STORAGE_SESSION_HISTORY, payload);
     return true;
   } catch {
     return false;
@@ -790,6 +1179,7 @@ function appendSessionHistory(entry) {
     campaignName: entry.campaignName != null ? String(entry.campaignName).slice(0, 120) : "",
     totalXp: Number(entry.totalXp) || 0,
     monstersDefeated: Number(entry.monstersDefeated) || 0,
+    notes: entry.notes != null ? String(entry.notes).slice(0, 500) : "",
     members: Array.isArray(entry.members)
       ? entry.members.map((m) => ({
           name: String(m?.name || "").slice(0, 120),
@@ -803,7 +1193,8 @@ function appendSessionHistory(entry) {
 
 function clearSessionHistory() {
   try {
-    localStorage.removeItem(STORAGE_SESSION_HISTORY);
+    if (typeof removeCampaignScoped === "function") removeCampaignScoped("sessionHistory");
+    else localStorage.removeItem(STORAGE_SESSION_HISTORY);
     return true;
   } catch {
     return false;
@@ -880,6 +1271,42 @@ function normalizeSpellListEntry(raw) {
   };
 }
 
+function normalizeMulticlassEntry(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const index = raw.index != null ? String(raw.index) : "";
+  if (!index) return null;
+  const level = Math.min(20, Math.max(1, Math.floor(Number(raw.level) || 1)));
+  const caster =
+    raw.caster === "full" ||
+    raw.caster === "half" ||
+    raw.caster === "third" ||
+    raw.caster === "pact" ||
+    raw.caster === "none"
+      ? raw.caster
+      : "none";
+  return {
+    index,
+    name: raw.name != null ? String(raw.name) : index,
+    level,
+    caster,
+  };
+}
+
+function normalizeMulticlassSpellcasting(raw) {
+  if (!raw || typeof raw !== "object") {
+    return { enabled: false, classes: [] };
+  }
+  const classes = Array.isArray(raw.classes)
+    ? raw.classes.map(normalizeMulticlassEntry).filter(Boolean).slice(0, 6)
+    : [];
+  return { enabled: Boolean(raw.enabled) && classes.length > 0, classes };
+}
+
+function normalizePreparedCaster(raw) {
+  const allowed = ["none", "wizard", "cleric", "druid"];
+  return allowed.includes(raw) ? raw : "none";
+}
+
 function normalizeSpellcasting(raw) {
   const casterType = normalizeCasterType(raw?.casterType);
   const slotsUsed =
@@ -897,7 +1324,37 @@ function normalizeSpellcasting(raw) {
   spells.sort(
     (a, b) => a.level - b.level || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" })
   );
-  return { casterType, slotsUsed, spells };
+  return {
+    casterType,
+    slotsUsed,
+    spells,
+    multiclass: normalizeMulticlassSpellcasting(raw?.multiclass),
+    preparedCaster: normalizePreparedCaster(raw?.preparedCaster),
+  };
+}
+
+function maxPreparedSpellsForSheet(sheet) {
+  const key = sheet?.spellcasting?.preparedCaster;
+  const abilityByClass = { wizard: "int", cleric: "wis", druid: "wis" };
+  const ability = abilityByClass[key];
+  if (!ability) return null;
+  let classLevel = clampCharacterLevel(sheet?.characterLevel);
+  const mc = sheet?.spellcasting?.multiclass;
+  if (mc?.enabled && mc.classes?.length) {
+    const entry = mc.classes.find((c) => {
+      if (key === "wizard") return c.index === "wizard" || c.caster === "full";
+      if (key === "cleric") return c.index === "cleric";
+      if (key === "druid") return c.index === "druid";
+      return false;
+    });
+    if (entry) classLevel = entry.level;
+  }
+  const mod = abilityModNumber(sheet?.abilityScores?.[ability]);
+  return Math.max(1, classLevel + mod);
+}
+
+function countPreparedSpells(sheet) {
+  return (sheet?.spellcasting?.spells || []).filter((s) => s.prepared && s.level > 0).length;
 }
 
 /** Slots restantes no nível da magia ou acima (PHB; bruxo: qualquer slot de pacto). */
@@ -1016,7 +1473,85 @@ function hitDiceRemainingForSheet(sheet) {
 
 function getSheetMaxSpellSlots(sheet) {
   if (typeof getMaxSpellSlotsMap !== "function") return {};
-  return getMaxSpellSlotsMap(sheet?.spellcasting?.casterType, sheet?.characterLevel);
+  const sc = sheet?.spellcasting;
+  if (sc?.multiclass?.enabled && typeof getMulticlassSpellSlotsMap === "function") {
+    return getMulticlassSpellSlotsMap(sc.multiclass, sheet?.characterLevel);
+  }
+  return getMaxSpellSlotsMap(sc?.casterType, sheet?.characterLevel);
+}
+
+/** PV máximos sugeridos (PHB): 1º nível = DV + CON; depois média fixa por nível. */
+function computeSuggestedHpMax(sheet, { useAverage = true } = {}) {
+  const level = clampCharacterLevel(sheet?.characterLevel);
+  if (level < 1) return null;
+  const m = String(sheet?.hitDie || "d10").match(/d(\d+)/i);
+  const sides = m ? Number(m[1]) : 10;
+  if (!Number.isFinite(sides) || sides < 1) return null;
+  const conMod = abilityModNumber(sheet?.abilityScores?.con);
+  const first = sides + conMod;
+  if (level === 1) return Math.max(1, first);
+  const perLevel = useAverage ? Math.floor(sides / 2) + 1 + conMod : sides + conMod;
+  return Math.max(1, first + (level - 1) * perLevel);
+}
+
+function gatherEquipmentEntriesForImport(sheet) {
+  const keys = new Set(["equipment", "magic-items"]);
+  const seen = new Set();
+  const out = [];
+  const add = (entry) => {
+    if (!entry || !keys.has(entry.resourceKey)) return;
+    const ix = String(entry.index || "");
+    const id = `${entry.resourceKey}:${ix}`;
+    if (!ix || seen.has(id)) return;
+    seen.add(id);
+    out.push(entry);
+  };
+  loadFavorites().forEach(add);
+  (sheet?.items || []).forEach(add);
+  return out;
+}
+
+function equipmentWeightFromEntry(entry) {
+  const w = entry?.cachedData?.weight;
+  if (w == null || w === "") return "";
+  const n = Number(w);
+  return Number.isFinite(n) ? String(n) : "";
+}
+
+function importEquipmentFavoritesToSheet(sheet) {
+  if (!Array.isArray(sheet.inventory)) sheet.inventory = [];
+  const existing = new Set(
+    sheet.inventory.map((r) => `${r.resourceKey || ""}:${r.index || r.name}`.toLowerCase())
+  );
+  let added = 0;
+  for (const src of gatherEquipmentEntriesForImport(sheet)) {
+    const key = `${src.resourceKey}:${src.index}`.toLowerCase();
+    if (existing.has(key)) continue;
+    let weight = equipmentWeightFromEntry(src);
+    if (!weight) {
+      const fav = findFavorite(src.resourceKey, src.index);
+      if (fav?.cachedData) weight = equipmentWeightFromEntry(fav);
+      else {
+        const cached = getCachedEntryData({
+          resourceKey: src.resourceKey,
+          index: src.index,
+          path: src.path || `/api/2014/${src.resourceKey}/${src.index}`,
+        });
+        if (cached) weight = equipmentWeightFromEntry({ cachedData: cached });
+      }
+    }
+    sheet.inventory.push({
+      id: `inv-${src.resourceKey}-${src.index}-${Date.now()}-${added}`,
+      name: String(src.name || src.index).slice(0, 120),
+      qty: 1,
+      weight,
+      resourceKey: src.resourceKey,
+      index: String(src.index),
+    });
+    existing.add(key);
+    added += 1;
+  }
+  return added;
 }
 
 function clampSpellSlotsUsed(used, maxMap) {
@@ -1036,6 +1571,7 @@ function syncSheetToDmBattle(sheet) {
   if (existing) {
     existing.level = clampCharacterLevel(sheet.characterLevel);
     existing.xpTotal = normalizeXpTotal(sheet.xpTotal);
+    copySheetCombatStateToMember(existing, sheet);
     saveDmBattle(battle);
     return { ok: true, memberId: existing.id, created: false };
   }
@@ -1045,6 +1581,9 @@ function syncSheetToDmBattle(sheet) {
     xpTotal: sheet.xpTotal,
     initiative: "",
     downed: false,
+    inspiration: sheet.inspiration,
+    activeConditions: sheet.activeConditions,
+    concentrationSpell: sheet.concentrationSpell,
   });
   if (!member) return { ok: false, error: "Não foi possível criar o personagem na mesa." };
   battle.party.push(member);
@@ -1070,6 +1609,7 @@ function syncDmPartyMemberToSheet(member, { forceName = false } = {}) {
   }
   sheet.characterLevel = clampCharacterLevel(member.level);
   sheet.xpTotal = normalizeXpTotal(member.xpTotal);
+  copyMemberCombatStateToSheet(sheet, member);
   saveSheet(normalizeSheet(sheet));
   return { ok: true };
 }
@@ -1132,6 +1672,32 @@ function normalizeSheet(parsed) {
     items: Array.isArray(parsed.items)
       ? parsed.items.map(normalizeSheetItem).filter(Boolean)
       : [],
+    skillProficiencyRanks: (() => {
+      const ranks = normalizeSkillProficiencyRanks(
+        parsed.skillProficiencyRanks,
+        parsed.skillProficiencies
+      );
+      return ranks;
+    })(),
+    skillProficiencies: (() => {
+      const ranks = normalizeSkillProficiencyRanks(
+        parsed.skillProficiencyRanks,
+        parsed.skillProficiencies
+      );
+      const legacy = {};
+      for (const [k, rank] of Object.entries(ranks)) {
+        if (rank === "prof" || rank === "expertise") legacy[k] = true;
+      }
+      return legacy;
+    })(),
+    saveProficiencies: normalizeSaveProficiencies(parsed.saveProficiencies),
+    activeConditions: normalizeActiveConditions(parsed.activeConditions),
+    inspiration: Boolean(parsed.inspiration),
+    concentrationSpell:
+      parsed.concentrationSpell != null ? String(parsed.concentrationSpell).slice(0, 200) : "",
+    personality: normalizePersonality(parsed.personality),
+    currency: normalizeCurrency(parsed.currency),
+    inventory: normalizeInventory(parsed.inventory),
   };
 }
 
@@ -1414,7 +1980,8 @@ function saveFavorites(entries) {
 
 function loadSheet() {
   try {
-    const raw = localStorage.getItem(STORAGE_SHEET);
+    const raw =
+      typeof readCampaignScoped === "function" ? readCampaignScoped("sheet") : localStorage.getItem(STORAGE_SHEET);
     if (!raw) return normalizeSheet(null);
     return normalizeSheet(JSON.parse(raw));
   } catch {
@@ -1424,7 +1991,9 @@ function loadSheet() {
 
 function saveSheet(sheet) {
   try {
-    localStorage.setItem(STORAGE_SHEET, JSON.stringify(sheet));
+    const payload = JSON.stringify(sheet);
+    if (typeof writeCampaignScoped === "function") writeCampaignScoped("sheet", payload);
+    else localStorage.setItem(STORAGE_SHEET, payload);
     return true;
   } catch {
     try {
@@ -1432,7 +2001,9 @@ function saveSheet(sheet) {
         ...sheet,
         items: (sheet.items || []).map(({ cachedData, dataLocale, ...rest }) => rest),
       };
-      localStorage.setItem(STORAGE_SHEET, JSON.stringify(slim));
+      const payload = JSON.stringify(slim);
+      if (typeof writeCampaignScoped === "function") writeCampaignScoped("sheet", payload);
+      else localStorage.setItem(STORAGE_SHEET, payload);
       return true;
     } catch {
       return false;

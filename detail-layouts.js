@@ -100,6 +100,53 @@ function layoutClassLevelsMount(classLevels) {
   </div>`;
 }
 
+function layoutBackgroundOptionText(opt) {
+  if (!opt || typeof opt !== "object") return "";
+  if (opt.string) return String(opt.string).trim();
+  if (opt.desc) return String(opt.desc).trim();
+  if (opt.name) return String(opt.name).trim();
+  return "";
+}
+
+/** Tabela PHB com checkboxes (referência na mesa; não grava na ficha). */
+function layoutBackgroundChoiceTable(tableData, title, { showAlignment = false } = {}) {
+  if (!tableData?.from?.options?.length) return "";
+  const choose = tableData.choose != null ? Number(tableData.choose) : 1;
+  const chooseLabel = choose === 1 ? "escolhe 1" : `escolhe ${choose}`;
+  const rows = tableData.from.options
+    .map((opt, i) => {
+      const text = layoutBackgroundOptionText(opt);
+      if (!text) return "";
+      const cid = `bg-choice-${layoutNodeId()}`;
+      const align =
+        showAlignment && Array.isArray(opt.alignments) && opt.alignments.length
+          ? opt.alignments.map((a) => a.name || formatResourceLabel(a.index || "")).join(", ")
+          : "";
+      return `<tr>
+        <td class="detail-bg-choice-check">
+          <input type="checkbox" class="detail-bg-choice-cb" id="${cid}" aria-label="Marcar opção ${i + 1}" />
+        </td>
+        <td><label for="${cid}" class="detail-bg-choice-label">${escapeHtml(text)}${
+          align ? ` <span class="detail-bg-align">(${escapeHtml(align)})</span>` : ""
+        }</label></td>
+      </tr>`;
+    })
+    .filter(Boolean)
+    .join("");
+  if (!rows) return "";
+  return layoutSection(
+    title,
+    `<p class="detail-muted detail-bg-choose-hint">PHB: ${escapeHtml(chooseLabel)}. Marca na mesa ou copia para a ficha.</p>
+    <table class="detail-bg-choices"><thead><tr><th scope="col" class="detail-bg-choice-check"></th><th scope="col">Opção</th></tr></thead><tbody>${rows}</tbody></table>`
+  );
+}
+
+let _layoutNodeId = 0;
+function layoutNodeId() {
+  _layoutNodeId += 1;
+  return _layoutNodeId;
+}
+
 function layoutStartingEquipmentSection(equipment, options) {
   const parts = [];
 
@@ -242,6 +289,171 @@ async function enrichTraitMount(mountEl) {
   return enrichRefCardsMount(mountEl);
 }
 
+function spellSlotCounts(spellcasting) {
+  if (!spellcasting || typeof spellcasting !== "object") return [];
+  const slots = [];
+  for (let i = 1; i <= 9; i++) {
+    const n = spellcasting[`spell_slots_level_${i}`];
+    if (n > 0) slots.push({ level: i, count: n });
+  }
+  return slots;
+}
+
+function formatClassSpecificLevelSummary(classSpecific) {
+  if (!classSpecific || typeof classSpecific !== "object") return "";
+  const parts = [];
+  if (classSpecific.arcane_recovery_levels > 0) {
+    parts.push(`Recuperação arcana até slot de ${classSpecific.arcane_recovery_levels}º`);
+  }
+  if (classSpecific.action_surges > 0) {
+    parts.push(
+      classSpecific.action_surges === 1
+        ? "1 surto de ação"
+        : `${classSpecific.action_surges} surtos de ação`
+    );
+  }
+  if (classSpecific.extra_attacks > 0) {
+    parts.push(
+      classSpecific.extra_attacks === 1 ? "1 ataque extra" : `${classSpecific.extra_attacks} ataques extra`
+    );
+  }
+  if (classSpecific.indomitable_uses > 0) {
+    parts.push(
+      classSpecific.indomitable_uses === 1
+        ? "1 uso de Indomável"
+        : `${classSpecific.indomitable_uses} usos de Indomável`
+    );
+  }
+  for (const [key, val] of Object.entries(classSpecific)) {
+    if (["arcane_recovery_levels", "action_surges", "extra_attacks", "indomitable_uses"].includes(key)) {
+      continue;
+    }
+    if (val != null && val !== 0 && val !== "") {
+      parts.push(`${formatResourceLabel(key)}: ${val}`);
+    }
+  }
+  return parts.join(" · ");
+}
+
+function renderSpellcastingLevelHtml(spellcasting, prevSpellcasting) {
+  if (!spellcasting || typeof spellcasting !== "object") return "";
+
+  const slots = spellSlotCounts(spellcasting);
+  const prevSlots = prevSpellcasting ? spellSlotCounts(prevSpellcasting) : [];
+  const prevMap = new Map(prevSlots.map((s) => [s.level, s.count]));
+
+  const hasCantrips = spellcasting.cantrips_known != null;
+  const hasSpellsKnown = spellcasting.spells_known != null;
+  if (!hasCantrips && !hasSpellsKnown && !slots.length) return "";
+
+  let html = '<div class="detail-level-spellblock">';
+
+  if (hasCantrips) {
+    const changed =
+      !prevSpellcasting || prevSpellcasting.cantrips_known !== spellcasting.cantrips_known;
+    html += `<span class="detail-level-meta${changed ? " is-changed" : ""}">${escapeHtml(
+      String(spellcasting.cantrips_known)
+    )} truques</span>`;
+  }
+  if (hasSpellsKnown) {
+    const changed =
+      !prevSpellcasting || prevSpellcasting.spells_known !== spellcasting.spells_known;
+    html += `<span class="detail-level-meta${changed ? " is-changed" : ""}">${escapeHtml(
+      String(spellcasting.spells_known)
+    )} magias conhecidas</span>`;
+  }
+
+  if (slots.length) {
+    html += '<div class="detail-slot-chips" aria-label="Espaços de magia por nível">';
+    for (const s of slots) {
+      const prevCount = prevMap.get(s.level);
+      const changed = prevCount === undefined || s.count > prevCount;
+      html += `<span class="detail-slot-chip${changed ? " detail-slot-chip--changed" : ""}" title="Espaços de ${s.level}º nível de magia"><span class="detail-slot-chip-lvl">${s.level}º</span><span class="detail-slot-chip-n">${s.count}</span></span>`;
+    }
+    html += "</div>";
+  }
+
+  html += "</div>";
+  return html;
+}
+
+function featureNamesAtLevel(lv) {
+  return (Array.isArray(lv?.features) ? lv.features : [])
+    .map((f) => f.name || f.index || "")
+    .filter(Boolean);
+}
+
+function featuresNewAtLevel(lv, seenBefore) {
+  const names = featureNamesAtLevel(lv);
+  if (!seenBefore || seenBefore.size === 0) return names;
+  return names.filter((n) => !seenBefore.has(n));
+}
+
+function renderClassLevelDescHtml(lv, prevLevel, seenFeaturesBefore) {
+  const blocks = [];
+
+  const newFeatures = featuresNewAtLevel(lv, seenFeaturesBefore);
+  if (newFeatures.length) {
+    const items = newFeatures.map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+    blocks.push(`<div class="detail-level-note detail-level-note--features">
+      <span class="detail-level-note-label">Capacidades</span>
+      <ul class="detail-level-feature-list">${items}</ul>
+    </div>`);
+  }
+
+  const spellHtml = renderSpellcastingLevelHtml(lv.spellcasting, prevLevel?.spellcasting);
+  if (spellHtml) {
+    blocks.push(`<div class="detail-level-note detail-level-note--spells">
+      <span class="detail-level-note-label">Conjuração</span>
+      ${spellHtml}
+    </div>`);
+  }
+
+  const cs = formatClassSpecificLevelSummary(lv.class_specific);
+  if (cs) {
+    blocks.push(`<div class="detail-level-note">
+      <span class="detail-level-note-label">Classe</span>
+      <p class="detail-level-note-text">${escapeHtml(cs)}</p>
+    </div>`);
+  }
+
+  if (
+    prevLevel &&
+    lv.prof_bonus != null &&
+    prevLevel.prof_bonus != null &&
+    lv.prof_bonus !== prevLevel.prof_bonus
+  ) {
+    blocks.push(`<div class="detail-level-note detail-level-note--prof">
+      <span class="detail-level-note-label">Proficiência</span>
+      <p class="detail-level-note-text is-changed">Bónus de proficiência +${escapeHtml(String(lv.prof_bonus))}</p>
+    </div>`);
+  }
+
+  if (!blocks.length) {
+    return '<p class="detail-level-empty">Sem alterações registadas neste nível.</p>';
+  }
+
+  return `<div class="detail-level-notes">${blocks.join("")}</div>`;
+}
+
+function renderClassLevelsListHtml(levels) {
+  const sorted = [...levels].sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
+  const seenFeatures = new Set();
+  const rows = sorted
+    .map((lv, i) => {
+      const levelNum = lv.level != null ? lv.level : "?";
+      const prev = i > 0 ? sorted[i - 1] : null;
+      const desc = renderClassLevelDescHtml(lv, prev, seenFeatures);
+      for (const n of featureNamesAtLevel(lv)) seenFeatures.add(n);
+      return `<tr class="detail-level-row">
+        <th scope="row" class="detail-level-table-lvl"><span class="detail-level-badge">${escapeHtml(String(levelNum))}</span></th>
+        <td class="detail-level-table-desc">${desc}</td>
+      </tr>`;
+    })
+    .join("");
+  return `<table class="detail-level-table"><tbody>${rows}</tbody></table>`;
+}
+
 async function enrichClassLevelsMount(mountEl) {
   if (!mountEl || mountEl.dataset.enriched === "1") return;
   const path = mountEl.dataset.levelsPath;
@@ -257,22 +469,7 @@ async function enrichClassLevelsMount(mountEl) {
       return;
     }
 
-    mountEl.innerHTML = levels
-      .map((lv) => {
-        const levelNum = lv.level != null ? lv.level : "?";
-        const features = Array.isArray(lv.features) ? lv.features : [];
-        const featList = features.length
-          ? `<ul class="detail-chip-list">${features
-              .map((f) => `<li>${escapeHtml(f.name || f.index || "")}</li>`)
-              .join("")}</ul>`
-          : '<p class="detail-muted">Sem capacidades novas neste nível.</p>';
-        const open = levelNum === 1 ? " open" : "";
-        return `<details class="detail-level-block"${open}>
-          <summary class="detail-level-summary">Nível ${escapeHtml(String(levelNum))}</summary>
-          ${featList}
-        </details>`;
-      })
-      .join("");
+    mountEl.innerHTML = renderClassLevelsListHtml(levels);
   } catch {
     mountEl.innerHTML = '<p class="detail-muted">Não foi possível carregar os níveis da classe.</p>';
   }
@@ -408,10 +605,10 @@ function renderSpellDetailLayout(data) {
   }
 
   if (Array.isArray(data.classes) && data.classes.length) {
-    const chips = data.classes
-      .map((c) => `<li>${escapeHtml(c.name || c.index || "")}</li>`)
-      .join("");
-    html += layoutSection("Classes", `<ul class="detail-chip-list">${chips}</ul>`);
+    html += layoutSection("Classes que aprendem", layoutChipList(data.classes));
+  }
+  if (Array.isArray(data.subclasses) && data.subclasses.length) {
+    html += layoutSection("Subclasses que aprendem", layoutChipList(data.subclasses));
   }
 
   const skip = new Set([
@@ -595,6 +792,82 @@ function renderSubraceDetailLayout(data) {
   return renderRaceDetailLayout(data);
 }
 
+function renderBackgroundDetailLayout(data) {
+  _layoutNodeId = 0;
+  const rows = [];
+  if (data.feature?.name) rows.push(["Característica", data.feature.name]);
+  const profs = layoutRefNames(data.starting_proficiencies);
+  if (profs) rows.push(["Proficiências iniciais", profs]);
+  const langs = layoutRefNames(data.languages);
+  if (langs) rows.push(["Idiomas", langs]);
+  const tools = layoutRefNames(data.tool_proficiencies);
+  if (tools) rows.push(["Ferramentas", tools]);
+
+  let html = `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`;
+
+  if (data.feature?.desc) {
+    html += layoutSection("Característica", layoutFormatDesc(data.feature.desc));
+  }
+
+  html += layoutBackgroundChoiceTable(data.personality_traits, "Traços de personalidade");
+  html += layoutBackgroundChoiceTable(data.ideals, "Ideais", { showAlignment: true });
+  html += layoutBackgroundChoiceTable(data.bonds, "Vínculos");
+  html += layoutBackgroundChoiceTable(data.flaws, "Defeitos");
+
+  const equipBody = layoutStartingEquipmentSection(data.starting_equipment, data.starting_equipment_options);
+  if (equipBody) html += layoutSection("Equipamento inicial", equipBody);
+
+  const skip = new Set([
+    "url",
+    "updated_at",
+    "image",
+    "name",
+    "index",
+    "feature",
+    "starting_proficiencies",
+    "language_proficiencies",
+    "languages",
+    "tool_proficiencies",
+    "skill_proficiencies",
+    "personality_traits",
+    "ideals",
+    "bonds",
+    "flaws",
+    "starting_equipment",
+    "starting_equipment_options",
+    "starting_proficiency_options",
+    "desc",
+  ]);
+
+  return { html, skip };
+}
+
+function renderFeatDetailLayout(data) {
+  const rows = [];
+  const prereq = layoutPrerequisitesText(data.prerequisites);
+  if (prereq) rows.push(["Pré-requisitos", prereq]);
+
+  let html = rows.length
+    ? `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`
+    : "";
+
+  if (data.desc) html += layoutSection("Descrição", layoutFormatDesc(data.desc));
+  else if (!html) html = '<p class="detail-muted">Sem descrição na API.</p>';
+
+  const skip = new Set([
+    "url",
+    "updated_at",
+    "image",
+    "name",
+    "index",
+    "prerequisites",
+    "desc",
+    "reference",
+  ]);
+
+  return { html, skip };
+}
+
 function renderSubclassDetailLayout(data) {
   const rows = [];
   if (data.class?.name) rows.push(["Classe", data.class.name]);
@@ -603,6 +876,17 @@ function renderSubclassDetailLayout(data) {
 
   let html = `<table class="detail-info-table"><tbody>${layoutKvRows(rows)}</tbody></table>`;
   html += layoutFormatDesc(data.desc);
+
+  if (data.subclass_levels) {
+    html += layoutSection("Evolução por nível", layoutClassLevelsMount(data.subclass_levels));
+  }
+
+  if (Array.isArray(data.spells) && data.spells.length) {
+    html += layoutSection(
+      "Magias da subclasse",
+      layoutRefCardsMount(data.spells, { loadingLabel: "A carregar magias…" })
+    );
+  }
 
   const skip = new Set([
     "url",
@@ -717,8 +1001,10 @@ function getSpecializedDetailLayout(resourceKey, data) {
   if (resourceKey === "equipment") return renderEquipmentDetailLayout(data);
   if (resourceKey === "classes") return renderClassDetailLayout(data);
   if (resourceKey === "races" || resourceKey === "subraces") return renderRaceDetailLayout(data);
+  if (resourceKey === "backgrounds") return renderBackgroundDetailLayout(data);
   if (resourceKey === "subclasses") return renderSubclassDetailLayout(data);
   if (resourceKey === "traits") return renderTraitDetailLayout(data);
+  if (resourceKey === "feats") return renderFeatDetailLayout(data);
   if (resourceKey === "features") return renderFeatureDetailLayout(data);
   return null;
 }

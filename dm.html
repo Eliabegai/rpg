@@ -60,6 +60,7 @@
 
         <section class="dm-sidebar-campaign" aria-labelledby="dmCampaignTitle">
           <h2 id="dmCampaignTitle" class="dm-sidebar-xp-title">Campanha</h2>
+          <div id="dmCampaignPicker" class="campaign-picker"></div>
           <label class="sheet-inline-field dm-campaign-name-field">
             <span class="sheet-name-label">Nome</span>
             <input
@@ -80,6 +81,12 @@
             </label>
           </div>
           <p id="dmCampaignStatus" class="dm-campaign-status" role="status" aria-live="polite"></p>
+          <details class="dm-share-read">
+            <summary>Partilha (só leitura)</summary>
+            <p class="dm-sidebar-hint">
+              Exporta JSON e envia ao jogador. Ele abre a ficha ou mesa e usa «Importar JSON» — cada um mantém a cópia local; não há sync em tempo real.
+            </p>
+          </details>
           <button type="button" class="sheet-dice-btn dm-campaign-btn dm-sync-sheet-btn" data-action="dm-sync-all-from-sheet">
             Sincronizar todos da ficha
           </button>
@@ -89,6 +96,16 @@
         <section class="dm-sidebar-xp" aria-labelledby="dmXpTitle">
           <h2 id="dmXpTitle" class="dm-sidebar-xp-title">XP da sessão</h2>
           <p class="dm-sidebar-xp-hint">Dividido entre quem eliminou cada monstro (só personagens vivos).</p>
+          <label class="sheet-inline-field dm-session-notes-field">
+            <span class="sheet-name-label">Notas da sessão</span>
+            <textarea
+              id="dmSessionNotesInput"
+              class="sheet-name-input dm-session-notes-input"
+              rows="3"
+              maxlength="500"
+              placeholder="Resumo, loot, ganchos para a próxima sessão…"
+            ></textarea>
+          </label>
           <div id="dmXpLedger" class="dm-xp-ledger" aria-live="polite"></div>
           <button type="button" class="sheet-dice-btn dm-xp-apply-btn" data-action="dm-apply-session-xp">
             Creditar XP da sessão
@@ -97,6 +114,30 @@
             <summary>Tabela XP por nível (PHB)</summary>
             <div id="dmXpPhbTable" class="dm-xp-phb-table-wrap"></div>
           </details>
+        </section>
+
+        <section class="dm-sidebar-snapshots" aria-labelledby="dmSnapshotsTitle">
+          <h2 id="dmSnapshotsTitle" class="dm-sidebar-xp-title">Encontros guardados</h2>
+          <p class="dm-sidebar-hint">Guarda party, monstros, PV e iniciativa para reabrir depois.</p>
+          <label class="sheet-inline-field dm-snapshot-name-field">
+            <span class="sheet-name-label">Nome</span>
+            <input
+              type="text"
+              id="dmSnapshotNameInput"
+              class="sheet-name-input"
+              placeholder="Ex.: Caverna dos goblins"
+              maxlength="120"
+            />
+          </label>
+          <button type="button" class="sheet-dice-btn dm-campaign-btn" data-action="dm-save-snapshot">
+            Guardar encontro atual
+          </button>
+          <div id="dmSnapshotsList" class="dm-snapshots-list" aria-live="polite"></div>
+        </section>
+
+        <section class="dm-sidebar-quickref" aria-labelledby="dmQuickRefTitle">
+          <h2 id="dmQuickRefTitle" class="dm-sidebar-xp-title">Referência rápida</h2>
+          <div id="dmQuickRulesMount"></div>
         </section>
 
         <section class="dm-sidebar-history" aria-labelledby="dmHistoryTitle">
@@ -142,6 +183,7 @@
             <p class="dm-section-hint">
               Personagens e monstros na mesma lista, do maior para o menor. ☠ marca personagem eliminado (fora do XP, pode reviver).
             </p>
+            <div id="dmTurnToolbar" class="dm-turn-toolbar" aria-label="Turnos de combate"></div>
             <form id="dmPartyForm" class="dm-party-form">
               <label class="dm-party-field dm-party-field--name">
                 <span class="sheet-name-label">Nome</span>
@@ -208,7 +250,12 @@
     </div>
 
     <script src="spellcasting-data.js"></script>
+    <script src="campaign-store.js"></script>
     <script src="shared.js"></script>
+    <script src="campaign-ui.js"></script>
+    <script src="dm-quick-ref-data.js"></script>
+    <script src="dm-combat-sync.js"></script>
+    <script src="dm-v32.js"></script>
     <script src="dm.js"></script>
     <script src="pwa-init.js"></script>
   </body>

@@ -37,13 +37,14 @@
   </head>
   <body class="sheet-page">
     <div class="app-shell sheet-shell">
-      <aside class="sheet-library" aria-label="Biblioteca de favoritos">
+      <aside id="sheetFavoritesLibrary" class="sheet-library" aria-label="Biblioteca de favoritos">
         <nav class="app-top-nav" aria-label="Navegação">
           <a class="app-top-nav-link" href="index.html">← Explorar API</a>
           <a class="app-top-nav-link" href="dm.html">Mestre</a>
           <span class="app-top-nav-current" aria-current="page">Ficha</span>
         </nav>
         <h1 class="sheet-library-title">Grimório 5e — Ficha</h1>
+        <div id="sheetCampaignPicker" class="campaign-picker campaign-picker--sheet"></div>
         <p class="sheet-library-sub">
           Marca os itens que entram na ficha. Os favoritos são os mesmos guardados na exploração (★).
         </p>
@@ -81,6 +82,14 @@
               </button>
               <button
                 type="button"
+                id="openCreationWizardBtn"
+                class="sheet-dice-btn sheet-dice-btn--compact"
+                title="Assistente PHB: raça, classe, antecedente…"
+              >
+                Criar personagem
+              </button>
+              <button
+                type="button"
                 id="gameToolsOpenHeader"
                 class="sheet-tools-open-btn"
                 aria-expanded="false"
@@ -97,19 +106,40 @@
             </div>
           </header>
 
-          <label class="sheet-name-field">
-            <span class="sheet-name-label">Nome do personagem</span>
-            <input
-              type="text"
-              id="characterName"
-              class="sheet-name-input"
-              placeholder="Ex.: Aelindra"
-              autocomplete="off"
-              maxlength="120"
-            />
-          </label>
-
-          <div class="sheet-character-meta">
+          <div class="sheet-hero">
+            <div class="sheet-portrait-block sheet-portrait-block--hero">
+              <div class="sheet-portrait-frame">
+                <img
+                  id="portraitPreview"
+                  class="sheet-portrait-img"
+                  alt=""
+                  hidden
+                />
+                <span id="portraitPlaceholder" class="sheet-portrait-placeholder">Sem imagem</span>
+              </div>
+              <div class="sheet-portrait-actions">
+                <label class="sheet-portrait-upload">
+                  <span class="visually-hidden">Retrato</span>
+                  <input type="file" id="portraitInput" accept="image/jpeg,image/png,image/webp,image/gif" />
+                  <span class="sheet-portrait-upload-btn">Escolher imagem</span>
+                </label>
+                <button type="button" id="portraitClear" class="sheet-portrait-clear" hidden>Remover</button>
+              </div>
+              <p id="portraitError" class="sheet-field-error" hidden></p>
+            </div>
+            <div class="sheet-hero-details">
+              <label class="sheet-name-field sheet-name-field--hero">
+              <span class="sheet-name-label">Nome do personagem</span>
+              <input
+                type="text"
+                id="characterName"
+                class="sheet-name-input sheet-name-input--hero"
+                placeholder="Ex.: Aelindra"
+                autocomplete="off"
+                maxlength="120"
+              />
+            </label>
+              <div class="sheet-character-meta sheet-character-meta--hero">
             <label class="sheet-inline-field sheet-inline-field--level">
               <span class="sheet-name-label">Nível</span>
               <input
@@ -134,8 +164,10 @@
                 inputmode="numeric"
               />
             </label>
+              </div>
+              <div id="characterXpProgress" class="sheet-xp-progress-wrap sheet-xp-progress-wrap--hero" aria-live="polite"></div>
+            </div>
           </div>
-          <div id="characterXpProgress" class="sheet-xp-progress-wrap" aria-live="polite"></div>
 
           <div class="sheet-sync-bar">
             <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="sync-sheet-to-dm">
@@ -146,29 +178,113 @@
 
           <section class="sheet-core" id="characterCore" aria-labelledby="sheetCoreTitle">
             <h2 id="sheetCoreTitle" class="sheet-core-title">Dados do personagem</h2>
-            <div class="sheet-core-layout">
-              <div class="sheet-portrait-block">
-                <div class="sheet-portrait-frame">
-                  <img
-                    id="portraitPreview"
-                    class="sheet-portrait-img"
-                    alt=""
-                    hidden
-                  />
-                  <span id="portraitPlaceholder" class="sheet-portrait-placeholder">Sem imagem</span>
-                </div>
-                <label class="sheet-portrait-upload">
-                  <span class="sheet-name-label">Retrato</span>
-                  <input type="file" id="portraitInput" accept="image/jpeg,image/png,image/webp,image/gif" />
-                </label>
-                <button type="button" id="portraitClear" class="sheet-portrait-clear" hidden>Remover imagem</button>
-                <p id="portraitError" class="sheet-field-error" hidden></p>
-              </div>
-
-              <div class="sheet-core-fields">
+            <div class="sheet-core-fields">
                 <fieldset class="sheet-abilities">
                   <legend class="sheet-name-label">Atributos</legend>
+                  <button type="button" id="applyRaceBonusesBtn" class="sheet-dice-btn sheet-dice-btn--compact sheet-ability-apply-race">
+                    Aplicar bónus da raça
+                  </button>
                   <div class="sheet-abilities-grid" id="abilityScoresGrid"></div>
+                </fieldset>
+
+                <fieldset class="sheet-combat-v3" id="sheetCombatV3Section" aria-labelledby="sheetCombatV3Title">
+                  <legend id="sheetCombatV3Title" class="sheet-name-label">Combate (PHB)</legend>
+                  <p class="sheet-combat-hint">
+                    Bónus de proficiência:
+                    <strong id="sheetProfBonusHint">+2</strong>
+                  </p>
+
+                  <div class="sheet-combat-block sheet-combat-block--saves">
+                    <h3 class="sheet-combat-subtitle">Salvaguardas</h3>
+                      <div id="sheetSavingThrows" class="sheet-saving-grid" role="group" aria-label="Salvaguardas"></div>
+                  </div>
+                  <div class="sheet-combat-block sheet-combat-block--skills">
+                    <h3 class="sheet-combat-subtitle">Perícias</h3>
+                    <div id="sheetSkills" class="sheet-skills-grid" role="group" aria-label="Perícias"></div>
+                  </div>
+
+                  <div class="sheet-combat-block sheet-combat-block--status">
+                    <h3 class="sheet-combat-subtitle">Estado</h3>
+                    <div class="sheet-combat-status-row">
+                      <div class="sheet-status-field">
+                        <span class="sheet-name-label">Inspiração</span>
+                        <button type="button" id="sheetInspirationBtn" class="sheet-inspiration-btn" aria-pressed="false">
+                          Sem inspiração
+                        </button>
+                      </div>
+                      <label class="sheet-concentration-field sheet-status-field">
+                        <span class="sheet-name-label">Concentração</span>
+                        <input
+                          type="text"
+                          id="sheetConcentrationInput"
+                          class="sheet-text-input"
+                          maxlength="200"
+                          placeholder="Magia em concentração…"
+                          autocomplete="off"
+                        />
+                      </label>
+                    </div>
+                    <p class="sheet-combat-hint sheet-combat-hint--small">
+                      Ao sofrer dano em combate: teste de Constituição CD 10 ou metade do dano (o maior), para manter concentração.
+                    </p>
+                    <div id="sheetConditions" class="sheet-conditions" role="group" aria-label="Condições ativas"></div>
+                  </div>
+
+                  <div class="sheet-combat-block" id="sheetPersonalitySection">
+                    <h3 class="sheet-combat-subtitle">Personalidade</h3>
+                    <p class="sheet-personality-hint">
+                      O antecedente entra na ficha pela
+                      <a href="#lib-backgrounds" id="linkSheetLibraryBackgrounds" class="sheet-inline-link"
+                        >biblioteca à esquerda (Antecedentes)</a
+                      >:
+                      marca ★ no explorador e clica «+ Na ficha». Também podes
+                      <a href="index.html" id="linkExploreBackgrounds" class="sheet-inline-link">escolher antecedentes na API</a>.
+                    </p>
+                    <button type="button" id="applyBackgroundFromSheetBtn" class="sheet-dice-btn sheet-dice-btn--compact">
+                      Aplicar do antecedente (aleatório)
+                    </button>
+                    <p id="personalityApplyFeedback" class="sheet-apply-feedback" role="status" hidden></p>
+                    <div class="sheet-personality-grid">
+                      <label class="sheet-personality-field">
+                        <span class="sheet-name-label">Traços</span>
+                        <textarea id="sheetPersonalityTraits" class="sheet-textarea" rows="2" maxlength="800"></textarea>
+                      </label>
+                      <label class="sheet-personality-field">
+                        <span class="sheet-name-label">Ideais</span>
+                        <textarea id="sheetPersonalityIdeals" class="sheet-textarea" rows="2" maxlength="800"></textarea>
+                      </label>
+                      <label class="sheet-personality-field">
+                        <span class="sheet-name-label">Vínculos</span>
+                        <textarea id="sheetPersonalityBonds" class="sheet-textarea" rows="2" maxlength="800"></textarea>
+                      </label>
+                      <label class="sheet-personality-field">
+                        <span class="sheet-name-label">Defeitos</span>
+                        <textarea id="sheetPersonalityFlaws" class="sheet-textarea" rows="2" maxlength="800"></textarea>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="sheet-combat-block">
+                    <h3 class="sheet-combat-subtitle">Inventário</h3>
+                    <div class="sheet-currency-row" aria-label="Moedas">
+                      <label><span>PC</span><input type="text" inputmode="numeric" id="sheetCurrencyCP" class="sheet-currency-input" /></label>
+                      <label><span>PP</span><input type="text" inputmode="numeric" id="sheetCurrencySP" class="sheet-currency-input" /></label>
+                      <label><span>PE</span><input type="text" inputmode="numeric" id="sheetCurrencyEP" class="sheet-currency-input" /></label>
+                      <label><span>PO</span><input type="text" inputmode="numeric" id="sheetCurrencyGP" class="sheet-currency-input" /></label>
+                      <label><span>PL</span><input type="text" inputmode="numeric" id="sheetCurrencyPP" class="sheet-currency-input" /></label>
+                    </div>
+                    <p id="sheetCarrySummary" class="sheet-carry-summary">Carga: —</p>
+                    <button type="button" id="importEquipmentFavoritesBtn" class="sheet-dice-btn sheet-dice-btn--compact sheet-inventory-import">
+                      Importar equipamento (★ e ficha)
+                    </button>
+                    <div id="sheetInventoryList" class="sheet-inventory-list"></div>
+                    <form id="sheetInventoryAddForm" class="sheet-inventory-add">
+                      <input type="text" id="sheetInventoryName" class="sheet-text-input" placeholder="Item" maxlength="120" required />
+                      <input type="number" id="sheetInventoryQty" class="sheet-number-input sheet-inventory-qty" min="1" value="1" aria-label="Quantidade" />
+                      <input type="text" id="sheetInventoryWeight" class="sheet-number-input sheet-inventory-weight" placeholder="lb" inputmode="decimal" aria-label="Peso (lb)" />
+                      <button type="submit" class="sheet-dice-btn sheet-dice-btn--compact">Adicionar</button>
+                    </form>
+                  </div>
                 </fieldset>
 
                 <div class="sheet-core-row">
@@ -195,6 +311,7 @@
 
                 <fieldset class="sheet-core-vitals" aria-labelledby="sheetVitalsHpTitle">
                   <legend id="sheetVitalsHpTitle" class="sheet-name-label">Pontos de vida</legend>
+                  <p id="classApplyFeedback" class="sheet-apply-feedback" role="status" hidden></p>
                   <div class="sheet-hp-row">
                     <label class="sheet-inline-field">
                       <span class="sheet-name-label">Dado de vida</span>
@@ -209,6 +326,12 @@
                     </label>
                     <button type="button" id="rollHitDieBtn" class="sheet-dice-btn sheet-dice-btn--compact" data-action="roll-hit-die">
                       Rolar dado de vida
+                    </button>
+                    <button type="button" id="applyClassFromSheetBtn" class="sheet-dice-btn sheet-dice-btn--compact">
+                      Aplicar da classe
+                    </button>
+                    <button type="button" id="suggestHpMaxBtn" class="sheet-dice-btn sheet-dice-btn--compact">
+                      Sugerir PV máx.
                     </button>
                     <span id="hitDieRollResult" class="sheet-roll-result" aria-live="polite"></span>
                   </div>
@@ -275,6 +398,17 @@
                     </button>
                   </div>
                   <div id="spellSlotsGrid" class="spell-slots-grid" aria-live="polite"></div>
+                  <div id="multiclassPanel" class="multiclass-panel" aria-label="Multiclasse"></div>
+                  <label class="sheet-inline-field">
+                    <span class="sheet-name-label">Preparação (mago/clérigo/druida)</span>
+                    <select id="preparedCasterSelect" class="sheet-select">
+                      <option value="none">Sem limite de preparação</option>
+                      <option value="wizard">Mago (INT)</option>
+                      <option value="cleric">Clérigo (SAB)</option>
+                      <option value="druid">Druida (SAB)</option>
+                    </select>
+                  </label>
+                  <p id="preparedSpellsHint" class="sheet-combat-hint"></p>
                 </fieldset>
 
                 <fieldset class="sheet-spell-list" aria-labelledby="sheetSpellListTitle">
@@ -292,36 +426,65 @@
 
                 <fieldset class="sheet-rest" aria-labelledby="sheetRestTitle">
                   <legend id="sheetRestTitle" class="sheet-name-label">Descanso</legend>
-                  <label class="sheet-inline-field sheet-inline-field--grow">
+                  <div id="restEnvironmentScene" class="rest-environment-scene" data-theme="tavern" aria-hidden="false">
+                    <span class="rest-environment-scene__icon" aria-hidden="true">🍺</span>
+                    <div class="rest-environment-scene__text">
+                      <span class="rest-environment-scene__label">Taverna ou pousada</span>
+                      <span class="rest-environment-scene__mood">Ambiente confortável; descanso longo completo (PHB).</span>
+                    </div>
+                  </div>
+                  <div class="sheet-rest-body">
+                  <label class="sheet-inline-field sheet-rest-field">
                     <span class="sheet-name-label">Ambiente</span>
                     <select id="restEnvironmentSelect" class="sheet-select"></select>
                   </label>
-                  <p id="restEnvironmentHint" class="sheet-rest-hint"></p>
+                  <p id="restEnvironmentHint" class="sheet-rest-hint visually-hidden"></p>
                   <div class="sheet-rest-hd">
-                    <label class="sheet-inline-field">
+                    <label class="sheet-inline-field sheet-rest-field">
                       <span class="sheet-name-label">Dados de vida restantes</span>
-                      <input
-                        type="number"
-                        id="hitDiceRemainingInput"
-                        class="sheet-number-input"
-                        min="0"
-                        max="20"
-                        inputmode="numeric"
-                      />
-                      <span id="hitDiceMaxHint" class="sheet-rest-hd-max"></span>
+                      <span class="sheet-rest-hd-inputs">
+                        <input
+                          type="number"
+                          id="hitDiceRemainingInput"
+                          class="sheet-number-input"
+                          min="0"
+                          max="20"
+                          inputmode="numeric"
+                        />
+                        <span id="hitDiceMaxHint" class="sheet-rest-hd-max"></span>
+                      </span>
                     </label>
                   </div>
                   <div class="sheet-rest-actions">
-                    <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="short-rest">
-                      Descanso curto
-                    </button>
-                    <button type="button" class="sheet-dice-btn" data-action="long-rest">
-                      Descanso longo
-                    </button>
+                    <div class="sheet-rest-actions__spend">
+                      <label class="sheet-rest-field sheet-rest-field--inline" for="shortRestHdCount">
+                        <span class="sheet-name-label">Gastar DV no curto</span>
+                        <input
+                          type="number"
+                          id="shortRestHdCount"
+                          class="sheet-number-input"
+                          min="1"
+                          max="20"
+                          value="1"
+                          inputmode="numeric"
+                        />
+                      </label>
+                      <button type="button" id="shortRestSpendHdBtn" class="sheet-dice-btn sheet-dice-btn--compact">
+                        Curar com DV
+                      </button>
+                    </div>
+                    <div class="sheet-rest-actions__rests">
+                      <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="short-rest">
+                        Descanso curto (1 DV)
+                      </button>
+                      <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-action="long-rest">
+                        Descanso longo
+                      </button>
+                    </div>
                   </div>
                   <p id="restResultMessage" class="sheet-rest-result" role="status" aria-live="polite"></p>
+                  </div>
                 </fieldset>
-              </div>
             </div>
           </section>
 
@@ -510,9 +673,34 @@
       </div>
     </aside>
 
+
+    <dialog id="creationWizardDialog" class="creation-wizard-dialog" aria-labelledby="creationWizardTitle">
+      <form method="dialog" class="creation-wizard-form">
+        <header class="creation-wizard-header">
+          <h2 id="creationWizardTitle" class="creation-wizard-title">Criar personagem</h2>
+          <p id="creationWizardStepLabel" class="creation-wizard-step-label"></p>
+        </header>
+        <div id="creationWizardBody" class="creation-wizard-body"></div>
+        <p id="creationWizardStatus" class="creation-wizard-status" role="status" aria-live="polite"></p>
+        <footer class="creation-wizard-footer">
+          <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-wizard-action="cancel">Cancelar</button>
+          <button type="button" id="creationWizardBackBtn" class="sheet-dice-btn sheet-dice-btn--compact" data-wizard-action="back">Anterior</button>
+          <button type="button" id="creationWizardNextBtn" class="sheet-dice-btn" data-wizard-action="next">Seguinte</button>
+          <button type="button" id="creationWizardFinishBtn" class="sheet-dice-btn" data-wizard-action="finish" hidden>Concluir</button>
+        </footer>
+      </form>
+    </dialog>
+
     <script src="spellcasting-data.js"></script>
+    <script src="campaign-store.js"></script>
     <script src="shared.js"></script>
+    <script src="campaign-ui.js"></script>
     <script src="detail-layouts.js"></script>
+    <script src="sheet-v3-combat.js"></script>
+    <script src="sheet-class-sync.js"></script>
+    <script src="sheet-v31-spellcasting.js"></script>
+    <script src="sheet-creation-data.js"></script>
+    <script src="sheet-creation-wizard.js"></script>
     <script src="sheet.js"></script>
     <script src="pwa-init.js"></script>
   </body>
