@@ -3,24 +3,216 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Eliabe Gai — projetos</title>
-    <meta name="description" content="Página raiz dos projetos GitHub Pages de Eliabe Gai." />
-    <meta http-equiv="refresh" content="0; url=https://eliabegai.github.io/rpg/" />
-    <link rel="canonical" href="https://eliabegai.github.io/rpg/" />
     <script
       async
       src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9928851087671550"
       crossorigin="anonymous"
     ></script>
+    <!-- Google Analytics (GA4): descomente e substitua G-XXXXXXXXXX pelo Measurement ID
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX');
+    </script>
+    -->
+    <script src="js/core/base-path.js"></script>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#1e3a5f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Grimório 5e — Explorar API D&amp;D (monstros, magias, classes)</title>
+    <meta
+      name="description"
+      content="Grimório 5e: explora a API oficial de Dungeons &amp; Dragons 5ª edição (2014) em português. Consulta monstros, magias, classes, equipamento e regras. Marca favoritos para a ficha e a mesa do mestre."
+    />
+    <meta
+      name="keywords"
+      content="dnd 5e, dungeons and dragons, grimorio 5e, API dnd, monstros 5e, magias 5e, ficha dnd, mestre, bestiário, regras 5e"
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://eliabenextil.github.io/rpg/index.html" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Grimório 5e" />
+    <meta property="og:title" content="Grimório 5e — Explorar API D&amp;D" />
+    <meta
+      property="og:description"
+      content="Consulta monstros, magias e regras de D&amp;D 5e em português. Favoritos, ficha e mesa do mestre no browser."
+    />
+    <meta property="og:url" content="https://eliabenextil.github.io/rpg/index.html" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Grimório 5e — Explorar API D&amp;D" />
+    <meta
+      name="twitter:description"
+      content="Ferramenta gratuita para explorar D&amp;D 5e: monstros, magias, ficha e mesa do mestre."
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Grimório 5e",
+        "description": "Explorador da API D&D 5e, ficha de personagem e mesa do mestre em português.",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Web",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+        "inLanguage": "pt-BR",
+        "url": "https://eliabenextil.github.io/rpg/"
+      }
+    </script>
   </head>
   <body>
-    <main>
-      <h1>Eliabe Gai</h1>
-      <p>
-        Segue para o
-        <a href="https://eliabegai.github.io/rpg/">Grimório 5e</a>.
-      </p>
-      <p><a href="https://eliabegai.github.io/rpg/privacy.html">Política de Privacidade</a></p>
-    </main>
+    <div class="app-shell">
+      <aside class="api-sidebar" aria-label="Grimório 5e — recursos da API">
+        <nav class="app-top-nav app-top-nav--sidebar" aria-label="Navegação">
+          <span class="app-top-nav-current" aria-current="page">Explorar</span>
+          <a class="app-top-nav-link" href="sheet.html">Ficha</a>
+          <a class="app-top-nav-link" href="dm.html">Mestre</a>
+        </nav>
+        <h2 class="sidebar-title">Grimório 5e</h2>
+        <p class="sidebar-sub">
+          <a
+            id="apiRootDocLink"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Índice raiz (JSON)</a
+          >
+        </p>
+        <nav id="apiRootNav" class="api-root-nav" aria-label="Recursos da API"></nav>
+        <div class="sidebar-ad" aria-label="Publicidade">
+          <p class="sidebar-ad-hint">Publicidade</p>
+          <!-- Unidade Display: após criar o slot no AdSense, descomente e preencha data-ad-slot
+          <ins
+            class="adsbygoogle"
+            style="display: block"
+            data-ad-client="ca-pub-9928851087671550"
+            data-ad-slot="YYYYYYY"
+            data-ad-format="auto"
+            data-full-width-responsive="true"
+          ></ins>
+          <script>
+            (adsbygoogle = window.adsbygoogle || []).push({});
+          </script>
+          -->
+        </div>
+      </aside>
+      <main class="main-content">
+        <div class="container">
+          <div class="locale-bar" aria-label="Idioma e fonte de dados">
+            <label for="explorerProviderSelect" class="locale-bar-label">Fonte</label>
+            <select id="explorerProviderSelect" class="locale-bar-select" aria-label="Fonte de dados do explorador">
+              <option value="dnd5eapi">dnd5eapi (pt-BR)</option>
+              <option value="open5e">Open5e (spike)</option>
+            </select>
+            <label for="localeSelect" class="locale-bar-label">Idioma</label>
+            <select id="localeSelect" class="locale-bar-select" aria-label="Idioma das traduções (BCP 47)">
+              <option value="pt-BR">pt-BR</option>
+            </select>
+          </div>
+          <header class="main-header">
+            <h1 id="mainTitle">Grimório 5e — Explorar</h1>
+            <p id="mainSubtitle" class="main-subtitle">
+              Consulta a API de D&amp;D 5e (2014) em português: monstros, magias, classes e mais. Escolhe um recurso na barra lateral.
+            </p>
+          </header>
+
+          <section id="browsePanel" class="browse-panel" hidden>
+            <div class="browse-toolbar browse-toolbar-split">
+              <div class="browse-toolbar-grow">
+                <label class="visually-hidden" for="itemFilterInput">Pesquisar na lista</label>
+                <input
+                  type="search"
+                  id="itemFilterInput"
+                  class="filter-input"
+                  placeholder="Pesquisar por nome ou índice…"
+                  autocomplete="off"
+                />
+              </div>
+              <div class="filter-group">
+                <label for="listScopeSelect" class="control-label">Lista</label>
+                <select id="listScopeSelect" class="control-select" aria-label="Mostrar todos ou só favoritos">
+                  <option value="all">Todos os itens</option>
+                  <option value="favorites">Só favoritos</option>
+                </select>
+              </div>
+            </div>
+            <p class="filter-hint">
+              <span id="favoritesCountHint">Favoritos guardados neste navegador.</span>
+              <a href="sheet.html" class="filter-hint-link">Montar ficha com favoritos →</a>
+              Em Spells: nível, escola, classe e subclasse (combináveis com a pesquisa).
+            </p>
+            <div id="resourceExtraFilters" class="resource-extra-filters" hidden>
+              <div class="spell-filters-grid">
+                <div class="spell-filter-field">
+                  <label for="spellLevelSelect" class="spell-level-label">Nível</label>
+                  <select id="spellLevelSelect" class="spell-level-select" aria-label="Filtrar feitiços por nível">
+                    <option value="">Todos</option>
+                    <option value="0">Truques (0)</option>
+                    <option value="1">1º</option>
+                    <option value="2">2º</option>
+                    <option value="3">3º</option>
+                    <option value="4">4º</option>
+                    <option value="5">5º</option>
+                    <option value="6">6º</option>
+                    <option value="7">7º</option>
+                    <option value="8">8º</option>
+                    <option value="9">9º</option>
+                  </select>
+                </div>
+                <div class="spell-filter-field">
+                  <label for="spellSchoolSelect" class="spell-level-label">Escola</label>
+                  <select id="spellSchoolSelect" class="spell-level-select" aria-label="Filtrar por escola de magia">
+                    <option value="">Todas</option>
+                  </select>
+                </div>
+                <div class="spell-filter-field">
+                  <label for="spellClassSelect" class="spell-level-label">Classe</label>
+                  <select id="spellClassSelect" class="spell-level-select" aria-label="Filtrar por classe">
+                    <option value="">Todas</option>
+                  </select>
+                </div>
+                <div class="spell-filter-field">
+                  <label for="spellSubclassSelect" class="spell-level-label">Subclasse</label>
+                  <select id="spellSubclassSelect" class="spell-level-select" aria-label="Filtrar por subclasse">
+                    <option value="">Todas</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div id="paginationTop" class="pagination" aria-label="Paginação"></div>
+            <ul id="itemResultsList" class="item-results-list"></ul>
+            <div id="paginationBottom" class="pagination" aria-label="Paginação"></div>
+          </section>
+
+          <section class="detail-wrap" aria-live="polite">
+            <h2 class="detail-heading">Detalhe</h2>
+            <div id="detailPanel" class="detail-panel">
+              <p class="detail-placeholder">Ainda não há nenhum item selecionado.</p>
+            </div>
+          </section>
+
+          <footer class="site-footer">
+            <p>
+              <strong>Grimório 5e</strong> é uma ferramenta gratuita para jogadores e mestres de
+              <em>Dungeons &amp; Dragons</em> 5ª edição (2014): explora a API oficial, monta a
+              <a href="sheet.html">ficha de personagem</a> com favoritos e gere combates na
+              <a href="dm.html">mesa do mestre</a> (iniciativa, PV, dano e XP).
+            </p>
+            <p class="site-footer-links">
+              <a href="privacy.html">Política de Privacidade</a>
+            </p>
+          </footer>
+        </div>
+      </main>
+    </div>
+    <script src="js/data/spellcasting-data.js"></script>
+    <script src="js/core/api-client.js"></script>
+    <script src="js/core/api-explorer.js"></script>
+    <script src="js/core/shared.js"></script>
+    <script src="js/explorer/open5e-creature-adapter.js"></script>
+    <script src="js/explorer/detail-layouts.js"></script>
+    <script src="js/explorer/script.js"></script>
+    <script src="js/core/pwa-init.js"></script>
   </body>
 </html>
