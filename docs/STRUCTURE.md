@@ -20,7 +20,8 @@ rpg/
 ├── js/
 │   ├── core/               # Partilhado por todas as páginas
 │   │   ├── base-path.js    # <base href>, injeta CSS, appPageHref / appAssetHref
-│   │   ├── api-client.js   # Origem e paths da API (`apiListPath`, `apiItemPath`, …)
+│   │   ├── api-client.js   # dnd5eapi: origem e paths (`apiListPath`, `apiItemPath`, …)
+│   │   ├── api-explorer.js # Explorador: dual-provider dnd5eapi \| Open5e (spike)
 │   │   ├── shared.js       # localStorage, ficha/mesa, favoritos, apiFetch/apiUrl
 │   │   └── pwa-init.js     # Service worker + modo mesa
 │   ├── data/               # Tabelas e textos locais (sem DOM)
@@ -28,6 +29,7 @@ rpg/
 │   │   └── dm-quick-ref-data.js
 │   ├── explorer/           # index.html
 │   │   ├── script.js
+│   │   ├── open5e-creature-adapter.js
 │   │   └── detail-layouts.js
 │   ├── sheet/              # sheet.html
 │   │   ├── sheet.js
@@ -52,16 +54,19 @@ rpg/
 1. `js/core/base-path.js` — sempre primeiro no `<head>`.
 2. `js/data/*` e `js/campaign/campaign-store.js` — antes de `shared.js` se usarem constantes globais.
 3. `js/core/api-client.js` — **sempre antes de** `shared.js`.
-4. `js/core/shared.js` — modelo de dados, `apiFetch` / `apiUrl`.
-5. Módulos da página (`explorer/`, `sheet/`, `dm/`).
-6. `js/core/pwa-init.js` — por último.
+4. `js/core/api-explorer.js` — antes de `shared.js` (só necessário em `index.html`; opcional noutras páginas).
+5. `js/core/shared.js` — modelo de dados, `apiFetch` / `apiUrl`.
+6. Módulos da página (`explorer/`, `sheet/`, `dm/`).
+7. `js/core/pwa-init.js` — por último.
+
+**index.html** adicional: `open5e-creature-adapter.js` antes de `detail-layouts.js`.
 
 ### API de dados
 
 - Configuração única: `js/core/api-client.js` (`API_BASE`, `API_CATALOG_VERSION`).
 - Pedidos HTTP com locale: `apiFetch()` / `apiUrl()` em `shared.js` (aplicam `withActiveApiPath` em URLs guardadas).
 - Novo código: usar `apiListPath("recurso")`, `apiItemPath("recurso", "index")`, `buildApiEntryPath({ … })` — não hardcodar `/api/2014`.
-- Migração futura: alterar `API_CATALOG_VERSION` (e adaptadores JSON por domínio na ficha/explorador/mesa).
+- Migração / segundo provider: ver **v5** no `ROADMAP.md` (`api-explorer.js` + adaptadores em `js/explorer/`).
 
 ## Onde alterar o quê
 

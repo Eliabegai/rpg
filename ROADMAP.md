@@ -10,6 +10,7 @@ Planeamento de produto alinhado ao PHB/DMG (5e 2014) e ao estado atual do projet
 | **Ficha** | v3.0–v3.4 fechados; **v4** planeado (criação PHB completa + polimento) |
 | **Mesa (DM)** | Monstros (PV, dano, iniciativa, imagens), iniciativa unificada, dificuldade de encontro DMG, XP por sessão + histórico, personagens (nível, sync, eliminado), modo mesa |
 | **Infra** | PWA, `js/core/base-path` GitHub Pages, campanha export/import JSON, SEO; pastas `js/`, `assets/`, `docs/STRUCTURE.md` |
+| **API v5 (spike)** | Dual-provider no explorador: dnd5eapi (default) + Open5e creatures — `api-explorer.js` |
 
 ---
 
@@ -298,6 +299,87 @@ Dependências sugeridas:
 - **v3.2** condições alinhadas com v3.0 (mesma lista na ficha e na mesa).
 - **v3.3** assistente reutiliza detalhe livro e escolhas já feitas em classe/background.
 - **v3.4** pode correr em paralelo após v3.0, à medida que faltar conteúdo no explorador.
+
+---
+
+## v5 — Dual-provider API (dnd5eapi + Open5e)
+
+**Decisão:** manter **dnd5eapi** como fonte única da **ficha**, **mesa** e regras PHB/DMG locais. A **Open5e** entra só no **explorador**, de forma incremental, sem migrar storage nem conjuração até existir modelo interno estável.
+
+Referência Open5e: [documentação da API v2](https://open5e.com/api-docs) (`https://api.open5e.com/v2/…`, paginação DRF, filtros `name__icontains`, `document__key__in`).
+
+### Princípios v5
+
+| Princípio | Detalhe |
+|-----------|---------|
+| Default | `dnd5eapi` + catálogo `/api/2014` (`js/core/api-client.js`) |
+| Explorador | `js/core/api-explorer.js` — provider `dnd5eapi` \| `open5e` (só `index.html`) |
+| Adaptadores | JSON por domínio (ex. `open5e-creature-adapter.js` → layout monstro) |
+| Ficha / mesa | Sem Open5e até v5.2+; favoritos Open5e não alimentam a mesa no spike |
+
+### v5.0 — Spike Open5e Creatures (explorador)
+
+| Item | Descrição | Estado |
+|------|-----------|--------|
+| Select **Fonte** no explorador | `dnd5eapi (pt-BR)` \| `Open5e (spike)`; `localStorage` `dnd5eapi.explorerProvider` | Feito |
+| Sidebar Open5e | Só recurso **Creatures** (`monsters` interno → `/v2/creatures/`) | Feito |
+| Lista paginada no servidor | `?limit=25&page=` + `name__icontains` para pesquisa | Feito |
+| Detalhe estilo livro | `adaptOpen5eCreatureToMonster` + `renderMonsterDetailLayout` | Feito |
+| Aviso UX | Favoritos Open5e não ligam à mesa; texto em inglês | Feito |
+
+**Critério de aceite:** em Explorar, com fonte Open5e, navegar creatures, pesquisar por nome, abrir detalhe com ND/PV/ações; voltar a dnd5eapi e ver sidebar completa em pt-BR.
+
+**Como testar v5.0**
+
+1. Abrir `index.html` → **Fonte → Open5e (spike)** (recarrega).
+2. Barra lateral: nota experimental + **Creatures**; abrir lista.
+3. Pesquisar `dragon` → pedidos a `api.open5e.com/v2/creatures/?name__icontains=…`.
+4. Abrir um item → detalhe com tabela PHB-like; linha «Fonte: … (Open5e)».
+5. **Fonte → dnd5eapi** → sidebar com todos os recursos; magias/classes como antes.
+6. Ficha / Mestre: inalterados (só dnd5eapi).
+
+### v5.1 — Open5e Spells (explorador)
+
+| Item | Descrição |
+|------|-----------|
+| Endpoint `/v2/spells/` | Lista + detalhe com adaptador fino |
+| Filtros | Nível, escola, classe via query DRF (substituir N+1 da dnd5eapi) |
+| Favoritos | Marcar provider no favorito ou normalizar path |
+
+**Critério de aceite:** filtros de magias no explorador Open5e sem carregar cada feitiço individualmente.
+
+### v5.2 — Modelo interno + ficha (opcional)
+
+| Item | Descrição |
+|------|-----------|
+| `normalizeEntry(provider, resourceKey, raw)` | Contrato único para ficha/importação |
+| Raça/espécie, antecedente, classe | Adaptadores Open5e só se catálogo estivervel |
+| Mesa | Creatures Open5e nos favoritos com `provider` |
+
+### v5.3 — Produto
+
+| Item | Descrição |
+|------|-----------|
+| Filtro `document__key__in=srd-2024` | Só SRD 2024 na Open5e |
+| Busca global `/v2/search/` | Opcional no explorador |
+| Documentação | `docs/API-PROVIDERS.md` com mapa de campos |
+
+### Ordem v5
+
+```
+v5.0 (spike creatures) → v5.1 (spells explorador) → v5.2 (modelo interno / ficha) → v5.3 (polimento)
+```
+
+### Mapa técnico (referência)
+
+| Grimório `resourceKey` | dnd5eapi | Open5e v2 |
+|------------------------|----------|-----------|
+| `monsters` | `/api/2014/monsters` | `/v2/creatures/` |
+| `spells` | `/api/2014/spells` | `/v2/spells/` (v5.1) |
+| `races` | `/api/2014/races` | `/v2/species/` (v5.2+) |
+| `classes` | `/api/2014/classes` | `/v2/classes/` |
+
+**Ficheiros v5:** `js/core/api-client.js`, `js/core/api-explorer.js`, `js/explorer/open5e-creature-adapter.js`, `js/explorer/script.js`.
 
 ---
 
