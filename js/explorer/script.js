@@ -404,7 +404,39 @@ function onDetailPanelPickChange(e) {
   updatePickListHint(fieldset);
 }
 
+async function openApiRefFromDetail(btn) {
+  const resourceKey = btn.getAttribute("data-resource") || "";
+  const index = btn.getAttribute("data-index") || "";
+  const path = btn.getAttribute("data-path") || "";
+  if (!resourceKey || !index) return;
+
+  const sidebarBtn =
+    apiRootNav?.querySelector(`.sidebar-resource-btn[data-resource-key="${CSS.escape(resourceKey)}"]`) || null;
+  const resourcePath = sidebarBtn?.dataset.resourcePath || apiListPath(resourceKey);
+
+  await selectResource(resourceKey, resourcePath, sidebarBtn, {
+    resourceKey,
+    resourcePath,
+    itemIndex: String(index),
+    itemPath: path || apiItemPath(resourceKey, index),
+    filter: "",
+    spellLevel: "",
+    spellSchool: "",
+    spellClass: "",
+    spellSubclass: "",
+    page: 1,
+    listScope: listScopeFilter,
+  });
+}
+
 function onDetailPanelClick(e) {
+  const openBtn = e.target.closest('[data-action="open-api-ref"]');
+  if (openBtn && detailPanel.contains(openBtn)) {
+    e.preventDefault();
+    void openApiRefFromDetail(openBtn);
+    return;
+  }
+
   const btn = e.target.closest('[data-action="toggle-fav"]');
   if (!btn || !detailPanel.contains(btn)) return;
   const resourceKey = btn.getAttribute("data-resource");
@@ -597,12 +629,15 @@ function renderResultsPage() {
       if (url && selectedItemUrl === url) btn.classList.add("is-selected");
 
       const label = document.createElement("span");
+      label.className = "result-label";
       label.textContent = item.name ?? item.index ?? "(sem nome)";
-
       btn.appendChild(label);
 
       const metaParts = [];
-      if (item.index != null) metaParts.push(String(item.index));
+      const displayName = item.name != null ? String(item.name) : "";
+      const itemIndex = item.index != null ? String(item.index) : "";
+      /* Evita repetir o índice quando já é o único texto do label. */
+      if (itemIndex && itemIndex !== displayName) metaParts.push(itemIndex);
       if (item.level !== undefined && item.level !== null) metaParts.push(`nível ${item.level}`);
       if (item.spellMeta?.school) metaParts.push(formatResourceLabel(item.spellMeta.school));
 
@@ -822,6 +857,7 @@ function formatPrimitive(v) {
 
 function formatDescField(desc) {
   if (desc == null) return "";
+  if (typeof layoutFormatDesc === "function") return layoutFormatDesc(desc);
   if (Array.isArray(desc)) return desc.map((d) => `<p class="detail-text">${escapeHtml(String(d))}</p>`).join("");
   return `<p class="detail-text">${escapeHtml(String(desc))}</p>`;
 }
@@ -923,8 +959,33 @@ function renderPrimitiveInline(v) {
 }
 
 function renderNamedRef(v) {
-  const idx = v.index != null ? ` <span class="detail-muted">(${escapeHtml(String(v.index))})</span>` : "";
-  return `<span class="detail-ref">${escapeHtml(v.name)}${idx}</span>`;
+  if (!v || typeof v !== "object") return '<span class="detail-muted">—</span>';
+  const name = v.name != null ? String(v.name) : v.index != null ? formatResourceLabel(v.index) : "";
+  const idx = v.index != null && String(v.index) !== name
+    ? ` <span class="detail-muted">(${escapeHtml(String(v.index))})</span>`
+    : "";
+  const ref = typeof parseApiRefParts === "function" ? parseApiRefParts(v.url || "") : { resourceKey: "", index: "", path: "" };
+  const resourceKey = ref.resourceKey;
+  const index = String(v.index || ref.index || "");
+  const path = ref.path || cleanApiPath(v.url || "");
+
+  if (resourceKey && index) {
+    const kind = resourceKey
+      ? ` <span class="detail-ref-kind detail-ref-kind--inline">${escapeHtml(
+          typeof equipmentCategoryGroupLabel === "function"
+            ? equipmentCategoryGroupLabel(resourceKey)
+            : formatResourceLabel(resourceKey)
+        )}</span>`
+      : "";
+    return `<button type="button" class="detail-ref detail-ref--link" data-action="open-api-ref"
+      data-resource="${escapeHtml(resourceKey)}"
+      data-index="${escapeHtml(index)}"
+      data-path="${escapeHtml(path)}"
+      data-name="${escapeHtml(name || index)}"
+      title="Abrir ${escapeHtml(name || index)}">${escapeHtml(name || index)}${idx}${kind}</button>`;
+  }
+
+  return `<span class="detail-ref">${escapeHtml(name || "—")}${idx}</span>`;
 }
 
 /** Opção da API: option_type "reference" = liga a outro recurso (idioma, proficiência, etc.). */
@@ -1214,10 +1275,14 @@ function renderDetail(data) {
       simpleRows
         .map(([k, v]) => {
           const label = formatFieldLabel(k);
-          const valHtml =
-            typeof v === "string" && v.length > 100
-              ? `<p class="detail-text">${escapeHtml(v)}</p>`
-              : formatPrimitive(v);
+          let valHtml;
+          if (typeof v === "string" && typeof looksLikeApiMarkdown === "function" && looksLikeApiMarkdown(v)) {
+            valHtml = renderApiMarkdown(v);
+          } else if (typeof v === "string" && v.length > 100) {
+            valHtml = `<p class="detail-text">${escapeHtml(v)}</p>`;
+          } else {
+            valHtml = formatPrimitive(v);
+          }
           return `<dt>${escapeHtml(label)}</dt><dd>${valHtml}</dd>`;
         })
         .join("") +

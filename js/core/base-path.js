@@ -5,7 +5,7 @@
  */
 (function initAppBasePath() {
   /** Incrementar quando `styles.css` mudar de forma relevante. */
-  const APP_ASSET_VERSION = "7";
+  const APP_ASSET_VERSION = "12";
 
   function detectBasePath() {
     const { hostname, pathname } = window.location;

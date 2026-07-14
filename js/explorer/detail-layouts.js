@@ -24,9 +24,200 @@ function layoutAbilityBonuses(bonuses) {
 function layoutFormatDesc(desc) {
   if (desc == null) return "";
   if (Array.isArray(desc)) {
+    const joined = desc.map((d) => String(d)).join("\n\n");
+    if (looksLikeApiMarkdown(joined)) return renderApiMarkdown(joined);
     return desc.map((d) => `<p class="detail-text">${escapeHtml(String(d))}</p>`).join("");
   }
-  return `<p class="detail-text">${escapeHtml(String(desc))}</p>`;
+  const text = String(desc);
+  if (looksLikeApiMarkdown(text)) return renderApiMarkdown(text);
+  return `<p class="detail-text">${escapeHtml(text)}</p>`;
+}
+
+function looksLikeApiMarkdown(text) {
+  const s = String(text || "");
+  if (!s.trim()) return false;
+  return /^#{1,6}\s/m.test(s) || /^\|.+\|/m.test(s) || /\n\s*\n/.test(s);
+}
+
+function renderApiMarkdownInline(text) {
+  let t = escapeHtml(String(text || ""));
+  t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  t = t.replace(/(^|[^*\w])\*(.+?)\*(?!\*)/g, "$1<em>$2</em>");
+  t = t.replace(/`([^`]+)`/g, '<code class="detail-md-code">$1</code>');
+  return t;
+}
+
+function isMarkdownTableSeparatorRow(cells) {
+  return (
+    cells.length > 0 &&
+    cells.every((c) => {
+      const x = String(c).replace(/\s/g, "");
+      return /^:?-{3,}:?$/.test(x) || /^:?-+:?$/.test(x);
+    })
+  );
+}
+
+function renderMarkdownTable(tableLines) {
+  const rows = tableLines
+    .map((line) =>
+      line
+        .trim()
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((c) => c.trim())
+    )
+    .filter((cells) => cells.some((c) => c.length > 0));
+
+  if (!rows.length) return "";
+
+  let header = null;
+  const body = [];
+  for (const row of rows) {
+    if (isMarkdownTableSeparatorRow(row)) continue;
+    if (!header) {
+      header = row;
+      continue;
+    }
+    body.push(row);
+  }
+  if (!header) return "";
+
+  const headHtml = header.map((c) => `<th scope="col">${renderApiMarkdownInline(c)}</th>`).join("");
+  const bodyHtml = body
+    .map(
+      (row) =>
+        `<tr>${header.map((_, i) => `<td>${renderApiMarkdownInline(row[i] ?? "")}</td>`).join("")}</tr>`
+    )
+    .join("");
+
+  return `<div class="detail-phb-table-wrap detail-md-table-wrap">
+    <table class="detail-phb-table detail-md-table">
+      <thead><tr>${headHtml}</tr></thead>
+      <tbody>${bodyHtml}</tbody>
+    </table>
+  </div>`;
+}
+
+/**
+ * Markdown simples da API (regras): títulos, parágrafos, listas e tabelas.
+ */
+function renderApiMarkdown(raw, { skipTitle } = {}) {
+  const text = String(raw || "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+  if (!text) return "";
+
+  const lines = text.split("\n");
+  const blocks = [];
+  let i = 0;
+  let skippedTitle = false;
+
+  while (i < lines.length) {
+    const trimmed = lines[i].trim();
+
+    if (!trimmed) {
+      i += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("|") && trimmed.includes("|")) {
+      const tableLines = [];
+      while (i < lines.length) {
+        const t = lines[i].trim();
+        if (!t || !(t.startsWith("|") && t.includes("|"))) break;
+        tableLines.push(lines[i]);
+        i += 1;
+      }
+      const tableHtml = renderMarkdownTable(tableLines);
+      if (tableHtml) blocks.push(tableHtml);
+      continue;
+    }
+
+    const heading = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length;
+      const content = heading[2].trim();
+      if (
+        skipTitle &&
+        !skippedTitle &&
+        level <= 2 &&
+        content.toLowerCase() === String(skipTitle).toLowerCase()
+      ) {
+        skippedTitle = true;
+        i += 1;
+        continue;
+      }
+      const tag = level === 1 ? "h3" : level === 2 ? "h4" : "h5";
+      blocks.push(
+        `<${tag} class="detail-md-heading detail-md-h${level}">${renderApiMarkdownInline(content)}</${tag}>`
+      );
+      i += 1;
+      continue;
+    }
+
+    if (/^[-*•]\s+/.test(trimmed)) {
+      const items = [];
+      while (i < lines.length && /^[-*•]\s+/.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^[-*•]\s+/, ""));
+        i += 1;
+      }
+      blocks.push(
+        `<ul class="detail-md-list">${items
+          .map((item) => `<li>${renderApiMarkdownInline(item)}</li>`)
+          .join("")}</ul>`
+      );
+      continue;
+    }
+
+    const paraLines = [];
+    while (i < lines.length) {
+      const t = lines[i].trim();
+      if (!t) break;
+      if (/^(#{1,4})\s+/.test(t)) break;
+      if (t.startsWith("|") && t.includes("|")) break;
+      if (/^[-*•]\s+/.test(t)) break;
+      paraLines.push(t);
+      i += 1;
+    }
+    if (paraLines.length) {
+      blocks.push(
+        `<p class="detail-text detail-md-p">${renderApiMarkdownInline(paraLines.join(" "))}</p>`
+      );
+    }
+  }
+
+  return `<div class="detail-md">${blocks.join("")}</div>`;
+}
+
+function renderRuleSectionDetailLayout(data) {
+  const body = renderApiMarkdown(data.desc, { skipTitle: data.name });
+  const html = `<div class="detail-rule-prose">${body || `<p class="detail-muted">Sem descrição.</p>`}</div>`;
+  return { html, skip: new Set(["url", "updated_at", "image", "name", "index", "desc"]) };
+}
+
+function renderRulesDetailLayout(data) {
+  let html = "";
+  if (data.desc) {
+    html += `<div class="detail-rule-prose">${renderApiMarkdown(data.desc, {
+      skipTitle: data.name,
+    })}</div>`;
+  }
+  if (Array.isArray(data.subsections) && data.subsections.length) {
+    html += layoutSection(
+      "Secções",
+      `<ul class="detail-chip-list detail-rule-subsections">${data.subsections
+        .map((s) => {
+          if (typeof renderNamedRef === "function") return `<li>${renderNamedRef(s)}</li>`;
+          return `<li><span class="detail-ref">${escapeHtml(s.name || s.index || "")}</span></li>`;
+        })
+        .join("")}</ul>`
+    );
+  }
+  return {
+    html,
+    skip: new Set(["url", "updated_at", "image", "name", "index", "desc", "subsections"]),
+  };
 }
 
 function layoutKvRows(rows) {
@@ -53,6 +244,82 @@ function layoutChipList(items) {
 }
 
 const REF_CARDS_FETCH_BATCH = 8;
+
+function layoutDescPreview(desc, maxLen = 200) {
+  let text = "";
+  if (Array.isArray(desc)) text = desc.map((d) => String(d)).join(" ");
+  else if (desc != null) text = String(desc);
+  text = text.replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  if (text.length > maxLen) return `${text.slice(0, maxLen - 1)}…`;
+  return text;
+}
+
+function parseApiRefParts(pathOrUrl) {
+  const path = cleanApiPath(pathOrUrl || "");
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length >= 4 && parts[0] === "api") {
+    return {
+      resourceKey: parts[2],
+      index: parts[3] || "",
+      path,
+    };
+  }
+  if (parts.length >= 3 && parts[0] === "v2") {
+    return {
+      resourceKey: parts[1] === "creatures" ? "monsters" : parts[1],
+      index: (parts[2] || "").replace(/\/$/, ""),
+      path,
+    };
+  }
+  return { resourceKey: "", index: "", path };
+}
+
+function equipmentCategoryGroupLabel(resourceKey) {
+  const labels = {
+    "magic-items": "Itens mágicos",
+    equipment: "Equipamento",
+    weapons: "Armas",
+    armor: "Armaduras",
+  };
+  return labels[resourceKey] || formatResourceLabel(resourceKey);
+}
+
+/**
+ * Layout de equipment-categories: agrupa por tipo e carrega resumos (desc) + link ao detalhe.
+ */
+function renderEquipmentCategoryDetailLayout(data) {
+  const items = Array.isArray(data.equipment) ? data.equipment : [];
+  const groups = new Map();
+  for (const ref of items) {
+    const { resourceKey } = parseApiRefParts(ref?.url);
+    const key = resourceKey || "outros";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(ref);
+  }
+
+  const orderedKeys = [...groups.keys()].sort((a, b) => {
+    const rank = (k) => (k === "magic-items" ? 0 : k === "equipment" ? 1 : 2);
+    const d = rank(a) - rank(b);
+    return d !== 0 ? d : a.localeCompare(b);
+  });
+
+  let html = `<p class="detail-muted detail-category-count">${items.length} item(ns) nesta categoria. Clica em «Ver detalhe» para abrir em Equipment / Magic Items.</p>`;
+
+  for (const key of orderedKeys) {
+    const refs = groups.get(key);
+    const title = `${equipmentCategoryGroupLabel(key)} (${refs.length})`;
+    html += layoutSection(
+      title,
+      layoutRefCardsMount(refs, {
+        loadingLabel: `A carregar ${equipmentCategoryGroupLabel(key).toLowerCase()}…`,
+      })
+    );
+  }
+
+  const skip = new Set(["url", "updated_at", "image", "name", "index", "equipment", "desc"]);
+  return { html, skip };
+}
 
 function layoutRefCardsMount(refs, { loadingLabel = "A carregar…" } = {}) {
   const refsArr = Array.isArray(refs) ? refs : [];
@@ -256,13 +523,44 @@ async function fetchRefCards(urls) {
 function refCardsHtml(items, emptyMessage) {
   const cards = items
     .filter(Boolean)
-    .map(
-      (item) =>
-        `<article class="detail-action-card"><h5 class="detail-action-name">${escapeHtml(item.name || "")}</h5>${layoutFormatDesc(item.desc)}</article>`
-    )
+    .map((item) => {
+      const ref = parseApiRefParts(item.url || "");
+      const resourceKey = ref.resourceKey;
+      const index = String(item.index || ref.index || "");
+      const path = ref.path || cleanApiPath(item.url || "");
+      const preview = layoutDescPreview(item.desc);
+      const metaParts = [];
+      if (item.rarity?.name) metaParts.push(item.rarity.name);
+      if (item.equipment_category?.name) metaParts.push(item.equipment_category.name);
+      if (item.gear_category?.name) metaParts.push(item.gear_category.name);
+      if (item.weapon_category) metaParts.push(String(item.weapon_category));
+      if (item.armor_category) metaParts.push(String(item.armor_category));
+      if (item.category_range) metaParts.push(String(item.category_range));
+      const meta = metaParts.join(" · ");
+      const openBtn =
+        resourceKey && index
+          ? `<button type="button" class="detail-open-ref-btn" data-action="open-api-ref"
+              data-resource="${escapeHtml(resourceKey)}"
+              data-index="${escapeHtml(index)}"
+              data-path="${escapeHtml(path)}"
+              data-name="${escapeHtml(String(item.name || index))}">Ver detalhe →</button>`
+          : "";
+      const kind = resourceKey
+        ? `<span class="detail-ref-kind">${escapeHtml(equipmentCategoryGroupLabel(resourceKey))}</span>`
+        : "";
+      return `<article class="detail-action-card detail-ref-card">
+        <div class="detail-ref-card-head">
+          <h5 class="detail-action-name">${escapeHtml(item.name || index || "")}</h5>
+          ${kind}
+        </div>
+        ${meta ? `<p class="detail-muted">${escapeHtml(meta)}</p>` : ""}
+        ${preview ? `<p class="detail-text detail-ref-preview">${escapeHtml(preview)}</p>` : layoutFormatDesc(item.desc)}
+        ${openBtn}
+      </article>`;
+    })
     .join("");
   return cards
-    ? `<div class="detail-action-list">${cards}</div>`
+    ? `<div class="detail-action-list detail-ref-card-list">${cards}</div>`
     : `<p class="detail-muted">${escapeHtml(emptyMessage)}</p>`;
 }
 
@@ -299,40 +597,195 @@ function spellSlotCounts(spellcasting) {
   return slots;
 }
 
-function formatClassSpecificLevelSummary(classSpecific) {
+function formatSpellSlotOrdinal(level) {
+  const n = Number(level);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return `${n}º`;
+}
+
+/**
+ * Tabela estilo PHB (Fonte de Magia): espaço de magia ↔ pontos de feitiçaria.
+ * @returns {string}
+ */
+function renderCreatingSpellSlotsTable(rows, { changed = false } = {}) {
+  if (!Array.isArray(rows) || !rows.length) return "";
+  const body = rows
+    .map((row) => {
+      const lvl = formatSpellSlotOrdinal(row?.spell_slot_level);
+      const cost = row?.sorcery_point_cost;
+      if (!lvl || cost == null) return "";
+      return `<tr>
+        <td class="detail-phb-table-cell detail-phb-table-cell--lvl">${escapeHtml(lvl)}</td>
+        <td class="detail-phb-table-cell detail-phb-table-cell--cost">${escapeHtml(String(cost))}</td>
+      </tr>`;
+    })
+    .filter(Boolean)
+    .join("");
+  if (!body) return "";
+
+  return `<div class="detail-phb-table-wrap${changed ? " is-changed" : ""}">
+    <p class="detail-phb-table-caption">Criar espaços de magia</p>
+    <p class="detail-phb-table-hint">Fonte de Magia — converte pontos de feitiçaria (PF) em espaços.</p>
+    <table class="detail-phb-table" aria-label="Custo em pontos de feitiçaria para criar espaços de magia">
+      <thead>
+        <tr>
+          <th scope="col">Espaço de magia</th>
+          <th scope="col">Custo (PF)</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+}
+
+function formatClassSpecificDice(val) {
+  if (!val || typeof val !== "object") return "";
+  const count = Number(val.dice_count);
+  const faces = Number(val.dice_value);
+  if (!Number.isFinite(count) || !Number.isFinite(faces) || count <= 0 || faces <= 0) return "";
+  return `${count}d${faces}`;
+}
+
+function classSpecificFieldLabel(key) {
+  const labels = {
+    sneak_attack: "Ataque furtivo",
+    martial_arts: "Artes marciais",
+    ki_points: "Pontos de ki",
+    unarmored_movement: "Movimento sem armadura",
+    rage_count: "Fúrias",
+    rage_damage_bonus: "Bónus de dano da fúria",
+    brutal_critical_dice: "Dados de crítico brutal",
+    bardic_inspiration_die: "Dado de inspiração bárdica",
+    song_of_rest_die: "Dado de canção de descanso",
+    magical_secrets_max_5: "Segredos mágicos (máx. 5º)",
+    magical_secrets_max_7: "Segredos mágicos (máx. 7º)",
+    magical_secrets_max_9: "Segredos mágicos (máx. 9º)",
+    channel_divinity_charges: "Cargas de canalizar divindade",
+    destroy_undead_cr: "Destruir mortos-vivos (ND)",
+    wild_shape_max_cr: "Forma selvagem (ND máx.)",
+    wild_shape_swim: "Forma selvagem (natação)",
+    wild_shape_fly: "Forma selvagem (voo)",
+    action_surges: "Surtos de ação",
+    indomitable_uses: "Usos de Indomável",
+    extra_attacks: "Ataques extra",
+    aura_range: "Alcance da aura",
+    favored_enemies: "Inimigos privilegiados",
+    favored_terrain: "Terrenos privilegiados",
+    sorcery_points: "Pontos de feitiçaria",
+    metamagic_known: "Metamagias conhecidas",
+    creating_spell_slots: "Criar espaços de magia",
+    arcane_recovery_levels: "Recuperação arcana (nível de slot)",
+    invocations_known: "Invocações conhecidas",
+    mystic_arcanum_level_6: "Arcano místico (6º)",
+    mystic_arcanum_level_7: "Arcano místico (7º)",
+    mystic_arcanum_level_8: "Arcano místico (8º)",
+    mystic_arcanum_level_9: "Arcano místico (9º)",
+  };
+  if (labels[key]) return labels[key];
+  const m = String(key).match(/^mystic_arcanum_level_(\d+)$/);
+  if (m) return `Arcano místico (${m[1]}º)`;
+  const s = String(key).match(/^magical_secrets_max_(\d+)$/);
+  if (s) return `Segredos mágicos (máx. ${s[1]}º)`;
+  return formatResourceLabel(key);
+}
+
+function formatClassSpecificValue(key, val) {
+  if (val == null || val === "") return "";
+
+  if (typeof val === "boolean") return val ? "sim" : "não";
+
+  if (typeof val === "number") {
+    if (key === "unarmored_movement" || key === "aura_range") return `+${val} pés`;
+    if (key.endsWith("_die") || key.includes("inspiration_die") || key.includes("rest_die")) {
+      return `d${val}`;
+    }
+    if (key === "rage_damage_bonus") return `+${val}`;
+    if (key === "destroy_undead_cr" || key === "wild_shape_max_cr") {
+      return Number.isInteger(val) ? String(val) : String(val);
+    }
+    return String(val);
+  }
+
+  if (Array.isArray(val)) {
+    if (!val.length) return "";
+    if (key === "creating_spell_slots") {
+      /* Tabela dedicada — não usar texto linear. */
+      return "";
+    }
+    return val
+      .map((item) => {
+        if (item == null) return "";
+        if (typeof item === "string" || typeof item === "number" || typeof item === "boolean") {
+          return String(item);
+        }
+        if (typeof item === "object") {
+          const dice = formatClassSpecificDice(item);
+          if (dice) return dice;
+          if (item.name) return String(item.name);
+          return "";
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (typeof val === "object") {
+    const dice = formatClassSpecificDice(val);
+    if (dice) return dice;
+    if (val.name != null) return String(val.name);
+    /* Objeto sem formato conhecido: omitir em vez de "[object Object]". */
+    return "";
+  }
+
+  return String(val);
+}
+
+/**
+ * HTML das entradas class_specific de um nível (nunca stringify de objetos).
+ * Com nível anterior: só mostra o que mudou (delta estilo livro).
+ * @returns {string}
+ */
+function renderClassSpecificLevelHtml(classSpecific, prevClassSpecific) {
   if (!classSpecific || typeof classSpecific !== "object") return "";
+
   const parts = [];
-  if (classSpecific.arcane_recovery_levels > 0) {
-    parts.push(`Recuperação arcana até slot de ${classSpecific.arcane_recovery_levels}º`);
-  }
-  if (classSpecific.action_surges > 0) {
-    parts.push(
-      classSpecific.action_surges === 1
-        ? "1 surto de ação"
-        : `${classSpecific.action_surges} surtos de ação`
-    );
-  }
-  if (classSpecific.extra_attacks > 0) {
-    parts.push(
-      classSpecific.extra_attacks === 1 ? "1 ataque extra" : `${classSpecific.extra_attacks} ataques extra`
-    );
-  }
-  if (classSpecific.indomitable_uses > 0) {
-    parts.push(
-      classSpecific.indomitable_uses === 1
-        ? "1 uso de Indomável"
-        : `${classSpecific.indomitable_uses} usos de Indomável`
-    );
-  }
   for (const [key, val] of Object.entries(classSpecific)) {
-    if (["arcane_recovery_levels", "action_surges", "extra_attacks", "indomitable_uses"].includes(key)) {
+    if (val === 0 || val === false || val === null || val === "") continue;
+    if (Array.isArray(val) && !val.length) continue;
+
+    if (key === "creating_spell_slots" && Array.isArray(val)) {
+      const prevVal = prevClassSpecific?.creating_spell_slots;
+      const signature = (rows) =>
+        Array.isArray(rows)
+          ? rows.map((r) => `${r?.spell_slot_level}:${r?.sorcery_point_cost}`).join("|")
+          : "";
+      const changed = prevClassSpecific == null || signature(prevVal) !== signature(val);
+      if (!changed) continue;
+      const tableHtml = renderCreatingSpellSlotsTable(val, { changed: true });
+      if (tableHtml) parts.push(`<li class="detail-class-specific-block">${tableHtml}</li>`);
       continue;
     }
-    if (val != null && val !== 0 && val !== "") {
-      parts.push(`${formatResourceLabel(key)}: ${val}`);
-    }
+
+    const display = formatClassSpecificValue(key, val);
+    if (!display) continue;
+
+    const prevVal = prevClassSpecific ? prevClassSpecific[key] : undefined;
+    const changed =
+      prevClassSpecific == null ||
+      formatClassSpecificValue(key, prevVal) !== display;
+    if (!changed) continue;
+
+    parts.push(
+      `<li class="detail-class-specific-item is-changed">
+        <span class="detail-class-specific-label">${escapeHtml(classSpecificFieldLabel(key))}</span>
+        <span class="detail-class-specific-value">${escapeHtml(display)}</span>
+      </li>`
+    );
   }
-  return parts.join(" · ");
+
+  if (!parts.length) return "";
+  return `<ul class="detail-class-specific-list">${parts.join("")}</ul>`;
 }
 
 function renderSpellcastingLevelHtml(spellcasting, prevSpellcasting) {
@@ -346,28 +799,40 @@ function renderSpellcastingLevelHtml(spellcasting, prevSpellcasting) {
   const hasSpellsKnown = spellcasting.spells_known != null;
   if (!hasCantrips && !hasSpellsKnown && !slots.length) return "";
 
+  /* Delta estilo PHB: truques/magias conhecidas só quando o número muda. */
+  const cantripsChanged =
+    hasCantrips &&
+    (!prevSpellcasting || prevSpellcasting.cantrips_known !== spellcasting.cantrips_known);
+  const spellsKnownChanged =
+    hasSpellsKnown &&
+    (!prevSpellcasting || prevSpellcasting.spells_known !== spellcasting.spells_known);
+
+  const slotsChanged = slots.some((s) => {
+    const prevCount = prevMap.get(s.level);
+    return prevCount === undefined || s.count !== prevCount;
+  });
+  /* Nível sem comparação (1.º com spellcasting): mostrar grelha completa. */
+  const showSlots = !prevSpellcasting || slotsChanged;
+  if (!cantripsChanged && !spellsKnownChanged && !showSlots) return "";
+
   let html = '<div class="detail-level-spellblock">';
 
-  if (hasCantrips) {
-    const changed =
-      !prevSpellcasting || prevSpellcasting.cantrips_known !== spellcasting.cantrips_known;
-    html += `<span class="detail-level-meta${changed ? " is-changed" : ""}">${escapeHtml(
+  if (cantripsChanged) {
+    html += `<span class="detail-level-meta is-changed">${escapeHtml(
       String(spellcasting.cantrips_known)
     )} truques</span>`;
   }
-  if (hasSpellsKnown) {
-    const changed =
-      !prevSpellcasting || prevSpellcasting.spells_known !== spellcasting.spells_known;
-    html += `<span class="detail-level-meta${changed ? " is-changed" : ""}">${escapeHtml(
+  if (spellsKnownChanged) {
+    html += `<span class="detail-level-meta is-changed">${escapeHtml(
       String(spellcasting.spells_known)
     )} magias conhecidas</span>`;
   }
 
-  if (slots.length) {
+  if (showSlots && slots.length) {
     html += '<div class="detail-slot-chips" aria-label="Espaços de magia por nível">';
     for (const s of slots) {
       const prevCount = prevMap.get(s.level);
-      const changed = prevCount === undefined || s.count > prevCount;
+      const changed = prevCount === undefined || s.count !== prevCount;
       html += `<span class="detail-slot-chip${changed ? " detail-slot-chip--changed" : ""}" title="Espaços de ${s.level}º nível de magia"><span class="detail-slot-chip-lvl">${s.level}º</span><span class="detail-slot-chip-n">${s.count}</span></span>`;
     }
     html += "</div>";
@@ -409,11 +874,11 @@ function renderClassLevelDescHtml(lv, prevLevel, seenFeaturesBefore) {
     </div>`);
   }
 
-  const cs = formatClassSpecificLevelSummary(lv.class_specific);
-  if (cs) {
-    blocks.push(`<div class="detail-level-note">
+  const csHtml = renderClassSpecificLevelHtml(lv.class_specific, prevLevel?.class_specific);
+  if (csHtml) {
+    blocks.push(`<div class="detail-level-note detail-level-note--class">
       <span class="detail-level-note-label">Classe</span>
-      <p class="detail-level-note-text">${escapeHtml(cs)}</p>
+      ${csHtml}
     </div>`);
   }
 
@@ -1008,5 +1473,8 @@ function getSpecializedDetailLayout(resourceKey, data) {
   if (resourceKey === "traits") return renderTraitDetailLayout(data);
   if (resourceKey === "feats") return renderFeatDetailLayout(data);
   if (resourceKey === "features") return renderFeatureDetailLayout(data);
+  if (resourceKey === "equipment-categories") return renderEquipmentCategoryDetailLayout(data);
+  if (resourceKey === "rule-sections") return renderRuleSectionDetailLayout(data);
+  if (resourceKey === "rules") return renderRulesDetailLayout(data);
   return null;
 }
