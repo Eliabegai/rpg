@@ -138,6 +138,77 @@ body {
   color: #334155;
 }
 
+.site-footer-links {
+  margin: 0.75rem 0 0;
+}
+
+.sidebar-ad {
+  margin-top: auto;
+  padding-top: 1rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.sidebar-ad-hint {
+  margin: 0 0 0.35rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.privacy-page {
+  min-height: 100vh;
+  padding: 1.5rem 1rem;
+  background: #f0f0f0;
+}
+
+.privacy-inner {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.75rem;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.12);
+  color: #334155;
+  line-height: 1.55;
+}
+
+.privacy-inner h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.5rem;
+  color: #1e293b;
+}
+
+.privacy-inner h2 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.1rem;
+  color: #1e293b;
+}
+
+.privacy-updated {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.privacy-back {
+  margin: 0 0 1rem;
+}
+
+.privacy-back a,
+.privacy-inner a {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.privacy-back a:hover,
+.privacy-inner a:hover {
+  text-decoration: underline;
+}
+
 .container {
   position: relative;
   background-color: white;
@@ -3996,6 +4067,10 @@ body.game-tools-open .game-tools-fab {
     max-height: 40vh;
     border-right: none;
     border-bottom: 1px solid #334155;
+  }
+
+  .sidebar-ad {
+    display: none;
   }
 
   .sheet-shell {
