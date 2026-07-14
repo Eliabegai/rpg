@@ -53,9 +53,12 @@ let selectedItemPath = "";
 let selectedItemData = null;
 
 let filterDebounceId = 0;
+/** Total do servidor (Open5e paginação remota). */
+let explorerListTotal = 0;
+let explorerServerPaginated = false;
 
 function syncApiRootDocLinkHref() {
-  if (apiRootDocLink) apiRootDocLink.href = apiUrl(apiRootPath());
+  if (apiRootDocLink) apiRootDocLink.href = explorerApiDocsUrl();
 }
 
 function loadSession() {
@@ -321,7 +324,36 @@ function afterFavoriteChange(resourceKey, index) {
   }
 }
 
+let explorerActiveResourcePath = "";
+
+async function reloadExplorerResourceList() {
+  if (!currentResourceLabel || !explorerActiveResourcePath) return;
+  mainSubtitle.textContent = "A carregar…";
+  try {
+    const payload = await fetchExplorerResourceList(currentResourceLabel, explorerActiveResourcePath, {
+      page: currentPage,
+      search: currentFilter,
+      pageSize: PAGE_SIZE,
+    });
+    allResults = payload.results;
+    explorerListTotal = payload.total;
+    explorerServerPaginated = payload.serverPaginated;
+    const total = explorerListTotal;
+    mainSubtitle.textContent = `${total} creatures — pesquisa no servidor (${PAGE_SIZE} por página). Favoritos Open5e ainda não ligam à mesa.`;
+    renderResultsPage();
+    persistUiSession();
+  } catch {
+    mainSubtitle.textContent = "Erro ao carregar creatures (Open5e).";
+    allResults = [];
+    explorerListTotal = 0;
+    renderResultsPage();
+  }
+}
+
 async function initLocalesDropdown() {
+  populateExplorerProviderSelect(document.getElementById("explorerProviderSelect"), {
+    onChange: () => window.location.reload(),
+  });
   await populateLocalesDropdown(localeSelect, {
     onChange() {
       spellFilterOptionsLoaded = false;
@@ -332,6 +364,10 @@ async function initLocalesDropdown() {
       }
     },
   });
+  if (localeSelect && isExplorerOpen5e()) {
+    localeSelect.disabled = true;
+    localeSelect.title = "Idioma aplica-se à dnd5eapi; Open5e está em inglês.";
+  }
 }
 
 function onSpellFilterChange() {
@@ -406,6 +442,13 @@ function itemSearchText(item) {
 function getFilteredResults() {
   let list = allResults.slice();
 
+  if (explorerServerPaginated) {
+    if (listScopeFilter === "favorites" && currentResourceLabel) {
+      list = list.filter((item) => isFavorite(currentResourceLabel, itemStableIndex(item)));
+    }
+    return list;
+  }
+
   if (listScopeFilter === "favorites" && currentResourceLabel) {
     list = list.filter((item) => isFavorite(currentResourceLabel, itemStableIndex(item)));
   }
@@ -419,8 +462,13 @@ function getFilteredResults() {
   return list.filter((item) => itemSearchText(item).includes(q));
 }
 
+function getPaginationTotalItems(filteredLength) {
+  return explorerServerPaginated ? explorerListTotal : filteredLength;
+}
+
 function getTotalPages(filteredLength) {
-  return Math.max(1, Math.ceil(filteredLength / PAGE_SIZE));
+  const total = getPaginationTotalItems(filteredLength);
+  return Math.max(1, Math.ceil(total / PAGE_SIZE));
 }
 
 function setSidebarActive(btn) {
@@ -444,7 +492,8 @@ function renderPagination(totalItems, totalPages) {
     prev.addEventListener("click", () => {
       if (currentPage > 1) {
         currentPage -= 1;
-        renderResultsPage();
+        if (explorerServerPaginated) void reloadExplorerResourceList();
+        else renderResultsPage();
         persistUiSession();
       }
     });
@@ -456,7 +505,8 @@ function renderPagination(totalItems, totalPages) {
     next.addEventListener("click", () => {
       if (currentPage < totalPages) {
         currentPage += 1;
-        renderResultsPage();
+        if (explorerServerPaginated) void reloadExplorerResourceList();
+        else renderResultsPage();
         persistUiSession();
       }
     });
@@ -479,13 +529,15 @@ function renderPagination(totalItems, totalPages) {
 
 function renderResultsPage() {
   const filtered = getFilteredResults();
-  const totalItems = filtered.length;
-  const totalPages = getTotalPages(totalItems);
+  const totalItems = getPaginationTotalItems(filtered.length);
+  const totalPages = getTotalPages(filtered.length);
 
   if (currentPage > totalPages) currentPage = totalPages;
   if (currentPage < 1) currentPage = 1;
 
   itemResultsList.replaceChildren();
+
+  const displayList = explorerServerPaginated ? filtered : filtered;
 
   if (totalItems === 0) {
     const li = document.createElement("li");
@@ -503,7 +555,9 @@ function renderResultsPage() {
     li.appendChild(empty);
     itemResultsList.appendChild(li);
   } else {
-    const slice = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    const slice = explorerServerPaginated
+      ? displayList
+      : filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
     for (const item of slice) {
       const li = document.createElement("li");
       li.className = "result-row-wrap";
@@ -636,16 +690,18 @@ async function openItemByIndex(index, fallbackPath) {
   if (!item) item = allResults.find((i) => itemStableIndex(i) === ix);
 
   let url = "";
-  if (item?.url) url = apiUrl(item.url);
-  else if (fallbackPath) url = apiUrl(fallbackPath);
+  if (item?.url) url = isOpen5eDataPath(item.url) ? item.url : apiUrl(item.url);
+  else if (fallbackPath) url = isOpen5eDataPath(fallbackPath) ? fallbackPath : apiUrl(fallbackPath);
   if (!url) return;
 
-  const posInFiltered = filtered.findIndex((i) => itemStableIndex(i) === ix);
-  if (posInFiltered >= 0) {
-    const targetPage = Math.floor(posInFiltered / PAGE_SIZE) + 1;
-    if (targetPage !== currentPage) {
-      currentPage = targetPage;
-      renderResultsPage();
+  if (!explorerServerPaginated) {
+    const posInFiltered = filtered.findIndex((i) => itemStableIndex(i) === ix);
+    if (posInFiltered >= 0) {
+      const targetPage = Math.floor(posInFiltered / PAGE_SIZE) + 1;
+      if (targetPage !== currentPage) {
+        currentPage = targetPage;
+        renderResultsPage();
+      }
     }
   }
 
@@ -654,9 +710,16 @@ async function openItemByIndex(index, fallbackPath) {
 }
 
 async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
+  if (!explorerSupportsResource(label)) {
+    mainSubtitle.textContent = "Este recurso não está disponível no modo Open5e (spike: só Creatures).";
+    browsePanel.hidden = true;
+    return;
+  }
+
   setSidebarActive(sidebarBtn);
   currentResourceLabel = label;
-  setResourceExtraFiltersVisible(label === "spells", !sessionRestore);
+  explorerActiveResourcePath = path;
+  setResourceExtraFiltersVisible(label === "spells" && !isExplorerOpen5e(), !sessionRestore);
 
   if (label === "spells") {
     await populateSpellFilterDropdowns();
@@ -699,26 +762,41 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
   }
 
   try {
-    const res = await apiFetch(path);
-    if (!res.ok) throw new Error("fetch");
-    const data = await res.json();
-    const results = resultsFromPayload(data);
+    if (sessionRestore) {
+      currentPage = Math.max(1, Number(sessionRestore.page) || 1);
+    } else {
+      currentPage = 1;
+    }
 
-    if (!results) {
+    const payload = await fetchExplorerResourceList(label, path, {
+      page: currentPage,
+      search: currentFilter,
+      pageSize: PAGE_SIZE,
+    });
+
+    if (payload.notAList) {
       mainSubtitle.textContent = "Este endpoint não devolve uma lista conhecida — mostramos o JSON em formato legível.";
       allResults = [];
+      explorerListTotal = 0;
+      explorerServerPaginated = false;
       browsePanel.hidden = true;
-      renderDetailFallback(data);
+      renderDetailFallback(payload.raw);
       return;
     }
 
-    if (label === "spells") {
-      allResults = await enrichSpellsWithMeta(results);
+    explorerServerPaginated = payload.serverPaginated;
+    explorerListTotal = payload.total;
+
+    if (label === "spells" && !isExplorerOpen5e()) {
+      allResults = await enrichSpellsWithMeta(payload.results);
       const total = allResults.length;
       mainSubtitle.textContent = `${total} feitiços — filtra por nível, escola, classe, subclasse e pesquisa (${PAGE_SIZE} por página).`;
+    } else if (explorerServerPaginated) {
+      allResults = payload.results;
+      mainSubtitle.textContent = `${explorerListTotal} creatures — pesquisa no servidor (${PAGE_SIZE} por página). Favoritos Open5e ainda não ligam à mesa.`;
     } else {
-      allResults = results;
-      const total = data.count ?? results.length;
+      allResults = payload.results;
+      const total = explorerListTotal;
       mainSubtitle.textContent = `${total} itens — filtra com a pesquisa; usa a paginação para percorrer (${PAGE_SIZE} por página).`;
     }
     renderResultsPage();
@@ -1109,6 +1187,9 @@ function renderDetail(data) {
     )}" loading="lazy" decoding="async" /></figure>`;
   }
   html += `<h3 class="detail-title">${escapeHtml(String(title))}</h3>`;
+  if (data._document) {
+    html += `<p class="detail-muted detail-source-line">Fonte: ${escapeHtml(String(data._document))} (Open5e)</p>`;
+  }
 
   if (layout?.html) html += layout.html;
 
@@ -1173,9 +1254,10 @@ async function loadItemDetail(url, rowBtn) {
   if (rowBtn) rowBtn.classList.add("is-selected");
 
   try {
-    const res = await apiFetch(url);
-    if (!res.ok) throw new Error("detail");
-    const data = await res.json();
+    const data = await fetchExplorerItemDetail(currentResourceLabel, {
+      url,
+      index: rowBtn?.dataset.index,
+    });
     selectedItemData = data;
     selectedItemIndex =
       data.index != null ? String(data.index) : rowBtn?.dataset.index ?? itemStableIndex({ url: selectedItemPath });
@@ -1200,7 +1282,7 @@ async function loadItemDetail(url, rowBtn) {
   }
 }
 
-async function populateApi2014Sidebar() {
+async function populateExplorerSidebar() {
   if (!apiRootNav) return;
 
   apiRootNav.replaceChildren();
@@ -1210,24 +1292,30 @@ async function populateApi2014Sidebar() {
   apiRootNav.appendChild(status);
 
   try {
-    const res = await apiFetch(apiRootPath());
-    if (!res.ok) throw new Error("api-root");
-    const data = await res.json();
+    const entries = await fetchExplorerCatalog();
     apiRootNav.replaceChildren();
+
+    if (isExplorerOpen5e()) {
+      const note = document.createElement("p");
+      note.className = "sidebar-status sidebar-open5e-note";
+      note.textContent =
+        "Modo experimental Open5e (inglês). Ficha e mesa continuam na dnd5eapi.";
+      apiRootNav.appendChild(note);
+    }
 
     const ul = document.createElement("ul");
     ul.className = "api-root-list";
 
-    const entries = Object.entries(data).sort(([a], [b]) => a.localeCompare(b));
-    for (const [key, path] of entries) {
-      if (typeof path !== "string") continue;
+    for (const entry of entries) {
+      const { key, path } = entry;
       const li = document.createElement("li");
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "sidebar-resource-btn";
       btn.dataset.resourceKey = key;
       btn.dataset.resourcePath = path;
-      btn.textContent = formatResourceLabel(key);
+      btn.textContent = entry.label || formatResourceLabel(key);
+      if (entry.hint) btn.title = entry.hint;
       btn.addEventListener("click", () => selectResource(key, path, btn));
       li.appendChild(btn);
       ul.appendChild(li);
@@ -1257,9 +1345,12 @@ itemFilterInput.addEventListener("input", () => {
   filterDebounceId = window.setTimeout(() => {
     currentFilter = itemFilterInput.value;
     currentPage = 1;
-    renderResultsPage();
-    persistUiSession();
-  }, 250);
+    if (explorerServerPaginated) void reloadExplorerResourceList();
+    else {
+      renderResultsPage();
+      persistUiSession();
+    }
+  }, explorerServerPaginated ? 400 : 250);
 });
 
 if (spellLevelSelect) spellLevelSelect.addEventListener("change", onSpellFilterChange);
@@ -1287,7 +1378,7 @@ async function boot() {
   await initLocalesDropdown();
   syncApiRootDocLinkHref();
   updateFavoritesCountHint();
-  await populateApi2014Sidebar();
+  await populateExplorerSidebar();
 }
 
 boot();

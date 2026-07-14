@@ -575,6 +575,8 @@ function renderMonsterDetailLayout(data) {
     "reactions",
     "forms",
     "desc",
+    "_provider",
+    "_document",
   ]);
 
   return { html, skip };

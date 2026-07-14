@@ -69,7 +69,12 @@
       </aside>
       <main class="main-content">
         <div class="container">
-          <div class="locale-bar" aria-label="Idioma da API">
+          <div class="locale-bar" aria-label="Idioma e fonte de dados">
+            <label for="explorerProviderSelect" class="locale-bar-label">Fonte</label>
+            <select id="explorerProviderSelect" class="locale-bar-select" aria-label="Fonte de dados do explorador">
+              <option value="dnd5eapi">dnd5eapi (pt-BR)</option>
+              <option value="open5e">Open5e (spike)</option>
+            </select>
             <label for="localeSelect" class="locale-bar-label">Idioma</label>
             <select id="localeSelect" class="locale-bar-select" aria-label="Idioma das traduções (BCP 47)">
               <option value="pt-BR">pt-BR</option>
@@ -170,7 +175,9 @@
     </div>
     <script src="js/data/spellcasting-data.js"></script>
     <script src="js/core/api-client.js"></script>
+    <script src="js/core/api-explorer.js"></script>
     <script src="js/core/shared.js"></script>
+    <script src="js/explorer/open5e-creature-adapter.js"></script>
     <script src="js/explorer/detail-layouts.js"></script>
     <script src="js/explorer/script.js"></script>
     <script src="js/core/pwa-init.js"></script>
