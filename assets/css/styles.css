@@ -142,21 +142,76 @@ body {
   margin: 0.75rem 0 0;
 }
 
-.sidebar-ad {
-  margin-top: auto;
-  padding-top: 1rem;
-  max-width: 100%;
-  overflow: hidden;
-  text-align: center;
-  flex-shrink: 0;
+.editorial-content {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  line-height: 1.65;
 }
 
-.sidebar-ad-hint {
-  margin: 0 0 0.35rem;
-  font-size: 0.65rem;
-  letter-spacing: 0.04em;
+.editorial-content h2 {
+  margin: 1.75rem 0 0.6rem;
+  color: #1e293b;
+  font-size: 1.2rem;
+}
+
+.editorial-content > h2:first-of-type {
+  margin-top: 0;
+}
+
+.editorial-content p {
+  margin: 0 0 0.9rem;
+}
+
+.editorial-eyebrow {
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #94a3b8;
+}
+
+.editorial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+}
+
+.editorial-card {
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.editorial-card h3 {
+  margin: 0 0 0.45rem;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.editorial-card p {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.editorial-content a {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .editorial-content {
+    padding: 1rem;
+  }
+
+  .editorial-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .privacy-page {
@@ -4067,10 +4122,6 @@ body.game-tools-open .game-tools-fab {
     max-height: 40vh;
     border-right: none;
     border-bottom: 1px solid #334155;
-  }
-
-  .sidebar-ad {
-    display: none;
   }
 
   .sheet-shell {
