@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://eliabenextil.github.io/rpg/sitemap.xml
+Sitemap: https://eliabegai.github.io/rpg/sitemap.xml

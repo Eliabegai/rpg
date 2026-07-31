@@ -44,6 +44,16 @@
     />
   </head>
   <body class="sheet-page">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-header-brand" href="index.html">Grimório 5e</a>
+        <nav class="site-header-nav" aria-label="Secções do site">
+          <a href="index.html">Home</a>
+          <a href="index.html?open=sobre#sobre" data-open-panel="sobre">Sobre</a>
+          <a href="privacy.html" data-open-panel="privacy">Política de Privacidade</a>
+        </nav>
+      </div>
+    </header>
     <div class="app-shell sheet-shell">
       <aside id="sheetFavoritesLibrary" class="sheet-library" aria-label="Biblioteca de favoritos">
         <nav class="app-top-nav" aria-label="Navegação">
@@ -62,6 +72,8 @@
         </p>
         <div id="favoritesLibrary" class="sheet-library-groups"></div>
         <p class="sheet-library-sub">
+          <a href="index.html#sobre" data-open-panel="sobre">Sobre</a>
+          ·
           <a href="privacy.html">Política de Privacidade</a>
         </p>
       </aside>
@@ -714,6 +726,7 @@
     <script src="js/sheet/sheet-creation-data.js"></script>
     <script src="js/sheet/sheet-creation-wizard.js"></script>
     <script src="js/sheet/sheet.js"></script>
+    <script src="js/core/site-nav.js"></script>
     <script src="js/core/pwa-init.js"></script>
   </body>
 </html>

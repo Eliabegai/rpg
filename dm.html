@@ -44,6 +44,16 @@
     />
   </head>
   <body class="dm-page">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-header-brand" href="index.html">Grimório 5e</a>
+        <nav class="site-header-nav" aria-label="Secções do site">
+          <a href="index.html">Home</a>
+          <a href="index.html?open=sobre#sobre" data-open-panel="sobre">Sobre</a>
+          <a href="privacy.html" data-open-panel="privacy">Política de Privacidade</a>
+        </nav>
+      </div>
+    </header>
     <div class="app-shell dm-shell">
       <aside class="dm-sidebar" aria-label="Monstros favoritos">
         <nav class="app-top-nav" aria-label="Navegação">
@@ -157,6 +167,8 @@
           </button>
         </section>
         <p class="dm-sidebar-hint">
+          <a href="index.html#sobre" data-open-panel="sobre">Sobre</a>
+          ·
           <a href="privacy.html">Política de Privacidade</a>
         </p>
       </aside>
@@ -269,6 +281,7 @@
     <script src="js/dm/dm-combat-sync.js"></script>
     <script src="js/dm/dm-v32.js"></script>
     <script src="js/dm/dm.js"></script>
+    <script src="js/core/site-nav.js"></script>
     <script src="js/core/pwa-init.js"></script>
   </body>
 </html>

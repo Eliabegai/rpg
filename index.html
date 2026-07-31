@@ -62,6 +62,16 @@
     </script>
   </head>
   <body>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-header-brand" href="index.html">Grimório 5e</a>
+        <nav class="site-header-nav" aria-label="Secções do site">
+          <a href="index.html" aria-current="page">Home</a>
+          <a href="index.html#sobre" data-open-panel="sobre">Sobre</a>
+          <a href="privacy.html" data-open-panel="privacy">Política de Privacidade</a>
+        </nav>
+      </div>
+    </header>
     <div class="app-shell">
       <aside class="api-sidebar" aria-label="Grimório 5e — recursos da API">
         <nav class="app-top-nav app-top-nav--sidebar" aria-label="Navegação">
@@ -176,15 +186,15 @@
             </div>
           </section>
 
-          <section class="editorial-content" aria-labelledby="aboutGrimoireTitle">
-            <p class="editorial-eyebrow">Guia do projeto</p>
-            <h2 id="aboutGrimoireTitle">O que é o Grimório 5e?</h2>
+          <section id="sobre" class="editorial-content" aria-labelledby="aboutGrimoireTitle">
+            <p class="editorial-eyebrow">Sobre o projeto</p>
+            <h2 id="aboutGrimoireTitle">Grimório 5e</h2>
+            <p class="about-editor-line">Editor: <strong>Eliabe Gai</strong></p>
             <p>
-              O Grimório 5e é uma ferramenta gratuita de consulta e organização para
-              <em>Dungeons &amp; Dragons</em> 5ª edição. O objetivo é reunir informações úteis
-              durante a preparação e a sessão sem exigir cadastro. No explorador, jogadores e
-              mestres podem pesquisar monstros, magias, classes, equipamentos, condições e outras
-              referências das regras abertas.
+              O Grimório 5e é uma ferramenta web gratuita para jogadores e mestres de
+              <em>Dungeons &amp; Dragons</em> 5ª edição (2014). Foi criado e é mantido por
+              <strong>Eliabe Gai</strong>, desenvolvedor independente. O objetivo é facilitar a
+              consulta de regras abertas e a organização de sessões sem exigir conta ou instalação.
             </p>
 
             <div class="editorial-grid">
@@ -214,6 +224,19 @@
               </article>
             </div>
 
+            <h2>Quem está por trás</h2>
+            <p>
+              Eliabe Gai desenvolve ferramentas web públicas em
+              <a href="https://eliabegai.github.io/" target="_blank" rel="noopener noreferrer"
+                >eliabegai.github.io</a
+              >
+              e partilha o código do Grimório no GitHub
+              (<a href="https://github.com/Eliabegai/rpg" target="_blank" rel="noopener noreferrer"
+                >Eliabegai/rpg</a
+              >). Dúvidas sobre o site, privacidade ou conteúdo editorial podem ser tratadas pelos
+              contactos abaixo.
+            </p>
+
             <h2>De onde vêm as informações?</h2>
             <p>
               O explorador consulta fontes públicas voltadas às regras abertas de D&amp;D 5e,
@@ -224,12 +247,30 @@
 
             <h2>Privacidade e armazenamento</h2>
             <p>
-              Favoritos, fichas, campanhas e preferências são armazenados localmente no seu
-              navegador. Não é preciso criar uma conta. É possível remover esses dados limpando o
-              armazenamento do site no navegador; campanhas também podem ser exportadas antes
-              disso. Consulte a <a href="privacy.html">Política de Privacidade</a> para mais
+              Favoritos, fichas e campanhas ficam no <strong>localStorage</strong> do teu navegador.
+              Não é preciso criar uma conta. É possível remover esses dados limpando o armazenamento
+              do site no navegador; campanhas também podem ser exportadas antes disso. Consulte a
+              <a href="privacy.html" data-open-panel="privacy">Política de Privacidade</a> para mais
               detalhes.
             </p>
+
+            <div class="about-actions">
+              <button
+                type="button"
+                class="about-contact-btn"
+                id="openContactModal"
+                aria-haspopup="dialog"
+                aria-controls="contactDialog"
+              >
+                Ver contacto (email e WhatsApp)
+              </button>
+              <a
+                class="about-secondary-link"
+                href="privacy.html"
+                data-open-panel="privacy"
+                >Política de Privacidade</a
+              >
+            </div>
           </section>
 
           <footer class="site-footer">
@@ -239,13 +280,187 @@
               <a href="sheet.html">ficha de personagem</a> com favoritos e gere combates na
               <a href="dm.html">mesa do mestre</a> (iniciativa, PV, dano e XP).
             </p>
-            <p class="site-footer-links">
-              <a href="privacy.html">Política de Privacidade</a>
-            </p>
           </footer>
         </div>
       </main>
     </div>
+
+    <dialog id="aboutDialog" class="panel-dialog" aria-labelledby="aboutDialogTitle">
+      <form method="dialog" class="panel-dialog-form">
+        <header class="contact-dialog-header">
+          <h2 id="aboutDialogTitle">Sobre o Grimório 5e</h2>
+          <button type="submit" class="contact-dialog-close" aria-label="Fechar">×</button>
+        </header>
+        <div class="panel-dialog-body">
+          <p class="about-editor-line">Editor: <strong>Eliabe Gai</strong></p>
+          <p>
+            Ferramenta web gratuita para jogadores e mestres de
+            <em>Dungeons &amp; Dragons</em> 5ª edição (2014). Consulta regras abertas, monta a
+            <a href="sheet.html">ficha</a> e gere combates na <a href="dm.html">mesa do mestre</a>
+            sem conta nem instalação.
+          </p>
+          <p>
+            Código em
+            <a href="https://github.com/Eliabegai/rpg" target="_blank" rel="noopener noreferrer"
+              >GitHub (Eliabegai/rpg)</a
+            >
+            · projetos em
+            <a href="https://eliabegai.github.io/" target="_blank" rel="noopener noreferrer"
+              >eliabegai.github.io</a
+            >.
+          </p>
+          <div class="about-actions">
+            <button
+              type="button"
+              class="about-contact-btn"
+              id="openContactModalFromAbout"
+              aria-haspopup="dialog"
+              aria-controls="contactDialog"
+            >
+              Ver contacto (email e WhatsApp)
+            </button>
+            <a href="privacy.html" data-open-panel="privacy" class="about-secondary-link"
+              >Política de Privacidade</a
+            >
+          </div>
+        </div>
+        <div class="contact-dialog-actions">
+          <button type="submit" class="about-contact-btn about-contact-btn--secondary">Fechar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="privacyDialog" class="panel-dialog panel-dialog--wide" aria-labelledby="privacyDialogTitle">
+      <form method="dialog" class="panel-dialog-form">
+        <header class="contact-dialog-header">
+          <h2 id="privacyDialogTitle">Política de Privacidade</h2>
+          <button type="submit" class="contact-dialog-close" aria-label="Fechar">×</button>
+        </header>
+        <div class="panel-dialog-body">
+          <p class="privacy-updated">Última atualização: 16 de julho de 2026</p>
+          <p>
+            O <strong>Grimório 5e</strong> é uma ferramenta gratuita para consulta e apoio a sessões
+            de Dungeons &amp; Dragons 5ª edição. Esta política explica que dados são tratados e por quê.
+          </p>
+          <h3>Dados guardados no seu dispositivo</h3>
+          <p>
+            O site usa <strong>localStorage</strong> no navegador para guardar favoritos, fichas,
+            campanhas e preferências. Esses dados <strong>não</strong> são enviados para servidores
+            nossos — ficam apenas no seu aparelho.
+          </p>
+          <h3>Google AdSense</h3>
+          <p>
+            Usamos o Google AdSense para exibir anúncios. O Google e parceiros podem usar cookies ou
+            tecnologias semelhantes. Gere preferências em
+            <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer"
+              >Definições de anúncios da Google</a
+            >.
+          </p>
+          <h3>Google Analytics</h3>
+          <p>
+            Quando ativado, o GA4 recolhe métricas agregadas de utilização conforme a
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer"
+              >Política de Privacidade da Google</a
+            >.
+          </p>
+          <h3>Contacto</h3>
+          <p>
+            Editor: <strong>Eliabe Gai</strong> —
+            <a href="mailto:eliabegai@gmail.com">eliabegai@gmail.com</a>
+            ·
+            <a href="https://wa.me/5547992082307" target="_blank" rel="noopener noreferrer"
+              >WhatsApp (47) 99208-2307</a
+            >.
+          </p>
+          <p>
+            <a href="privacy.html">Abrir página completa de privacidade →</a>
+          </p>
+        </div>
+        <div class="contact-dialog-actions">
+          <button type="submit" class="about-contact-btn about-contact-btn--secondary">Fechar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog
+      id="contactDialog"
+      class="contact-dialog"
+      aria-labelledby="contactDialogTitle"
+    >
+      <form method="dialog" class="contact-dialog-form">
+        <header class="contact-dialog-header">
+          <h2 id="contactDialogTitle">Contacto</h2>
+          <button type="submit" class="contact-dialog-close" aria-label="Fechar">×</button>
+        </header>
+        <p class="contact-dialog-lead">
+          Eliabe Gai — editor do Grimório 5e. Usa um destes canais para questões sobre o site,
+          privacidade ou conteúdo.
+        </p>
+        <dl class="contact-dialog-list">
+          <div>
+            <dt>
+              <span class="contact-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                </svg>
+              </span>
+              Email
+            </dt>
+            <dd>
+              <a href="mailto:eliabegai@gmail.com">eliabegai@gmail.com</a>
+            </dd>
+          </div>
+          <div>
+            <dt>
+              <span class="contact-icon contact-icon--whatsapp" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z" />
+                </svg>
+              </span>
+              WhatsApp
+            </dt>
+            <dd>
+              <a
+                id="publisherPhoneLink"
+                href="https://wa.me/5547992082307"
+                target="_blank"
+                rel="noopener noreferrer"
+                >(47) 99208-2307</a
+              >
+            </dd>
+          </div>
+          <div>
+            <dt>
+              <span class="contact-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+                </svg>
+              </span>
+              GitHub
+            </dt>
+            <dd>
+              <a
+                href="https://github.com/Eliabegai/rpg"
+                target="_blank"
+                rel="noopener noreferrer"
+                >github.com/Eliabegai/rpg</a
+              >
+            </dd>
+          </div>
+        </dl>
+        <p class="contact-dialog-note">
+          Preferência: email para assuntos não urgentes. O WhatsApp abre conversa direta com o
+          editor no número (47) 99208-2307.
+        </p>
+        <div class="contact-dialog-actions">
+          <button type="submit" class="about-contact-btn about-contact-btn--secondary">
+            Fechar
+          </button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="js/data/spellcasting-data.js"></script>
     <script src="js/core/api-client.js"></script>
     <script src="js/core/api-explorer.js"></script>
@@ -253,6 +468,8 @@
     <script src="js/explorer/open5e-creature-adapter.js"></script>
     <script src="js/explorer/detail-layouts.js"></script>
     <script src="js/explorer/script.js"></script>
+    <script src="js/core/about-contact.js"></script>
+    <script src="js/core/site-nav.js"></script>
     <script src="js/core/pwa-init.js"></script>
   </body>
 </html>

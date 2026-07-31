@@ -20,8 +20,72 @@ body {
 
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  min-height: calc(100vh - 3rem);
   align-items: stretch;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+  color: #e2e8f0;
+}
+
+.site-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1.25rem;
+  width: min(100% - 1.5rem, 72rem);
+  margin: 0 auto;
+  padding: 0.65rem 0;
+}
+
+.site-header-brand {
+  color: #f8fafc;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.site-header-brand:hover {
+  color: #bfdbfe;
+}
+
+.site-header-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  font-size: 0.88rem;
+}
+
+.site-header-nav a {
+  color: #cbd5e1;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.site-header-nav a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.site-header-nav a[aria-current="page"] {
+  color: #93c5fd;
+}
+
+#sobre {
+  scroll-margin-top: 4rem;
+}
+
+.about-editor-line {
+  margin: -0.35rem 0 0.9rem;
+  color: #64748b;
+  font-size: 0.92rem;
 }
 
 .api-sidebar {
@@ -215,7 +279,7 @@ body {
 }
 
 .privacy-page {
-  min-height: 100vh;
+  min-height: calc(100vh - 3rem);
   padding: 1.5rem 1rem;
   background: #f0f0f0;
 }
@@ -262,6 +326,222 @@ body {
 .privacy-back a:hover,
 .privacy-inner a:hover {
   text-decoration: underline;
+}
+
+.about-list {
+  margin: 0 0 1rem;
+  padding-left: 1.2rem;
+  color: #334155;
+}
+
+.about-list li {
+  margin-bottom: 0.55rem;
+}
+
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1.25rem;
+  margin: 1.75rem 0 1rem;
+}
+
+.about-contact-btn {
+  appearance: none;
+  border: none;
+  border-radius: 8px;
+  padding: 0.7rem 1.1rem;
+  background: #1e3a5f;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.about-contact-btn:hover {
+  background: #16304f;
+}
+
+.about-contact-btn--secondary {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.about-contact-btn--secondary:hover {
+  background: #cbd5e1;
+}
+
+.about-secondary-link {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.contact-dialog {
+  width: min(100% - 2rem, 26rem);
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1.5rem 3rem rgba(15, 23, 42, 0.28);
+  color: #334155;
+}
+
+.panel-dialog {
+  width: min(100% - 2rem, 32rem);
+  max-height: min(90vh, 40rem);
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1.5rem 3rem rgba(15, 23, 42, 0.28);
+  color: #334155;
+}
+
+.panel-dialog--wide {
+  width: min(100% - 2rem, 40rem);
+}
+
+.panel-dialog::backdrop,
+.contact-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.panel-dialog-form {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: min(90vh, 40rem);
+  padding: 1.25rem 1.35rem 1.35rem;
+}
+
+.panel-dialog-body {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding-right: 0.25rem;
+  line-height: 1.55;
+}
+
+.panel-dialog-body h3 {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 1rem;
+  color: #1e293b;
+}
+
+.panel-dialog-body p {
+  margin: 0 0 0.75rem;
+}
+
+.panel-dialog-body a {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.contact-dialog-form {
+  margin: 0;
+  padding: 1.25rem 1.35rem 1.35rem;
+}
+
+.contact-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.contact-dialog-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #1e293b;
+}
+
+.contact-dialog-close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.1rem 0.35rem;
+}
+
+.contact-dialog-close:hover {
+  color: #1e293b;
+}
+
+.contact-dialog-lead {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.contact-dialog-list {
+  margin: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.contact-dialog-list div {
+  margin: 0;
+}
+
+.contact-dialog-list dt {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.contact-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: #475569;
+}
+
+.contact-icon svg {
+  display: block;
+}
+
+.contact-icon--whatsapp {
+  color: #16a34a;
+}
+
+.contact-dialog-list dd {
+  margin: 0.2rem 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.contact-dialog-list a {
+  color: #2563eb;
+  word-break: break-word;
+}
+
+.contact-phone--pending {
+  color: #94a3b8;
+  font-weight: 500;
+  font-style: italic;
+}
+
+.contact-dialog-note {
+  margin: 1rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.contact-dialog-actions {
+  margin-top: 1.15rem;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .container {

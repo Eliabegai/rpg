@@ -1,15 +1,15 @@
-const CACHE_ID = "grimorio-static-v5";
+const CACHE_ID = "grimorio-static-v6";
 
 /** Pré-cache mínimo para offline. CSS/JS não passam pelo SW (navegador trata direto). */
 const PRECACHE_ASSETS = ["manifest.webmanifest", "assets/icons/icon.svg", "robots.txt"];
 
-const OFFLINE_PAGES = ["index.html", "sheet.html", "dm.html"];
+const OFFLINE_PAGES = ["index.html", "sheet.html", "dm.html", "about.html", "privacy.html"];
 
 function isHtmlNavigation(request) {
   if (request.mode === "navigate") return true;
   if (request.destination === "document") return true;
   const path = new URL(request.url).pathname;
-  return /\.html$/i.test(path) || /\/(index|sheet|dm)$/.test(path);
+  return /\.html$/i.test(path) || /\/(index|sheet|dm|about|privacy)$/.test(path);
 }
 
 /** Nunca interceptar — evita CSS/JS presos em cache do SW. */
@@ -47,7 +47,11 @@ async function offlinePageFallback(request) {
       ? "sheet.html"
       : path.includes("dm")
         ? "dm.html"
-        : "index.html";
+        : path.includes("about")
+          ? "about.html"
+          : path.includes("privacy")
+            ? "privacy.html"
+            : "index.html";
   for (const page of [name, ...OFFLINE_PAGES]) {
     const cached = await caches.match(new URL(page, base).href);
     if (cached) return cached;

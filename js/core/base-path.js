@@ -5,7 +5,7 @@
  */
 (function initAppBasePath() {
   /** Incrementar quando `styles.css` mudar de forma relevante. */
-  const APP_ASSET_VERSION = "12";
+  const APP_ASSET_VERSION = "16";
 
   function detectBasePath() {
     const { hostname, pathname } = window.location;
@@ -19,7 +19,7 @@
     }
 
     if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]") {
-      const PAGE_SLUGS = new Set(["index", "sheet", "dm"]);
+      const PAGE_SLUGS = new Set(["index", "sheet", "dm", "about", "privacy"]);
       const segment = pathname.split("/").filter(Boolean)[0];
       if (segment && !segment.includes(".") && !PAGE_SLUGS.has(segment)) {
         return `/${segment}/`;
