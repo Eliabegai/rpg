@@ -2692,6 +2692,39 @@ body.game-tools-open .game-tools-fab {
   line-height: 1.4;
 }
 
+.sheet-rest-content[hidden] {
+  display: none !important;
+}
+
+.sheet-rest-toggle-btn {
+  margin-left: 0.65rem;
+  vertical-align: middle;
+  min-height: 1.8rem;
+  padding: 0.12rem 0.55rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.74rem;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.sheet-rest-toggle-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #334155;
+}
+
+.sheet-rest-toggle-btn:active {
+  transform: none;
+  box-shadow: none;
+}
+
+.sheet-rest.is-collapsed {
+  padding-bottom: 0.25rem;
+}
+
 .sheet-rest-hd {
   margin-bottom: 0.5rem;
 }
@@ -7373,6 +7406,45 @@ html.table-mode .sheet-inspiration-btn {
   margin-top: 0.65rem;
 }
 
+.creation-wizard-roll-wrap {
+  margin-top: 0.65rem;
+  padding: 0.65rem;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #111827;
+}
+
+.creation-wizard-roll-actions {
+  margin-bottom: 0.55rem;
+}
+
+.creation-wizard-roll-wrap .sheet-dice-legend {
+  color: #cbd5e1;
+}
+
+.creation-wizard-roll-wrap .sheet-ability-roll {
+  background: #0b1220;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.creation-wizard-roll-wrap .sheet-ability-roll-num {
+  color: #94a3b8;
+}
+
+.creation-wizard-roll-wrap .sheet-ability-roll-total {
+  color: #93c5fd;
+}
+
+.creation-wizard-roll-wrap .sheet-ability-roll--inactive {
+  background: #0f172a;
+}
+
+.creation-wizard-standard-grid[hidden],
+.creation-wizard-roll-wrap[hidden] {
+  display: none !important;
+}
+
 .creation-wizard-equip-preview {
   margin: 0.5rem 0 0 1.1rem;
   font-size: 0.82rem;
@@ -7466,6 +7538,28 @@ html.table-mode .sheet-inspiration-btn {
 .campaign-picker-select:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
+}
+
+/* Botão discreto para expandir/recolher a seção de descanso */
+.sheet-rest .sheet-rest-toggle-btn,
+html.table-mode .sheet-rest .sheet-rest-toggle-btn {
+  min-height: 1.8rem !important;
+  padding: 0.1rem 0.55rem !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 999px !important;
+  background: #f8fafc !important;
+  color: #475569 !important;
+  font-size: 0.74rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2;
+  box-shadow: none !important;
+}
+
+.sheet-rest .sheet-rest-toggle-btn:hover,
+html.table-mode .sheet-rest .sheet-rest-toggle-btn:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #334155 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

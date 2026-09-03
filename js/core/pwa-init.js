@@ -38,12 +38,12 @@ function syncTableModeToggleButtons() {
       }
 
       const scope = document.querySelector("base[data-app-base]")?.href || "/";
-      const swUrl = new URL("service-worker.js", document.baseURI).href;
+      const swUrl = new URL("service-worker.js?v=20260903", document.baseURI).href;
       if ("caches" in window) {
         caches.keys().then((keys) =>
           Promise.all(
             keys
-              .filter((k) => k.startsWith("grimorio-") && k !== "grimorio-static-v5")
+              .filter((k) => k.startsWith("grimorio-"))
               .map((k) => caches.delete(k))
           )
         );

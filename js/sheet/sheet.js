@@ -13,6 +13,9 @@ const spellSlotsGrid = document.getElementById("spellSlotsGrid");
 const spellListByLevel = document.getElementById("spellListByLevel");
 const restEnvironmentSelect = document.getElementById("restEnvironmentSelect");
 const restEnvironmentHint = document.getElementById("restEnvironmentHint");
+const sheetRestSection = document.querySelector(".sheet-rest");
+const sheetRestContent = document.getElementById("sheetRestContent");
+const toggleRestSectionBtn = document.getElementById("toggleRestSectionBtn");
 const hitDiceRemainingInput = document.getElementById("hitDiceRemainingInput");
 const hitDiceMaxHint = document.getElementById("hitDiceMaxHint");
 const restResultMessage = document.getElementById("restResultMessage");
@@ -28,6 +31,9 @@ const portraitClear = document.getElementById("portraitClear");
 const portraitError = document.getElementById("portraitError");
 
 const PORTRAIT_MAX_BYTES = 380 * 1024;
+const STORAGE_SHEET_REST_UI = "dnd5eapi.sheetRestUi";
+const DEFAULT_SHEET_REST_UI = { visible: true };
+let sheetRestUiPrefs = { ...DEFAULT_SHEET_REST_UI };
 
 const ABILITY_LABELS = {
   str: "FOR",
@@ -49,6 +55,48 @@ function patchSheet(mutator) {
   const normalized = normalizeSheet(sheet);
   saveSheet(normalized);
   return normalized;
+}
+
+function normalizeSheetRestUiPrefs(raw) {
+  return {
+    visible: raw?.visible !== false,
+  };
+}
+
+function loadSheetRestUiPrefs() {
+  try {
+    const raw =
+      typeof readCampaignScoped === "function"
+        ? readCampaignScoped("sheetRestUi")
+        : localStorage.getItem(STORAGE_SHEET_REST_UI);
+    if (!raw) return { ...DEFAULT_SHEET_REST_UI };
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return normalizeSheetRestUiPrefs(parsed);
+  } catch {
+    return { ...DEFAULT_SHEET_REST_UI };
+  }
+}
+
+function saveSheetRestUiPrefs(prefs) {
+  sheetRestUiPrefs = normalizeSheetRestUiPrefs(prefs);
+  const payload = JSON.stringify(sheetRestUiPrefs);
+  if (typeof writeCampaignScoped === "function") writeCampaignScoped("sheetRestUi", payload);
+  else localStorage.setItem(STORAGE_SHEET_REST_UI, payload);
+}
+
+function syncRestSectionVisibility() {
+  const visible = sheetRestUiPrefs.visible !== false;
+  if (sheetRestContent) sheetRestContent.hidden = !visible;
+  if (sheetRestSection) sheetRestSection.classList.toggle("is-collapsed", !visible);
+  if (toggleRestSectionBtn) {
+    toggleRestSectionBtn.textContent = visible ? "Ocultar" : "Mostrar";
+    toggleRestSectionBtn.setAttribute("aria-expanded", String(visible));
+  }
+}
+
+function onToggleRestSection() {
+  saveSheetRestUiPrefs({ visible: !sheetRestUiPrefs.visible });
+  syncRestSectionVisibility();
 }
 
 function abilityModifier(score) {
@@ -1613,6 +1661,10 @@ function onSheetClick(e) {
     onLongRest();
     return;
   }
+  if (action === "toggle-rest-section") {
+    onToggleRestSection();
+    return;
+  }
 }
 
 function onCharacterNameInput() {
@@ -2063,6 +2115,7 @@ function syncCharacterCoreFromSheet() {
   if (typeof refreshCombatBonuses === "function") refreshCombatBonuses();
   else if (typeof syncSheetCombatV3 === "function") syncSheetCombatV3();
   if (typeof updatePreparedSpellsHint === "function") updatePreparedSpellsHint();
+  syncRestSectionVisibility();
 }
 
 async function syncAlignmentSummary() {
@@ -2492,6 +2545,7 @@ async function boot() {
   buildAbilityScoresGrid();
   buildDeathSaveDots();
   populateRestEnvironmentSelect();
+  sheetRestUiPrefs = loadSheetRestUiPrefs();
   syncCharacterCoreFromSheet();
   initGameTools();
 

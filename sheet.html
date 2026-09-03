@@ -448,7 +448,20 @@
                 </fieldset>
 
                 <fieldset class="sheet-rest" aria-labelledby="sheetRestTitle">
-                  <legend id="sheetRestTitle" class="sheet-name-label">Descanso</legend>
+                  <legend id="sheetRestTitle" class="sheet-name-label">
+                    Descanso
+                    <button
+                      type="button"
+                      id="toggleRestSectionBtn"
+                      class="sheet-dice-btn sheet-dice-btn--compact sheet-rest-toggle-btn"
+                      data-action="toggle-rest-section"
+                      aria-expanded="true"
+                      aria-controls="sheetRestContent"
+                    >
+                      Ocultar
+                    </button>
+                  </legend>
+                  <div id="sheetRestContent" class="sheet-rest-content">
                   <div id="restEnvironmentScene" class="rest-environment-scene" data-theme="tavern" aria-hidden="false">
                     <span class="rest-environment-scene__icon" aria-hidden="true">🍺</span>
                     <div class="rest-environment-scene__text">
@@ -506,6 +519,7 @@
                     </div>
                   </div>
                   <p id="restResultMessage" class="sheet-rest-result" role="status" aria-live="polite"></p>
+                  </div>
                   </div>
                 </fieldset>
             </div>
@@ -724,7 +738,7 @@
     <script src="js/sheet/sheet-class-sync.js"></script>
     <script src="js/sheet/sheet-v31-spellcasting.js"></script>
     <script src="js/sheet/sheet-creation-data.js"></script>
-    <script src="js/sheet/sheet-creation-wizard.js"></script>
+    <script src="js/sheet/sheet-creation-wizard.js?v=20260903"></script>
     <script src="js/sheet/sheet.js"></script>
     <script src="js/core/site-nav.js"></script>
     <script src="js/core/pwa-init.js"></script>

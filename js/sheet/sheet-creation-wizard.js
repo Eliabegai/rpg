@@ -4,9 +4,9 @@
 const WIZARD_STEPS = [
   { id: "race", title: "Raça", hint: "Escolhe a raça ou sub-raça do personagem." },
   { id: "class", title: "Classe", hint: "Define a classe de 1.º nível." },
-  { id: "background", title: "Antecedente", hint: "Antecedente PHB (traços, perícias, equipamento)." },
+  { id: "background", title: "Antecedente", hint: "Antecedente PHB (traços, perícias, equipamento) — opcional." },
   { id: "equipment", title: "Equipamento", hint: "Importa o pacote inicial da classe e antecedente." },
-  { id: "abilities", title: "Atributos", hint: "Array padrão ou mantém os valores atuais; os bónus raciais somam no fim." },
+  { id: "abilities", title: "Atributos", hint: "Array padrão, rolagem 4d6 no wizard ou mantém valores atuais; os bónus raciais somam no fim." },
   { id: "spells", title: "Magias", hint: "Conjuradores: importa magias dos favoritos ou da biblioteca." },
 ];
 
@@ -33,6 +33,8 @@ const wizardState = {
   applyBackgroundPersonality: true,
   abilityMethod: "standard",
   standardAssignment: {},
+  rolledAbilitySets: [],
+  rolledAssignment: {},
   importSpells: false,
   lists: { races: [], subraces: [], classes: [], backgrounds: [] },
 };
@@ -131,7 +133,12 @@ async function renderWizardStep() {
   if (step.id === "background") {
     creationWizardBody.innerHTML = `
       <p class="creation-wizard-hint">${escapeHtml(step.hint)}</p>
-      ${renderWizardPickList(wizardState.lists.backgrounds, wizardState.background?.index, "wizard-background", "backgrounds")}
+      ${renderWizardPickList(
+        [{ index: "", name: "— Sem antecedente (opcional) —" }, ...wizardState.lists.backgrounds],
+        wizardState.background?.index || "",
+        "wizard-background",
+        "backgrounds"
+      )}
       <label class="creation-wizard-check">
         <input type="checkbox" id="wizardApplyPersonality"${wizardState.applyBackgroundPersonality ? " checked" : ""} />
         Preencher traços / ideais / vínculos / defeitos (aleatório PHB)
@@ -169,7 +176,6 @@ async function renderWizardStep() {
       wizardState.raceData = await fetchWizardDetail(selectedRaceEntry());
     }
     const bonuses = layoutAbilityBonuses(wizardState.raceData?.ability_bonuses) || "—";
-    const assign = wizardState.standardAssignment;
     creationWizardBody.innerHTML = `
       <p class="creation-wizard-hint">${escapeHtml(step.hint)}</p>
       <p class="creation-wizard-muted">Bónus raciais (aplicados ao concluir): <strong>${escapeHtml(bonuses)}</strong></p>
@@ -185,25 +191,34 @@ async function renderWizardStep() {
         </label>
         <label class="creation-wizard-option creation-wizard-option--inline">
           <input type="radio" name="wizard-ability-method" value="roll"${wizardState.abilityMethod === "roll" ? " checked" : ""} />
-          Já rolei na ficha (4d6) — só aplicar bónus raciais
+          Rolar aqui (7x 4d6) e distribuir
         </label>
       </fieldset>
-      <div class="creation-wizard-standard-grid" id="wizardStandardGrid">
+      <div class="creation-wizard-standard-grid" id="wizardAbilityGrid">
         ${ABILITY_KEYS.map((key) => {
-          const opts = CREATION_STANDARD_ARRAY.map(
-            (n) =>
-              `<option value="${n}"${String(assign[key]) === String(n) ? " selected" : ""}>${n}</option>`
-          ).join("");
           return `<label class="sheet-inline-field">
           <span class="sheet-name-label">${key.toUpperCase()}</span>
-          <select class="sheet-select wizard-standard-select" data-ability="${key}">
-            <option value="">—</option>
-            ${opts}
+          <select class="sheet-select wizard-ability-select" data-ability="${key}">
+            ${buildWizardAbilityOptions(key)}
           </select>
         </label>`;
         }).join("")}
-      </div>`;
-    syncWizardStandardGridVisibility();
+      </div>
+      <div id="wizardRollWrap" class="creation-wizard-roll-wrap" hidden>
+        <div class="sheet-dice-actions creation-wizard-roll-actions">
+          <button type="button" class="sheet-dice-btn sheet-dice-btn--compact" data-wizard-action="roll-abilities">Rolar 7x 4d6</button>
+          <button type="button" class="sheet-dice-btn sheet-dice-btn--muted sheet-dice-btn--compact" data-wizard-action="clear-ability-rolls"${
+            wizardState.rolledAbilitySets.length ? "" : " hidden"
+          }>
+            Limpar rolagens
+          </button>
+        </div>
+        ${renderWizardAbilityRollSets()}
+      </div>
+      `;
+    syncWizardAbilityGridVisibility();
+    syncWizardRollWrapVisibility();
+    syncWizardAbilitySelectOptions();
     return;
   }
 
@@ -229,10 +244,115 @@ async function renderWizardStep() {
   }
 }
 
-function syncWizardStandardGridVisibility() {
-  const grid = document.getElementById("wizardStandardGrid");
+function syncWizardAbilityGridVisibility() {
+  const grid = document.getElementById("wizardAbilityGrid");
   if (!grid) return;
-  grid.hidden = wizardState.abilityMethod !== "standard";
+  grid.hidden = wizardState.abilityMethod === "keep";
+}
+
+function syncWizardRollWrapVisibility() {
+  const rollWrap = document.getElementById("wizardRollWrap");
+  if (rollWrap) rollWrap.hidden = wizardState.abilityMethod !== "roll";
+}
+
+function rollWizardAbilityGeneration() {
+  const sets = [];
+  for (let i = 0; i < 7; i++) {
+    const r = roll4d6DropLowest();
+    sets.push({
+      id: String(i),
+      rolls: r.rolls,
+      dropped: r.dropped,
+      droppedIndex: r.droppedIndex,
+      total: r.total,
+      inactive: false,
+    });
+  }
+  let minIdx = 0;
+  for (let i = 1; i < sets.length; i++) {
+    if (sets[i].total < sets[minIdx].total) minIdx = i;
+  }
+  sets[minIdx].inactive = true;
+  wizardState.rolledAbilitySets = sets;
+  wizardState.rolledAssignment = {};
+}
+
+function clearWizardAbilityGeneration() {
+  wizardState.rolledAbilitySets = [];
+  wizardState.rolledAssignment = {};
+}
+
+function renderWizardAbilityRollSets() {
+  if (!wizardState.rolledAbilitySets.length) {
+    return '<p class="creation-wizard-muted">Ainda sem rolagens. Usa "Rolar 7x 4d6".</p>';
+  }
+  return `<p class="sheet-dice-legend">
+      <span class="sheet-dice-legend-kept">Azul</span> = conta no total ·
+      <span class="sheet-dice-legend-dropped">Riscado</span> = descartado
+    </p>
+    <ul class="sheet-ability-rolls">
+      ${wizardState.rolledAbilitySets
+        .map((set, i) => {
+          const diceHtml = renderDieFacesHtml(set);
+          const inactive = set.inactive ? " sheet-ability-roll--inactive" : "";
+          const note = set.inactive
+            ? '<span class="sheet-ability-roll-note sheet-ability-roll-note--struck">menor — referencia (descartado)</span>'
+            : "";
+          return `<li class="sheet-ability-roll${inactive}">
+            <span class="sheet-ability-roll-num">#${i + 1}</span>
+            <span class="sheet-ability-roll-dice">${diceHtml}</span>
+            <strong class="sheet-ability-roll-total${set.inactive ? " sheet-ability-roll-total--discarded" : ""}">${set.total}</strong>
+            ${note}
+          </li>`;
+        })
+        .join("")}
+    </ul>`;
+}
+
+function getWizardAbilityAssignedElsewhere(currentKey, map) {
+  const used = new Set();
+  for (const key of ABILITY_KEYS) {
+    if (key === currentKey) continue;
+    const picked = map[key];
+    if (picked) used.add(String(picked));
+  }
+  return used;
+}
+
+function buildWizardAbilityOptions(abilityKey) {
+  if (wizardState.abilityMethod === "roll") {
+    const current = wizardState.rolledAssignment[abilityKey] || "";
+    const usedElsewhere = getWizardAbilityAssignedElsewhere(abilityKey, wizardState.rolledAssignment);
+    let html = '<option value="">—</option>';
+    for (const set of wizardState.rolledAbilitySets) {
+      if (set.inactive) continue;
+      if (usedElsewhere.has(set.id) && current !== set.id) continue;
+      html += `<option value="${escapeHtml(set.id)}"${current === set.id ? " selected" : ""}>${set.total}</option>`;
+    }
+    return html;
+  }
+  const current = String(wizardState.standardAssignment[abilityKey] || "");
+  const usedElsewhere = getWizardAbilityAssignedElsewhere(abilityKey, wizardState.standardAssignment);
+  let html = '<option value="">—</option>';
+  for (const n of CREATION_STANDARD_ARRAY) {
+    const v = String(n);
+    if (usedElsewhere.has(v) && current !== v) continue;
+    html += `<option value="${v}"${current === v ? " selected" : ""}>${v}</option>`;
+  }
+  return html;
+}
+
+function syncWizardAbilitySelectOptions() {
+  creationWizardBody?.querySelectorAll(".wizard-ability-select").forEach((sel) => {
+    const key = sel.dataset.ability;
+    if (!key) return;
+    sel.innerHTML = buildWizardAbilityOptions(key);
+    if (wizardState.abilityMethod === "roll") {
+      sel.value = wizardState.rolledAssignment[key] || "";
+    } else {
+      sel.value = wizardState.standardAssignment[key] || "";
+    }
+  });
 }
 
 function readWizardInputsFromDom() {
@@ -259,6 +379,9 @@ function readWizardInputsFromDom() {
   if (bgRadio?.value) {
     wizardState.background = wizardState.lists.backgrounds.find((b) => b.index === bgRadio.value) || null;
     wizardState.backgroundData = null;
+  } else if (bgRadio && bgRadio.value === "") {
+    wizardState.background = null;
+    wizardState.backgroundData = null;
   }
 
   const pers = document.getElementById("wizardApplyPersonality");
@@ -270,9 +393,14 @@ function readWizardInputsFromDom() {
   const method = creationWizardBody?.querySelector('input[name="wizard-ability-method"]:checked');
   if (method) wizardState.abilityMethod = method.value;
 
-  creationWizardBody?.querySelectorAll(".wizard-standard-select").forEach((sel) => {
+  creationWizardBody?.querySelectorAll(".wizard-ability-select").forEach((sel) => {
     const key = sel.dataset.ability;
-    if (key) wizardState.standardAssignment[key] = sel.value;
+    if (!key) return;
+    if (wizardState.abilityMethod === "roll") {
+      wizardState.rolledAssignment[key] = sel.value;
+    } else if (wizardState.abilityMethod === "standard") {
+      wizardState.standardAssignment[key] = sel.value;
+    }
   });
 
   const spells = document.getElementById("wizardImportSpells");
@@ -287,10 +415,6 @@ function validateWizardStep() {
   }
   if (step.id === "class" && !wizardState.classEntry) {
     setWizardStatus("Escolhe uma classe.", true);
-    return false;
-  }
-  if (step.id === "background" && !wizardState.background) {
-    setWizardStatus("Escolhe um antecedente.", true);
     return false;
   }
   if (step.id === "abilities" && wizardState.abilityMethod === "standard") {
@@ -308,6 +432,32 @@ function validateWizardStep() {
       used.add(v);
     }
   }
+  if (step.id === "abilities" && wizardState.abilityMethod === "roll") {
+    if (!wizardState.rolledAbilitySets.length) {
+      setWizardStatus("Rola os atributos antes de avançar.", true);
+      return false;
+    }
+    const activeSetIds = new Set(
+      wizardState.rolledAbilitySets.filter((s) => !s.inactive).map((s) => String(s.id))
+    );
+    const used = new Set();
+    for (const key of ABILITY_KEYS) {
+      const setId = wizardState.rolledAssignment[key];
+      if (!setId) {
+        setWizardStatus("Atribui um total rolado a cada atributo.", true);
+        return false;
+      }
+      if (!activeSetIds.has(String(setId))) {
+        setWizardStatus("Só podes usar resultados ativos da rolagem.", true);
+        return false;
+      }
+      if (used.has(String(setId))) {
+        setWizardStatus("Cada rolagem só pode ser usada uma vez.", true);
+        return false;
+      }
+      used.add(String(setId));
+    }
+  }
   return true;
 }
 
@@ -316,8 +466,8 @@ async function finishCreationWizard() {
   setWizardStatus("A aplicar escolhas…");
 
   const raceEntry = selectedRaceEntry();
-  if (!raceEntry || !wizardState.classEntry || !wizardState.background) {
-    setWizardStatus("Completa raça, classe e antecedente.", true);
+  if (!raceEntry || !wizardState.classEntry) {
+    setWizardStatus("Completa raça e classe.", true);
     return;
   }
 
@@ -325,7 +475,7 @@ async function finishCreationWizard() {
     fetchWizardDetail(wizardState.race),
     wizardState.subrace ? fetchWizardDetail(wizardState.subrace) : Promise.resolve(null),
     fetchWizardDetail(wizardState.classEntry),
-    fetchWizardDetail(wizardState.background),
+    wizardState.background ? fetchWizardDetail(wizardState.background) : Promise.resolve(null),
   ]);
 
   const bonusSource = subraceData || raceData;
@@ -383,6 +533,15 @@ async function finishCreationWizard() {
       applyStandardArrayToSheet(sheet, wizardState.standardAssignment);
       feedback.push("atributos");
     }
+    if (wizardState.abilityMethod === "roll") {
+      for (const key of ABILITY_KEYS) {
+        const setId = wizardState.rolledAssignment[key];
+        if (!setId) continue;
+        const set = wizardState.rolledAbilitySets.find((s) => String(s.id) === String(setId) && !s.inactive);
+        if (set) sheet.abilityScores[key] = String(set.total);
+      }
+      feedback.push("atributos rolados");
+    }
 
     if (bonusSource?.ability_bonuses?.length) {
       const ch = applyRaceAbilityBonusesToSheet(sheet, bonusSource.ability_bonuses, { mode: "add" });
@@ -422,6 +581,8 @@ function openCreationWizard() {
   wizardState.applyBackgroundPersonality = true;
   wizardState.abilityMethod = "standard";
   wizardState.standardAssignment = {};
+  wizardState.rolledAbilitySets = [];
+  wizardState.rolledAssignment = {};
   wizardState.importSpells = false;
   wizardState.characterName = loadSheet().characterName || "";
 
@@ -456,6 +617,16 @@ function onWizardClick(e) {
     wizardGo(1);
     return;
   }
+  if (action === "roll-abilities") {
+    rollWizardAbilityGeneration();
+    void renderWizardStep();
+    return;
+  }
+  if (action === "clear-ability-rolls") {
+    clearWizardAbilityGeneration();
+    void renderWizardStep();
+    return;
+  }
   if (action === "finish") {
     void finishCreationWizard();
   }
@@ -463,8 +634,24 @@ function onWizardClick(e) {
 
 function onWizardChange(e) {
   if (e.target.matches('input[name="wizard-ability-method"]')) {
+    readWizardInputsFromDom();
     wizardState.abilityMethod = e.target.value;
-    syncWizardStandardGridVisibility();
+    syncWizardAbilityGridVisibility();
+    syncWizardRollWrapVisibility();
+    syncWizardAbilitySelectOptions();
+    return;
+  }
+
+  const sel = e.target.closest(".wizard-ability-select");
+  if (sel) {
+    const key = sel.dataset.ability;
+    if (!key) return;
+    if (wizardState.abilityMethod === "roll") {
+      wizardState.rolledAssignment[key] = sel.value;
+    } else {
+      wizardState.standardAssignment[key] = sel.value;
+    }
+    syncWizardAbilitySelectOptions();
   }
 }
 
