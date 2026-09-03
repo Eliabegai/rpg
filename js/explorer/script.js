@@ -325,25 +325,49 @@ function afterFavoriteChange(resourceKey, index) {
 }
 
 let explorerActiveResourcePath = "";
+let explorerLoadSeq = 0;
+
+function explorerResourceDisplayName(key) {
+  if (isExplorerOpen5e() && key === "monsters") return "creatures";
+  return formatResourceLabel(key || "itens").toLowerCase();
+}
 
 async function reloadExplorerResourceList() {
   if (!currentResourceLabel || !explorerActiveResourcePath) return;
+  const requestId = ++explorerLoadSeq;
+  const requestedKey = currentResourceLabel;
+  const requestedPath = explorerActiveResourcePath;
   mainSubtitle.textContent = "A carregar…";
   try {
-    const payload = await fetchExplorerResourceList(currentResourceLabel, explorerActiveResourcePath, {
+    const payload = await fetchExplorerResourceList(requestedKey, requestedPath, {
       page: currentPage,
       search: currentFilter,
       pageSize: PAGE_SIZE,
     });
+    if (
+      requestId !== explorerLoadSeq ||
+      requestedKey !== currentResourceLabel ||
+      requestedPath !== explorerActiveResourcePath
+    ) {
+      return;
+    }
     allResults = payload.results;
     explorerListTotal = payload.total;
     explorerServerPaginated = payload.serverPaginated;
     const total = explorerListTotal;
-    mainSubtitle.textContent = `${total} creatures — pesquisa no servidor (${PAGE_SIZE} por página). Favoritos Open5e ainda não ligam à mesa.`;
+    if (isExplorerOpen5e()) {
+      mainSubtitle.textContent = `${total} ${explorerResourceDisplayName(currentResourceLabel)} — pesquisa no servidor (${PAGE_SIZE} por página). Integração com ficha/mesa continua na dnd5eapi.`;
+    } else {
+      mainSubtitle.textContent = `${total} itens — filtra com a pesquisa; usa a paginação para percorrer (${PAGE_SIZE} por página).`;
+    }
     renderResultsPage();
     persistUiSession();
-  } catch {
-    mainSubtitle.textContent = "Erro ao carregar creatures (Open5e).";
+  } catch (err) {
+    if (requestId !== explorerLoadSeq) return;
+    mainSubtitle.textContent =
+      isExplorerOpen5e() && typeof isOpen5eTimeoutError === "function" && isOpen5eTimeoutError(err)
+        ? "Open5e demorou a responder. Tenta novamente."
+        : "Erro ao carregar lista do recurso.";
     allResults = [];
     explorerListTotal = 0;
     renderResultsPage();
@@ -746,7 +770,7 @@ async function openItemByIndex(index, fallbackPath) {
 
 async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
   if (!explorerSupportsResource(label)) {
-    mainSubtitle.textContent = "Este recurso não está disponível no modo Open5e (spike: só Creatures).";
+    mainSubtitle.textContent = "Este recurso não está disponível no provider atual.";
     browsePanel.hidden = true;
     return;
   }
@@ -754,6 +778,7 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
   setSidebarActive(sidebarBtn);
   currentResourceLabel = label;
   explorerActiveResourcePath = path;
+  const requestId = ++explorerLoadSeq;
   setResourceExtraFiltersVisible(label === "spells" && !isExplorerOpen5e(), !sessionRestore);
 
   if (label === "spells") {
@@ -789,6 +814,9 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
   mainSubtitle.textContent = "A carregar…";
   browsePanel.hidden = false;
   allResults = [];
+  explorerListTotal = 0;
+  explorerServerPaginated = isExplorerOpen5e();
+  renderResultsPage();
   if (!sessionRestore?.itemIndex) {
     selectedItemUrl = null;
     selectedItemIndex = "";
@@ -808,6 +836,13 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
       search: currentFilter,
       pageSize: PAGE_SIZE,
     });
+    if (
+      requestId !== explorerLoadSeq ||
+      label !== currentResourceLabel ||
+      path !== explorerActiveResourcePath
+    ) {
+      return;
+    }
 
     if (payload.notAList) {
       mainSubtitle.textContent = "Este endpoint não devolve uma lista conhecida — mostramos o JSON em formato legível.";
@@ -828,7 +863,7 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
       mainSubtitle.textContent = `${total} feitiços — filtra por nível, escola, classe, subclasse e pesquisa (${PAGE_SIZE} por página).`;
     } else if (explorerServerPaginated) {
       allResults = payload.results;
-      mainSubtitle.textContent = `${explorerListTotal} creatures — pesquisa no servidor (${PAGE_SIZE} por página). Favoritos Open5e ainda não ligam à mesa.`;
+      mainSubtitle.textContent = `${explorerListTotal} ${explorerResourceDisplayName(label)} — pesquisa no servidor (${PAGE_SIZE} por página). Integração com ficha/mesa continua na dnd5eapi.`;
     } else {
       allResults = payload.results;
       const total = explorerListTotal;
@@ -841,8 +876,12 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
     }
 
     persistUiSession();
-  } catch {
-    mainSubtitle.textContent = "Erro ao carregar este recurso.";
+  } catch (err) {
+    if (requestId !== explorerLoadSeq) return;
+    mainSubtitle.textContent =
+      isExplorerOpen5e() && typeof isOpen5eTimeoutError === "function" && isOpen5eTimeoutError(err)
+        ? "Open5e demorou a responder neste recurso. Tenta novamente."
+        : "Erro ao carregar este recurso.";
     browsePanel.hidden = true;
     detailPanel.innerHTML =
       '<p class="detail-placeholder">Não foi possível obter dados. Verifica a rede ou tenta outro recurso.</p>';
@@ -1364,7 +1403,7 @@ async function populateExplorerSidebar() {
       const note = document.createElement("p");
       note.className = "sidebar-status sidebar-open5e-note";
       note.textContent =
-        "Modo experimental Open5e (inglês). Ficha e mesa continuam na dnd5eapi.";
+        "Open5e (inglês): recursos extras no explorador. Ficha e mesa continuam na dnd5eapi.";
       apiRootNav.appendChild(note);
     }
 

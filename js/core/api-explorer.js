@@ -1,21 +1,52 @@
 /**
- * Explorador: dual-provider (dnd5eapi default + spike Open5e creatures).
+ * Explorador: dual-provider (dnd5eapi default + Open5e v2).
  * Ficha e mesa continuam só dnd5eapi via api-client.js / shared.js.
  */
 const STORAGE_EXPLORER_PROVIDER = "dnd5eapi.explorerProvider";
 const OPEN5E_API_BASE = "https://api.open5e.com";
 const OPEN5E_API_PREFIX = "/v2";
+const OPEN5E_FETCH_TIMEOUT_MS = 12000;
+const OPEN5E_FETCH_RETRIES = 2;
+const OPEN5E_FETCH_RETRY_BASE_MS = 450;
 
 const EXPLORER_PROVIDERS = new Set(["dnd5eapi", "open5e"]);
 
-/** Recursos disponíveis no modo Open5e (spike v5.0). */
-const OPEN5E_EXPLORER_RESOURCES = [
-  {
-    key: "monsters",
-    label: "Creatures",
-    hint: "Open5e v2 — bestiário em inglês",
-    listPath: "/v2/creatures/",
-  },
+const OPEN5E_RESOURCE_ALIASES = {
+  creatures: "monsters",
+};
+
+const OPEN5E_RESOURCE_LABELS = {
+  monsters: "Creatures",
+  spells: "Spells",
+  backgrounds: "Backgrounds",
+  feats: "Feats",
+  classes: "Classes",
+  species: "Species",
+  weapons: "Weapons",
+  armor: "Armor",
+  conditions: "Conditions",
+  languages: "Languages",
+  alignments: "Alignments",
+  items: "Items",
+  magicitems: "Magic Items",
+  rules: "Rules",
+};
+
+const OPEN5E_RESOURCE_ORDER = [
+  "creatures",
+  "spells",
+  "backgrounds",
+  "feats",
+  "classes",
+  "species",
+  "weapons",
+  "armor",
+  "conditions",
+  "languages",
+  "alignments",
+  "items",
+  "magicitems",
+  "rules",
 ];
 
 function getExplorerProvider() {
@@ -48,13 +79,12 @@ function explorerProviderLabel() {
 }
 
 /** Ficha/mesa: sempre dnd5eapi; explorador pode estar em Open5e. */
-function explorerSupportsResource(resourceKey) {
-  if (!isExplorerOpen5e()) return true;
-  return resourceKey === "monsters";
+function explorerSupportsResource() {
+  return true;
 }
 
 function isExplorerServerPaginated(resourceKey) {
-  return isExplorerOpen5e() && resourceKey === "monsters";
+  return isExplorerOpen5e();
 }
 
 function isOpen5eDataPath(pathOrUrl) {
@@ -67,16 +97,84 @@ function open5eAbsoluteUrl(pathOrUrl) {
 }
 
 async function open5eFetch(pathOrUrl, init = {}) {
-  return fetch(open5eAbsoluteUrl(pathOrUrl), init);
+  const headers = new Headers(init.headers || {});
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  const timeoutCtrl = new AbortController();
+  const timeoutId = setTimeout(() => timeoutCtrl.abort(), OPEN5E_FETCH_TIMEOUT_MS);
+  if (init.signal) {
+    init.signal.addEventListener("abort", () => timeoutCtrl.abort(), { once: true });
+  }
+  try {
+    return await fetch(open5eAbsoluteUrl(pathOrUrl), { ...init, headers, signal: timeoutCtrl.signal });
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      const e = new Error("open5e-timeout");
+      e.cause = err;
+      throw e;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
-function normalizeOpen5eListItem(row) {
-  const key = String(row?.key ?? "");
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isOpen5eTimeoutError(err) {
+  return Boolean(err && (err.message === "open5e-timeout" || err.name === "AbortError"));
+}
+
+function isOpen5eRetryableStatus(status) {
+  return status === 408 || status === 425 || status === 429 || (status >= 500 && status <= 599);
+}
+
+function isOpen5eRetryableError(err) {
+  return (
+    isOpen5eTimeoutError(err) ||
+    err?.name === "TypeError" ||
+    err?.message === "Failed to fetch" ||
+    err?.message === "fetch failed"
+  );
+}
+
+async function open5eFetchWithRetry(pathOrUrl, init = {}) {
+  const maxAttempts = 1 + Math.max(0, OPEN5E_FETCH_RETRIES);
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await open5eFetch(pathOrUrl, init);
+      if (res.ok || !isOpen5eRetryableStatus(res.status) || attempt === maxAttempts) {
+        return res;
+      }
+      const waitMs = OPEN5E_FETCH_RETRY_BASE_MS * 2 ** (attempt - 1);
+      await delay(waitMs);
+    } catch (err) {
+      lastErr = err;
+      if (!isOpen5eRetryableError(err) || attempt === maxAttempts) {
+        throw err;
+      }
+      const waitMs = OPEN5E_FETCH_RETRY_BASE_MS * 2 ** (attempt - 1);
+      await delay(waitMs);
+    }
+  }
+  if (lastErr) throw lastErr;
+  throw new Error("open5e-fetch-failed");
+}
+
+function normalizeOpen5eListItem(row, resourceKey, listPath) {
+  const rawKey = row?.key ?? row?.slug ?? row?.index ?? row?.id ?? row?.name;
+  const key = rawKey != null ? String(rawKey) : "";
+  const name = row?.name != null ? String(row.name) : row?.title != null ? String(row.title) : key;
+  const fallbackPath = key ? `${String(listPath || "").replace(/\/?$/, "/")}${encodeURIComponent(key)}/` : "";
+  const url = pathnameFromApiRef(row?.url || fallbackPath);
   return {
     index: key,
-    name: row?.name != null ? String(row.name) : key,
-    url: `${OPEN5E_API_PREFIX}/creatures/${key}/`,
+    name,
+    url,
     _provider: "open5e",
+    _open5eResourceKey: resourceKey,
   };
 }
 
@@ -86,12 +184,26 @@ function normalizeOpen5eListItem(row) {
  */
 async function fetchExplorerCatalog() {
   if (isExplorerOpen5e()) {
-    return OPEN5E_EXPLORER_RESOURCES.map((r) => ({
-      key: r.key,
-      path: r.listPath,
-      label: r.label,
-      hint: r.hint,
-    }));
+    const res = await open5eFetchWithRetry(`${OPEN5E_API_PREFIX}/`);
+    if (!res.ok) throw new Error("open5e-catalog");
+    const data = await res.json();
+    const entries = Object.entries(data)
+      .filter(([, v]) => typeof v === "string" && pathnameFromApiRef(v).startsWith(`${OPEN5E_API_PREFIX}/`))
+      .map(([rawKey, fullUrl]) => {
+        const key = OPEN5E_RESOURCE_ALIASES[rawKey] || rawKey;
+        return {
+          rawKey,
+          key,
+          path: pathnameFromApiRef(fullUrl),
+          label: OPEN5E_RESOURCE_LABELS[key] || formatResourceLabel(key),
+          hint: "Open5e v2 (inglês)",
+        };
+      });
+    const rank = (rawKey) => {
+      const i = OPEN5E_RESOURCE_ORDER.indexOf(rawKey);
+      return i >= 0 ? i : OPEN5E_RESOURCE_ORDER.length + 1;
+    };
+    return entries.sort((a, b) => rank(a.rawKey) - rank(b.rawKey) || a.label.localeCompare(b.label));
   }
   const res = await apiFetch(apiRootPath());
   if (!res.ok) throw new Error("catalog");
@@ -106,17 +218,19 @@ async function fetchExplorerCatalog() {
  * @returns {Promise<{ results: object[], total: number, serverPaginated: boolean }>}
  */
 async function fetchExplorerResourceList(resourceKey, resourcePath, { page = 1, search = "", pageSize = 25 } = {}) {
-  if (isExplorerServerPaginated(resourceKey)) {
+  if (isExplorerOpen5e()) {
+    const listPath = pathnameFromApiRef(resourcePath || "");
+    if (!listPath.startsWith(`${OPEN5E_API_PREFIX}/`)) throw new Error("open5e-path");
     const params = new URLSearchParams({
       limit: String(pageSize),
       page: String(Math.max(1, page)),
     });
     const q = String(search || "").trim();
     if (q) params.set("name__icontains", q);
-    const res = await open5eFetch(`${OPEN5E_API_PREFIX}/creatures/?${params}`);
+    const res = await open5eFetchWithRetry(`${listPath}${listPath.includes("?") ? "&" : "?"}${params.toString()}`);
     if (!res.ok) throw new Error("open5e-list");
     const data = await res.json();
-    const results = (data.results || []).map(normalizeOpen5eListItem);
+    const results = (data.results || []).map((row) => normalizeOpen5eListItem(row, resourceKey, listPath));
     return {
       results,
       total: Number(data.count) || results.length,
@@ -140,14 +254,22 @@ async function fetchExplorerResourceList(resourceKey, resourcePath, { page = 1, 
 }
 
 async function fetchExplorerItemDetail(resourceKey, { url, index } = {}) {
-  if (isExplorerOpen5e() && resourceKey === "monsters") {
-    const key = index || pathnameFromApiRef(url).split("/").filter(Boolean).pop();
-    const res = await open5eFetch(`${OPEN5E_API_PREFIX}/creatures/${encodeURIComponent(key)}/`);
+  if (isExplorerOpen5e()) {
+    const fallbackPath =
+      index != null && index !== ""
+        ? `${OPEN5E_API_PREFIX}/${resourceKey === "monsters" ? "creatures" : resourceKey}/${encodeURIComponent(String(index))}/`
+        : "";
+    const path = pathnameFromApiRef(url || fallbackPath);
+    if (!path.startsWith(`${OPEN5E_API_PREFIX}/`)) throw new Error("open5e-detail-path");
+    const res = await open5eFetchWithRetry(path);
     if (!res.ok) throw new Error("open5e-detail");
     const raw = await res.json();
-    return typeof adaptOpen5eCreatureToMonster === "function"
-      ? adaptOpen5eCreatureToMonster(raw)
-      : raw;
+    if (resourceKey === "monsters") {
+      return typeof adaptOpen5eCreatureToMonster === "function"
+        ? adaptOpen5eCreatureToMonster(raw)
+        : raw;
+    }
+    return raw;
   }
   const path = url || (index ? apiItemPath(resourceKey, index) : "");
   const res = await apiFetch(path);
@@ -165,7 +287,7 @@ function populateExplorerProviderSelect(selectEl, { onChange } = {}) {
   selectEl.replaceChildren();
   const opts = [
     { value: "dnd5eapi", label: "dnd5eapi (pt-BR)" },
-    { value: "open5e", label: "Open5e (spike)" },
+    { value: "open5e", label: "Open5e (inglês)" },
   ];
   for (const o of opts) {
     const opt = document.createElement("option");
