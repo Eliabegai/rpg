@@ -2230,6 +2230,9 @@ body.game-tools-open .game-tools-fab {
   border-radius: 8px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .sheet-core-title {
@@ -2306,12 +2309,16 @@ body.game-tools-open .game-tools-fab {
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .sheet-core-fields > fieldset,
 .sheet-core-fields > .sheet-core-row {
   width: 100%;
   max-width: 36rem;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .sheet-core-fields fieldset {
@@ -2692,6 +2699,13 @@ body.game-tools-open .game-tools-fab {
   line-height: 1.4;
 }
 
+.sheet-rest-content {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .sheet-rest-content[hidden] {
   display: none !important;
 }
@@ -2740,7 +2754,9 @@ body.game-tools-open .game-tools-fab {
   align-items: center;
   text-align: center;
   width: 100%;
-  max-width: 22rem;
+  max-width: min(22rem, 100%);
+  min-width: 0;
+  box-sizing: border-box;
   margin: 0 auto;
 }
 
@@ -2761,10 +2777,17 @@ body.game-tools-open .game-tools-fab {
 }
 
 .sheet-rest-hd-inputs {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
+  width: 100%;
+}
+
+.sheet-rest-hd-inputs .sheet-number-input {
+  width: 5rem;
+  max-width: 5rem;
+  flex: 0 0 auto;
 }
 
 .sheet-rest-field--inline {
@@ -4167,6 +4190,16 @@ body.game-tools-open .game-tools-fab {
   align-items: flex-end;
   justify-content: center;
   margin-bottom: 0.75rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.sheet-hp-row .sheet-inline-field {
+  align-items: center;
+}
+
+.sheet-hp-row .sheet-dice-btn {
+  max-width: 100%;
 }
 
 .sheet-hp-grid {
@@ -4175,12 +4208,26 @@ body.game-tools-open .game-tools-fab {
   gap: 0.65rem;
   margin: 0 auto 0.65rem;
   max-width: 22rem;
+  width: 100%;
+  justify-items: center;
+}
+
+.sheet-hp-grid .sheet-inline-field {
+  align-items: center;
+  width: 100%;
+}
+
+.sheet-hp-grid .sheet-number-input {
+  margin-inline: auto;
 }
 
 .sheet-hp-heal-inline {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
+  max-width: 100%;
 }
 
 .sheet-roll-result {
@@ -4196,6 +4243,10 @@ body.game-tools-open .game-tools-fab {
   border-radius: 6px;
   background: #eff6ff;
   border: 1px solid #bfdbfe;
+}
+
+.sheet-roll-result:empty {
+  display: none;
 }
 
 .sheet-roll-result.is-rolling {
@@ -4464,6 +4515,26 @@ body.game-tools-open .game-tools-fab {
 
   .sheet-hp-grid {
     grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .sheet-hp-actions .sheet-dice-btn,
+  .sheet-hp-row .sheet-dice-btn {
+    white-space: normal;
+  }
+
+  .sheet-rest-actions .sheet-dice-btn {
+    white-space: normal;
+  }
+
+  .sheet-rest-actions__rests .sheet-dice-btn {
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 9rem;
+  }
+
+  .rest-environment-scene {
+    padding: 0.65rem 0.75rem;
   }
 
   .game-tools-panel {
@@ -7138,6 +7209,9 @@ html.table-mode .sheet-inspiration-btn {
 .sheet-core-vitals[data-rest-theme],
 .sheet-rest[data-rest-theme],
 .sheet-hp-actions[data-rest-theme] {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
   border-radius: 10px;
   padding: 0.65rem;
   background: var(--rest-bg, transparent);
@@ -7180,7 +7254,10 @@ html.table-mode .sheet-inspiration-btn {
   margin: 0 auto 0.75rem;
   padding: 0.75rem 1rem;
   width: 100%;
-  max-width: 22rem;
+  max-width: min(22rem, 100%);
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
   border-radius: 10px;
   background: linear-gradient(
     135deg,
@@ -7216,7 +7293,7 @@ html.table-mode .sheet-inspiration-btn {
   font-size: 0.82rem;
   line-height: 1.45;
   color: #64748b;
-  max-width: 18rem;
+  max-width: 100%;
 }
 
 .sheet-rest[data-rest-theme="dungeon"] .rest-environment-scene {
