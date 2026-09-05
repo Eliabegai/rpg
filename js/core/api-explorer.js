@@ -84,7 +84,7 @@ function explorerSupportsResource() {
 }
 
 function isExplorerServerPaginated(resourceKey) {
-  return isExplorerOpen5e();
+  return false;
 }
 
 function isOpen5eDataPath(pathOrUrl) {
@@ -169,13 +169,202 @@ function normalizeOpen5eListItem(row, resourceKey, listPath) {
   const name = row?.name != null ? String(row.name) : row?.title != null ? String(row.title) : key;
   const fallbackPath = key ? `${String(listPath || "").replace(/\/?$/, "/")}${encodeURIComponent(key)}/` : "";
   const url = pathnameFromApiRef(row?.url || fallbackPath);
-  return {
+  const item = {
     index: key,
     name,
     url,
     _provider: "open5e",
     _open5eResourceKey: resourceKey,
   };
+  if (row?.level != null && row.level !== "") item.level = row.level;
+
+  const schoolObj = row?.school;
+  const schoolName =
+    schoolObj && typeof schoolObj === "object"
+      ? String(schoolObj.name || schoolObj.key || "")
+      : typeof schoolObj === "string"
+        ? schoolObj
+        : "";
+  const schoolKey = schoolObj && typeof schoolObj === "object" ? String(schoolObj.key || "") : "";
+
+  const classNames = [];
+  const classKeys = [];
+  const subclassKeys = [];
+  const classRows = Array.isArray(row?.classes) ? row.classes : [];
+  for (const cls of classRows) {
+    if (cls == null) continue;
+    if (typeof cls === "string") {
+      classNames.push(cls);
+      continue;
+    }
+    const ck = String(cls.key || "").trim();
+    const cn = String(cls.name || "").trim();
+    if (cn) classNames.push(cn);
+    if (ck) classKeys.push(ck);
+    if (cls.subclass_of && ck) subclassKeys.push(ck);
+  }
+
+  if (schoolName || schoolKey || classKeys.length || classNames.length) {
+    item.spellMeta = {
+      school: schoolName,
+      schoolKey,
+      classes: classKeys,
+      classKeys,
+      classNames,
+      subclasses: subclassKeys.length ? subclassKeys : classKeys,
+    };
+  }
+  return item;
+}
+
+function open5eCatalogFieldQuery(resourceKey) {
+  if (resourceKey === "spells") {
+    return {
+      fields: "key,name,level,school,classes",
+      "school__fields": "key,name",
+      "classes__fields": "key,name",
+    };
+  }
+  return { fields: "key,name" };
+}
+
+const OPEN5E_CATALOG_MEM = new Map();
+const OPEN5E_CATALOG_STORAGE_PREFIX = "open5e.explorerCatalog.v2:";
+const OPEN5E_CATALOG_PAGE_SIZE = 200;
+const OPEN5E_CATALOG_MAX_PAGES = 40;
+
+function open5eCatalogStorageKey(resourcePath) {
+  return `${OPEN5E_CATALOG_STORAGE_PREFIX}${pathnameFromApiRef(resourcePath)}`;
+}
+
+function loadOpen5eCatalogCache(resourcePath) {
+  const mem = OPEN5E_CATALOG_MEM.get(resourcePath);
+  if (mem?.results?.length) return mem;
+  try {
+    const raw = sessionStorage.getItem(open5eCatalogStorageKey(resourcePath));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.results) || !parsed.results.length) return null;
+    OPEN5E_CATALOG_MEM.set(resourcePath, parsed);
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveOpen5eCatalogCache(resourcePath, payload) {
+  OPEN5E_CATALOG_MEM.set(resourcePath, payload);
+  try {
+    sessionStorage.setItem(open5eCatalogStorageKey(resourcePath), JSON.stringify(payload));
+  } catch {
+    /* quota */
+  }
+}
+
+async function fetchOpen5eCatalogPage(listPath, page, pageSize, extraQuery) {
+  const params = new URLSearchParams({
+    limit: String(pageSize),
+    page: String(page),
+  });
+  appendOpen5eQueryParams(params, extraQuery);
+  const res = await open5eFetchWithRetry(`${listPath}${listPath.includes("?") ? "&" : "?"}${params.toString()}`);
+  if (!res.ok) throw new Error("open5e-list");
+  return res.json();
+}
+
+/**
+ * Catálogo completo Open5e (campos leves). Pesquisa/filtros/paginação ficam no browser.
+ * @returns {Promise<{ results: object[], total: number, serverPaginated: false, incomplete?: boolean, fromCache?: boolean }>}
+ */
+async function fetchOpen5eFullCatalog(
+  resourceKey,
+  resourcePath,
+  { onChunk, shouldStop } = {}
+) {
+  const listPath = pathnameFromApiRef(resourcePath || "");
+  if (!listPath.startsWith(`${OPEN5E_API_PREFIX}/`)) throw new Error("open5e-path");
+
+  const cached = loadOpen5eCatalogCache(resourcePath);
+  if (cached) {
+    return {
+      results: cached.results,
+      total: cached.total || cached.results.length,
+      serverPaginated: false,
+      fromCache: true,
+    };
+  }
+
+  let extraQuery = open5eCatalogFieldQuery(resourceKey);
+  const all = [];
+  let total = 0;
+  let droppedFields = false;
+
+  for (let page = 1; page <= OPEN5E_CATALOG_MAX_PAGES; page++) {
+    if (typeof shouldStop === "function" && shouldStop()) {
+      return { results: all, total: total || all.length, serverPaginated: false, incomplete: true };
+    }
+    let data;
+    try {
+      data = await fetchOpen5eCatalogPage(listPath, page, OPEN5E_CATALOG_PAGE_SIZE, extraQuery);
+    } catch (err) {
+      if (!droppedFields && extraQuery.fields) {
+        droppedFields = true;
+        extraQuery = {};
+        page -= 1;
+        continue;
+      }
+      if (all.length) {
+        return { results: all, total: total || all.length, serverPaginated: false, incomplete: true };
+      }
+      throw err;
+    }
+    total = Number(data.count) || total;
+    const rows = Array.isArray(data.results) ? data.results : [];
+    const chunk = rows.map((row) => normalizeOpen5eListItem(row, resourceKey, listPath));
+    all.push(...chunk);
+    if (typeof onChunk === "function") {
+      onChunk({ results: all.slice(), total: total || all.length, page });
+    }
+    if (!data.next || rows.length === 0) break;
+  }
+
+  const payload = { results: all, total: total || all.length };
+  if (all.length) saveOpen5eCatalogCache(resourcePath, payload);
+  return { ...payload, serverPaginated: false };
+}
+
+function appendOpen5eQueryParams(params, extraQuery) {
+  if (!extraQuery || typeof extraQuery !== "object") return;
+  for (const [key, value] of Object.entries(extraQuery)) {
+    if (value == null) continue;
+    const s = String(value).trim();
+    if (!s) continue;
+    params.set(key, s);
+  }
+}
+
+/**
+ * Lista paginada Open5e (dropdowns de filtros). `fields` no extraQuery evita payloads pesados.
+ */
+async function fetchOpen5ePagedResults(resourcePath, { extraQuery = {}, pageSize = 100, maxPages = 5 } = {}) {
+  const listPath = pathnameFromApiRef(resourcePath || "");
+  if (!listPath.startsWith(`${OPEN5E_API_PREFIX}/`)) throw new Error("open5e-path");
+  const all = [];
+  const pages = Math.max(1, maxPages);
+  for (let page = 1; page <= pages; page++) {
+    const params = new URLSearchParams({
+      limit: String(pageSize),
+      page: String(page),
+    });
+    appendOpen5eQueryParams(params, extraQuery);
+    const res = await open5eFetchWithRetry(`${listPath}${listPath.includes("?") ? "&" : "?"}${params.toString()}`);
+    if (!res.ok) throw new Error("open5e-list");
+    const data = await res.json();
+    const rows = Array.isArray(data.results) ? data.results : [];
+    all.push(...rows);
+    if (!data.next || rows.length === 0) break;
+  }
+  return all;
 }
 
 /**
@@ -217,25 +406,13 @@ async function fetchExplorerCatalog() {
 /**
  * @returns {Promise<{ results: object[], total: number, serverPaginated: boolean }>}
  */
-async function fetchExplorerResourceList(resourceKey, resourcePath, { page = 1, search = "", pageSize = 25 } = {}) {
+async function fetchExplorerResourceList(
+  resourceKey,
+  resourcePath,
+  { onChunk, shouldStop } = {}
+) {
   if (isExplorerOpen5e()) {
-    const listPath = pathnameFromApiRef(resourcePath || "");
-    if (!listPath.startsWith(`${OPEN5E_API_PREFIX}/`)) throw new Error("open5e-path");
-    const params = new URLSearchParams({
-      limit: String(pageSize),
-      page: String(Math.max(1, page)),
-    });
-    const q = String(search || "").trim();
-    if (q) params.set("name__icontains", q);
-    const res = await open5eFetchWithRetry(`${listPath}${listPath.includes("?") ? "&" : "?"}${params.toString()}`);
-    if (!res.ok) throw new Error("open5e-list");
-    const data = await res.json();
-    const results = (data.results || []).map((row) => normalizeOpen5eListItem(row, resourceKey, listPath));
-    return {
-      results,
-      total: Number(data.count) || results.length,
-      serverPaginated: true,
-    };
+    return fetchOpen5eFullCatalog(resourceKey, resourcePath, { onChunk, shouldStop });
   }
 
   const res = await apiFetch(resourcePath);

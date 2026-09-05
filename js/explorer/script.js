@@ -43,6 +43,10 @@ let spellSchoolFilterValue = "";
 let spellClassFilterValue = "";
 let spellSubclassFilterValue = "";
 let spellFilterOptionsLoaded = false;
+/** Open5e: nome da classe (lowercase) → keys da API para `classes__key__in`. */
+let open5eClassKeysByName = new Map();
+/** Open5e: subclasses agrupadas `{ index, name, parentName }`. */
+let open5eSubclassOptions = [];
 let allResults = [];
 let currentFilter = "";
 let currentPage = 1;
@@ -134,9 +138,156 @@ function fillSelectFromApiResults(selectEl, results, emptyLabel) {
   if ([...selectEl.options].some((o) => o.value === current)) selectEl.value = current;
 }
 
+function uniqueOpen5eByName(rows) {
+  const byName = new Map();
+  for (const row of rows || []) {
+    const name = String(row?.name || "").trim();
+    const key = String(row?.key || "").trim();
+    if (!name) continue;
+    const id = name.toLowerCase();
+    if (!byName.has(id)) byName.set(id, { name, keys: [] });
+    if (key) byName.get(id).keys.push(key);
+  }
+  return byName;
+}
+
+function uniqueOpen5eSubclasses(rows) {
+  const byId = new Map();
+  for (const row of rows || []) {
+    const name = String(row?.name || "").trim();
+    const key = String(row?.key || "").trim();
+    if (!name || !key) continue;
+    const parent = row?.subclass_of;
+    const parentName =
+      parent && typeof parent === "object" ? String(parent.name || "").trim() : "";
+    const id = `${parentName.toLowerCase()}|${name.toLowerCase()}`;
+    if (!byId.has(id)) {
+      byId.set(id, {
+        name: parentName ? `${name} (${parentName})` : name,
+        parentName,
+        keys: [],
+      });
+    }
+    byId.get(id).keys.push(key);
+  }
+  return [...byId.values()].map((o) => ({
+    index: o.keys.join(","),
+    name: o.name,
+    parentName: o.parentName,
+  }));
+}
+
+function syncOpen5eSubclassDropdown() {
+  if (!spellSubclassSelect || !isExplorerOpen5e()) return;
+  const className = String(spellClassFilterValue || "").trim().toLowerCase();
+  const rows = className
+    ? open5eSubclassOptions.filter((o) => String(o.parentName || "").toLowerCase() === className)
+    : open5eSubclassOptions;
+  fillSelectFromApiResults(spellSubclassSelect, rows, "Todas");
+}
+
+async function populateOpen5eSpellFilterDropdowns() {
+  const fallbackSchools = [
+    "Abjuration",
+    "Conjuration",
+    "Divination",
+    "Enchantment",
+    "Evocation",
+    "Illusion",
+    "Necromancy",
+    "Transmutation",
+  ].map((name) => ({ index: name, name }));
+  const fallbackClasses = [
+    "Artificer",
+    "Barbarian",
+    "Bard",
+    "Cleric",
+    "Druid",
+    "Fighter",
+    "Monk",
+    "Paladin",
+    "Ranger",
+    "Rogue",
+    "Sorcerer",
+    "Warlock",
+    "Wizard",
+  ].map((name) => ({ index: name, name }));
+  if (spellSchoolSelect?.options.length <= 1) {
+    fillSelectFromApiResults(spellSchoolSelect, fallbackSchools, "Todas");
+  }
+  if (spellClassSelect?.options.length <= 1) {
+    fillSelectFromApiResults(spellClassSelect, fallbackClasses, "Todas");
+  }
+
+  const [schoolRows, classRows, subclassRows] = await Promise.all([
+    fetchOpen5ePagedResults(`${OPEN5E_API_PREFIX}/spellschools/`, {
+      extraQuery: { fields: "key,name" },
+      pageSize: 100,
+      maxPages: 3,
+    }).catch(() => []),
+    fetchOpen5ePagedResults(`${OPEN5E_API_PREFIX}/classes/`, {
+      extraQuery: { fields: "key,name", is_subclass: "false" },
+      pageSize: 200,
+      maxPages: 5,
+    }).catch(() => []),
+    fetchOpen5ePagedResults(`${OPEN5E_API_PREFIX}/classes/`, {
+      extraQuery: {
+        fields: "key,name,subclass_of",
+        "subclass_of__fields": "name,key",
+        is_subclass: "true",
+      },
+      pageSize: 200,
+      maxPages: 8,
+    }).catch(() => []),
+  ]);
+
+  const schools = uniqueOpen5eByName(schoolRows);
+  if (schools.size) {
+    fillSelectFromApiResults(
+      spellSchoolSelect,
+      [...schools.values()].map((o) => ({ index: o.name, name: o.name })),
+      "Todas"
+    );
+  }
+
+  open5eClassKeysByName = uniqueOpen5eByName(classRows);
+  if (open5eClassKeysByName.size) {
+    fillSelectFromApiResults(
+      spellClassSelect,
+      [...open5eClassKeysByName.values()].map((o) => ({ index: o.name, name: o.name })),
+      "Todas"
+    );
+  }
+
+  open5eSubclassOptions = uniqueOpen5eSubclasses(subclassRows);
+  if (open5eSubclassOptions.length) syncOpen5eSubclassDropdown();
+}
+
+function open5eListSubtitle(total, { loading = false, catalogTotal = 0, incomplete = false } = {}) {
+  const noun = explorerResourceDisplayName(currentResourceLabel);
+  if (loading) {
+    const goal = catalogTotal || "?";
+    return `A carregar catálogo… ${total}/${goal} ${noun} — pesquisa e filtros já funcionam no que chegou.`;
+  }
+  const extra = incomplete ? " (catálogo parcial — a API falhou a meio)" : "";
+  const searchBit =
+    currentResourceLabel === "spells"
+      ? "pesquisa e filtros no browser"
+      : "pesquisa no browser";
+  return `${total} ${noun} — ${searchBit} (${PAGE_SIZE} por página)${extra}. Integração com ficha/mesa continua na dnd5eapi.`;
+}
+
 async function populateSpellFilterDropdowns() {
-  if (spellFilterOptionsLoaded) return;
+  if (spellFilterOptionsLoaded) {
+    if (isExplorerOpen5e()) syncOpen5eSubclassDropdown();
+    return;
+  }
   try {
+    if (isExplorerOpen5e()) {
+      await populateOpen5eSpellFilterDropdowns();
+      spellFilterOptionsLoaded = true;
+      return;
+    }
     const [schoolsRes, classesRes, subclassesRes] = await Promise.all([
       apiFetch(apiListPath("magic-schools")),
       apiFetch(apiListPath("classes")),
@@ -213,14 +364,54 @@ async function enrichSpellsWithMeta(spellRefs) {
   }));
 }
 
+function open5eItemMatchesClass(meta, className) {
+  const want = String(className || "").trim().toLowerCase();
+  if (!want) return true;
+  const names = (meta.classNames || []).map((s) => String(s).toLowerCase());
+  if (names.includes(want)) return true;
+  const haveKeys = new Set((meta.classKeys || meta.classes || []).map((s) => String(s).toLowerCase()));
+  const mapped = open5eClassKeysByName.get(want)?.keys || [];
+  return mapped.some((k) => haveKeys.has(String(k).toLowerCase()));
+}
+
+function open5eItemMatchesSubclass(meta, subclassValue) {
+  const want = String(subclassValue || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (!want.length) return true;
+  const have = [...(meta.subclasses || []), ...(meta.classKeys || meta.classes || [])].map((s) =>
+    String(s).toLowerCase()
+  );
+  return want.some((k) => have.includes(k));
+}
+
 function spellMatchesExtraFilters(item) {
   if (currentResourceLabel !== "spells") return true;
-  const meta = item.spellMeta;
-  if (!meta) return true;
 
   if (spellLevelFilterValue !== "") {
-    if (Number(item.level) !== Number(spellLevelFilterValue)) return false;
+    if (item.level == null || item.level === "" || Number(item.level) !== Number(spellLevelFilterValue)) {
+      return false;
+    }
   }
+
+  if (isExplorerOpen5e()) {
+    const meta = item.spellMeta || {};
+    if (spellSchoolFilterValue !== "") {
+      const want = spellSchoolFilterValue.toLowerCase();
+      const school = String(meta.school || "").toLowerCase();
+      const schoolKey = String(meta.schoolKey || "").toLowerCase();
+      if (school !== want && schoolKey !== want) return false;
+    }
+    if (spellClassFilterValue !== "" && !open5eItemMatchesClass(meta, spellClassFilterValue)) return false;
+    if (spellSubclassFilterValue !== "" && !open5eItemMatchesSubclass(meta, spellSubclassFilterValue)) {
+      return false;
+    }
+    return true;
+  }
+
+  const meta = item.spellMeta;
+  if (!meta) return true;
   if (spellSchoolFilterValue !== "" && meta.school !== spellSchoolFilterValue) return false;
   if (spellClassFilterValue !== "" && !meta.classes.includes(spellClassFilterValue)) return false;
   if (spellSubclassFilterValue !== "" && !meta.subclasses.includes(spellSubclassFilterValue)) return false;
@@ -340,9 +531,18 @@ async function reloadExplorerResourceList() {
   mainSubtitle.textContent = "A carregar…";
   try {
     const payload = await fetchExplorerResourceList(requestedKey, requestedPath, {
-      page: currentPage,
-      search: currentFilter,
-      pageSize: PAGE_SIZE,
+      shouldStop: () => requestId !== explorerLoadSeq,
+      onChunk({ results, total }) {
+        if (requestId !== explorerLoadSeq) return;
+        allResults = results;
+        explorerListTotal = results.length;
+        explorerServerPaginated = false;
+        mainSubtitle.textContent = open5eListSubtitle(results.length, {
+          loading: true,
+          catalogTotal: total,
+        });
+        renderResultsPage();
+      },
     });
     if (
       requestId !== explorerLoadSeq ||
@@ -352,11 +552,11 @@ async function reloadExplorerResourceList() {
       return;
     }
     allResults = payload.results;
-    explorerListTotal = payload.total;
-    explorerServerPaginated = payload.serverPaginated;
+    explorerListTotal = payload.results.length;
+    explorerServerPaginated = false;
     const total = explorerListTotal;
     if (isExplorerOpen5e()) {
-      mainSubtitle.textContent = `${total} ${explorerResourceDisplayName(currentResourceLabel)} — pesquisa no servidor (${PAGE_SIZE} por página). Integração com ficha/mesa continua na dnd5eapi.`;
+      mainSubtitle.textContent = open5eListSubtitle(total, { incomplete: payload.incomplete });
     } else {
       mainSubtitle.textContent = `${total} itens — filtra com a pesquisa; usa a paginação para percorrer (${PAGE_SIZE} por página).`;
     }
@@ -368,9 +568,10 @@ async function reloadExplorerResourceList() {
       isExplorerOpen5e() && typeof isOpen5eTimeoutError === "function" && isOpen5eTimeoutError(err)
         ? "Open5e demorou a responder. Tenta novamente."
         : "Erro ao carregar lista do recurso.";
-    allResults = [];
-    explorerListTotal = 0;
-    renderResultsPage();
+    if (!allResults.length) {
+      explorerListTotal = 0;
+      renderResultsPage();
+    }
   }
 }
 
@@ -398,10 +599,11 @@ function onSpellFilterChange() {
   if (spellLevelSelect) spellLevelFilterValue = spellLevelSelect.value;
   if (spellSchoolSelect) spellSchoolFilterValue = spellSchoolSelect.value;
   if (spellClassSelect) spellClassFilterValue = spellClassSelect.value;
+  if (isExplorerOpen5e()) syncOpen5eSubclassDropdown();
   if (spellSubclassSelect) spellSubclassFilterValue = spellSubclassSelect.value;
   currentPage = 1;
-  renderResultsPage();
   persistUiSession();
+  renderResultsPage();
 }
 
 function updatePickListHint(fieldset) {
@@ -601,13 +803,13 @@ function renderResultsPage() {
     empty.className = "detail-placeholder";
     empty.style.margin = "0.75rem";
     empty.textContent =
-      allResults.length === 0
-        ? "Lista vazia."
-        : listScopeFilter === "favorites"
-          ? "Nenhum favorito neste recurso (ou nada coincide com os filtros)."
-          : currentResourceLabel === "spells" && hasActiveSpellFilters()
-            ? "Nenhum feitiço com estes filtros (ou combinação com a pesquisa)."
-            : "Nenhum resultado com este filtro.";
+      listScopeFilter === "favorites"
+        ? "Nenhum favorito neste recurso (ou nada coincide com os filtros)."
+        : currentResourceLabel === "spells" && hasActiveSpellFilters()
+          ? "Nenhum feitiço com estes filtros (ou combinação com a pesquisa)."
+          : currentFilter.trim()
+            ? "Nenhum resultado com este filtro."
+            : "Lista vazia.";
     li.appendChild(empty);
     itemResultsList.appendChild(li);
   } else {
@@ -779,11 +981,9 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
   currentResourceLabel = label;
   explorerActiveResourcePath = path;
   const requestId = ++explorerLoadSeq;
-  setResourceExtraFiltersVisible(label === "spells" && !isExplorerOpen5e(), !sessionRestore);
+  setResourceExtraFiltersVisible(label === "spells", !sessionRestore);
 
-  if (label === "spells") {
-    await populateSpellFilterDropdowns();
-  }
+  const dropdownsPromise = label === "spells" ? populateSpellFilterDropdowns() : Promise.resolve();
 
   if (sessionRestore) {
     applySessionToUi(sessionRestore);
@@ -810,12 +1010,21 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
     });
   }
 
+  void dropdownsPromise.then(() => {
+    if (requestId !== explorerLoadSeq || label !== currentResourceLabel) return;
+    if (spellLevelSelect) spellLevelSelect.value = spellLevelFilterValue;
+    if (spellSchoolSelect) spellSchoolSelect.value = spellSchoolFilterValue;
+    if (spellClassSelect) spellClassSelect.value = spellClassFilterValue;
+    if (isExplorerOpen5e()) syncOpen5eSubclassDropdown();
+    if (spellSubclassSelect) spellSubclassSelect.value = spellSubclassFilterValue;
+  });
+
   mainTitle.textContent = `Grimório 5e — ${formatResourceLabel(label)}`;
   mainSubtitle.textContent = "A carregar…";
   browsePanel.hidden = false;
   allResults = [];
   explorerListTotal = 0;
-  explorerServerPaginated = isExplorerOpen5e();
+  explorerServerPaginated = false;
   renderResultsPage();
   if (!sessionRestore?.itemIndex) {
     selectedItemUrl = null;
@@ -832,9 +1041,18 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
     }
 
     const payload = await fetchExplorerResourceList(label, path, {
-      page: currentPage,
-      search: currentFilter,
-      pageSize: PAGE_SIZE,
+      shouldStop: () => requestId !== explorerLoadSeq,
+      onChunk({ results, total }) {
+        if (requestId !== explorerLoadSeq || label !== currentResourceLabel) return;
+        allResults = results;
+        explorerListTotal = results.length;
+        explorerServerPaginated = false;
+        mainSubtitle.textContent = open5eListSubtitle(results.length, {
+          loading: true,
+          catalogTotal: total,
+        });
+        renderResultsPage();
+      },
     });
     if (
       requestId !== explorerLoadSeq ||
@@ -854,16 +1072,17 @@ async function selectResource(label, path, sidebarBtn, sessionRestore = null) {
       return;
     }
 
-    explorerServerPaginated = payload.serverPaginated;
-    explorerListTotal = payload.total;
+    explorerServerPaginated = false;
+    explorerListTotal = payload.results.length;
 
     if (label === "spells" && !isExplorerOpen5e()) {
       allResults = await enrichSpellsWithMeta(payload.results);
       const total = allResults.length;
+      explorerListTotal = total;
       mainSubtitle.textContent = `${total} feitiços — filtra por nível, escola, classe, subclasse e pesquisa (${PAGE_SIZE} por página).`;
-    } else if (explorerServerPaginated) {
+    } else if (isExplorerOpen5e()) {
       allResults = payload.results;
-      mainSubtitle.textContent = `${explorerListTotal} ${explorerResourceDisplayName(label)} — pesquisa no servidor (${PAGE_SIZE} por página). Integração com ficha/mesa continua na dnd5eapi.`;
+      mainSubtitle.textContent = open5eListSubtitle(explorerListTotal, { incomplete: payload.incomplete });
     } else {
       allResults = payload.results;
       const total = explorerListTotal;
@@ -1449,12 +1668,9 @@ itemFilterInput.addEventListener("input", () => {
   filterDebounceId = window.setTimeout(() => {
     currentFilter = itemFilterInput.value;
     currentPage = 1;
-    if (explorerServerPaginated) void reloadExplorerResourceList();
-    else {
-      renderResultsPage();
-      persistUiSession();
-    }
-  }, explorerServerPaginated ? 400 : 250);
+    renderResultsPage();
+    persistUiSession();
+  }, 250);
 });
 
 if (spellLevelSelect) spellLevelSelect.addEventListener("change", onSpellFilterChange);
